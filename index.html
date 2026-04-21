@@ -3,112 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Da Lat Navigator - Professional Edition</title>
+    <title>Sổ Tay Đà Lạt - Local Factor k=1.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; }
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .card-travel { background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.3s ease; }
-        .card-travel:hover { border-color: #38bdf8; transform: translateY(-5px); }
+        .card-travel { background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.2s ease; }
+        .card-travel:hover { border-color: #10b981; transform: translateY(-4px); }
         .cate-chip { transition: all 0.2s ease; cursor: pointer; user-select: none; }
-        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin-slow { animation: spin-slow 1.5s linear infinite; }
+        .cate-chip.active { filter: brightness(1.2); box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); transform: scale(1.05); }
     </style>
 </head>
-<body class="p-4 md:p-10 min-h-screen">
+<body class="p-4 md:p-10">
 
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
             <div class="space-y-1">
-                <h1 class="text-3xl font-extrabold text-white tracking-tighter italic uppercase">DALAT <span class="text-sky-400 font-light italic">Navigator</span></h1>
-                <p class="text-slate-500 text-[10px] uppercase tracking-[0.4em] font-black">OpenRoute Engine • Real-road Data</p>
+                <h1 class="text-3xl font-extrabold text-white italic uppercase tracking-tighter">DALAT <span class="text-emerald-400 font-light italic">LOCAL</span></h1>
+                <p class="text-slate-500 text-[10px] uppercase tracking-[0.4em] font-black italic">Terrain Optimized: k=1.4</p>
             </div>
             <div id="gps-box" class="glass-panel px-5 py-3 rounded-2xl border border-slate-800 flex items-center gap-3">
-                <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
-                <span id="gps-coords" class="text-[11px] font-mono text-slate-400 italic font-bold uppercase">GPS: Connecting...</span>
+                <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+                <span id="gps-coords" class="text-[11px] font-mono text-slate-200 italic font-bold uppercase tracking-widest text-emerald-400">GPS ACTIVE</span>
             </div>
         </header>
 
-        <section class="glass-panel p-8 rounded-[2.5rem] mb-12 border border-sky-500/10">
+        <section class="glass-panel p-8 rounded-[2.5rem] mb-12 border border-emerald-500/10 shadow-2xl">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div class="lg:col-span-4 space-y-5">
-                    <div>
-                        <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block">Tìm kiếm</label>
-                        <input type="text" id="inputSearch" oninput="applyFilters()" placeholder="Tên quán, món ăn..." class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-sm focus:border-sky-500 outline-none transition-all">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block">Khu vực</label>
-                        <select id="selectKhuVuc" onchange="applyFilters()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-sm outline-none appearance-none cursor-pointer">
-                            <option value="">Tất cả khu vực</option>
-                            <option value="Trung tâm">Trung tâm</option>
-                            <option value="Trại Mát">Trại Mát</option>
-                            <option value="Hồ Tuyền Lâm">Hồ Tuyền Lâm</option>
-                            <option value="Mimosa/Prenn">Mimosa/Prenn</option>
-                            <option value="Tà Nung">Tà Nung</option>
-                            <option value="Ngoại Ô Xa">Ngoại Ô Xa</option>
-                        </select>
-                    </div>
+                <div class="lg:col-span-4 space-y-4">
+                    <input type="text" id="inputSearch" oninput="applyFilters()" placeholder="Tìm tên / món ăn..." class="w-full bg-slate-900/80 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm focus:border-emerald-500 outline-none transition-all">
+                    <select id="selectKhuVuc" onchange="applyFilters()" class="w-full bg-slate-900/80 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm outline-none cursor-pointer">
+                        <option value="">Tất cả khu vực</option>
+                        <option value="Trung tâm">Trung tâm</option>
+                        <option value="Trại Mát">Trại Mát</option>
+                        <option value="Hồ Tuyền Lâm">Hồ Tuyền Lâm</option>
+                        <option value="Mimosa/Prenn">Mimosa/Prenn</option>
+                        <option value="Tà Nung">Tà Nung</option>
+                        <option value="Ngoại Ô Xa">Ngoại Ô Xa</option>
+                    </select>
                 </div>
                 <div class="lg:col-span-8">
-                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">Category (Chọn nhiều)</label>
-                    <div id="category-container" class="flex flex-wrap gap-3"></div>
+                    <div id="category-container" class="flex flex-wrap gap-2.5"></div>
                 </div>
             </div>
         </section>
 
-        <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 italic"></div>
+        <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
     </div>
 
     <script>
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnXggiUJriOBPHz05pt01aIq_qaCDeQAcWpyYTG6zx1XI9WzfVDTbb8rPwYPf2w8uHxeDpx3Tznx53/pub?gid=615358788&single=true&output=csv';
-        const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjA1M2U4MGMwZDU0ZjQ2YTA5NDMwZDFjNjI4ZDVhOThkIiwiaCI6Im11cm11cjY0In0=';
         
         const CATEGORIES = [
-            { id: 'Ăn', color: '#ffb38a' }, { id: 'Chơi', color: '#c5e8b7' },
-            { id: 'Chụp hình', color: '#b3e0ff' }, { id: 'Uống', color: '#ffeb99' },
-            { id: 'Local', color: '#ff7070' }, { id: 'Ăn Nhẹ', color: '#f7d1ff' },
-            { id: 'View Checkin', color: '#bcd6d6' }, { id: 'Đặc sản', color: '#eaff8a' }
+            { id: 'Ăn', color: '#ffb38a', text: '#5c2d14' },
+            { id: 'Chơi', color: '#c5e8b7', text: '#2d4d1e' },
+            { id: 'Chụp hình', color: '#b3e0ff', text: '#1e3d5c' },
+            { id: 'Uống', color: '#ffeb99', text: '#5c4b14' },
+            { id: 'Local', color: '#ff7070', text: '#5c1414' },
+            { id: 'Ăn Nhẹ', color: '#f7d1ff', text: '#4d1e5c' },
+            { id: 'View Checkin', color: '#bcd6d6', text: '#2d4040' },
+            { id: 'Đặc sản', color: '#eaff8a', text: '#404d1e' }
         ];
 
         let fullData = [];
         let userPos = null;
         let selectedCates = new Set();
-        let distanceCache = {};
 
-        // 1. Theo dõi GPS
+        // 1. GPS
         navigator.geolocation.watchPosition(pos => {
             userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-            document.getElementById('gps-coords').innerText = `Live: ${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
-            document.getElementById('gps-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
             applyFilters();
         }, null, { enableHighAccuracy: true });
 
-        // 2. Gọi API tính đường bộ thực tế
-        async function getRoadDist(target) {
-            if (!userPos || !target) return null;
-            const cacheKey = `${userPos.lat},${userPos.lon}-${target}`;
-            if (distanceCache[cacheKey]) return distanceCache[cacheKey];
-
-            try {
-                const [tLat, tLon] = target.split(',').map(n => n.trim());
-                const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${ORS_KEY}&start=${userPos.lon},${userPos.lat}&end=${tLon},${tLat}`;
-                const res = await fetch(url);
-                const data = await res.json();
-                const km = (data.features[0].properties.summary.distance / 1000).toFixed(1);
-                distanceCache[cacheKey] = km;
-                return km;
-            } catch (err) {
-                return "??";
-            }
+        // 2. Tính khoảng cách (Factor k=1.4)
+        function getEstimatedDist(target) {
+            if (!userPos || !target) return 9999;
+            const c = target.split(',').map(Number);
+            const R = 6371;
+            const dLat = (c[0] - userPos.lat) * Math.PI / 180;
+            const dLon = (c[1] - userPos.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(userPos.lat * Math.PI / 180) * Math.cos(c[0] * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return (dist * 1.4).toFixed(1);
         }
 
-        // 3. Xử lý dữ liệu
+        // 3. Process
         Papa.parse(CSV_URL, {
             download: true, header: true,
-            complete: (results) => {
-                fullData = results.data.filter(item => item.Tên);
+            complete: (res) => {
+                fullData = res.data.filter(d => d.Tên);
                 renderChips();
                 applyFilters();
             }
@@ -118,7 +103,8 @@
             const container = document.getElementById('category-container');
             container.innerHTML = CATEGORIES.map(c => `
                 <div onclick="toggleCate('${c.id}')" id="chip-${c.id}" 
-                     class="cate-chip px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase border border-slate-800 bg-slate-900/50 text-slate-500">
+                     class="cate-chip px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-slate-800 italic"
+                     style="color: ${c.color}; background: ${c.color}15; border-color: ${c.color}25">
                     ${c.id}
                 </div>
             `).join('');
@@ -129,10 +115,12 @@
             const cate = CATEGORIES.find(c => c.id === id);
             if (selectedCates.has(id)) {
                 selectedCates.delete(id);
-                chip.style.borderColor = "#1e293b"; chip.style.color = "#64748b"; chip.style.background = "#0f172a";
+                chip.classList.remove('active');
+                chip.style.background = `${cate.color}15`; chip.style.color = cate.color;
             } else {
                 selectedCates.add(id);
-                chip.style.borderColor = cate.color; chip.style.color = "#fff"; chip.style.background = cate.color + '33';
+                chip.classList.add('active');
+                chip.style.background = cate.color; chip.style.color = cate.text;
             }
             applyFilters();
         }
@@ -140,60 +128,46 @@
         function applyFilters() {
             const query = document.getElementById('inputSearch').value.toLowerCase();
             const kv = document.getElementById('selectKhuVuc').value;
-            
-            const filtered = fullData.filter(item => {
-                const matchSearch = item.Tên.toLowerCase().includes(query) || (item.Recommend && item.Recommend.toLowerCase().includes(query));
+            let filtered = fullData.filter(item => {
+                const matchSearch = (item.Tên + (item.Recommend || '')).toLowerCase().includes(query);
                 const matchKV = !kv || item['Khu vực'] === kv;
                 const itemCates = item.Category ? item.Category.split(',').map(c => c.trim()) : [];
                 const matchCate = selectedCates.size === 0 || Array.from(selectedCates).every(s => itemCates.includes(s));
                 return matchSearch && matchKV && matchCate;
             });
+            if (userPos) filtered.sort((a, b) => getEstimatedDist(a['Vị trí']) - getEstimatedDist(b['Vị trí']));
             renderGrid(filtered);
         }
 
         function renderGrid(items) {
             const grid = document.getElementById('results-grid');
-            grid.innerHTML = '';
-
-            items.forEach(async (item, i) => {
-                const id = `d-${i}`;
+            grid.innerHTML = items.map(item => {
+                const dist = getEstimatedDist(item['Vị trí']);
+                const distLabel = dist > 1000 ? '-- KM' : dist + ' KM';
                 const moveColor = item['Di chuyển'] === 'Dễ' ? 'text-emerald-400' : (item['Di chuyển'] === 'Khó' ? 'text-rose-400' : 'text-amber-400');
-                
-                grid.innerHTML += `
-                    <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full">
+                return `
+                    <div class="card-travel rounded-[2.5rem] p-7 flex flex-col justify-between h-full italic">
                         <div>
-                            <div class="flex justify-between items-start mb-5 font-black uppercase text-[9px]">
+                            <div class="flex justify-between items-center mb-5 text-[9px] font-black uppercase">
                                 <span class="${moveColor}">Đường ${item['Di chuyển']}</span>
-                                <div id="${id}" class="flex items-center gap-2 text-sky-400">
-                                    <svg class="w-3.5 h-3.5 animate-spin-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    <span class="animate-pulse">Processing...</span>
-                                </div>
+                                <span class="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.15)]">📍 ${distLabel}</span>
                             </div>
-                            <h3 class="text-xl font-extrabold mb-5 text-white leading-tight">${item.Tên}</h3>
-                            <div class="space-y-5 text-xs">
-                                <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-sky-500 italic text-slate-300">
-                                    <span class="text-[9px] font-black text-sky-500 uppercase not-italic block mb-1">Recommend:</span>
+                            <h3 class="text-xl font-extrabold text-white mb-4 uppercase leading-tight">${item.Tên}</h3>
+                            <div class="space-y-4 text-xs italic">
+                                <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-emerald-500 text-slate-300">
+                                    <span class="text-emerald-500 font-black not-italic text-[9px] uppercase block mb-1">Món ngon / Gợi ý:</span>
                                     "${item.Recommend || 'N/A'}"
                                 </div>
-                                <div class="flex justify-between text-[10px] font-black uppercase text-slate-500 border-t border-slate-800 pt-4">
+                                <div class="flex justify-between text-[10px] font-black text-slate-500">
                                     <span>🕒 ${item['Giờ mở cửa']}</span>
                                     <span>💰 ${item['Giá/món']}</span>
                                 </div>
                             </div>
                         </div>
-                        <a href="${item.Link}" target="_blank" class="mt-8 block w-full text-center bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] transition-all">
-                            Chỉ đường Maps
-                        </a>
+                        <a href="${item.Link}" target="_blank" class="mt-8 block w-full text-center bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-lg shadow-emerald-900/20 transition-all"> Chỉ đường Maps </a>
                     </div>
                 `;
-
-                // Cập nhật khoảng cách đường bộ sau khi vẽ card
-                if (item['Vị trí']) {
-                    const dist = await getRoadDist(item['Vị trí']);
-                    const el = document.getElementById(id);
-                    if (el) el.innerHTML = `<span>📍 ${dist ? dist + ' KM' : '-- KM'}</span>`;
-                }
-            });
+            }).join('');
         }
     </script>
 </body>
