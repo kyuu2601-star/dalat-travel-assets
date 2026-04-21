@@ -209,7 +209,7 @@
                 const moveRaw = (item['Di chuyển'] || 'Dễ').trim();
                 let dotColor = 'bg-rose-400'; // Mặc định là Khó (Đỏ)
                 if (moveRaw.includes('Dễ')) dotColor = 'bg-emerald-400';
-                else if (moveRaw.includes('Trung bình')) dotColor = 'bg-amber-400';
+                else if (moveRaw.includes('Trung')) dotColor = 'bg-amber-400';
                 
                 const formattedRecommend = (item.Recommend || '').replace(/\n/g, ' / ');
 
