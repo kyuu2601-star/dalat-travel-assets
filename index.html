@@ -3,81 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sổ Tay Đà Lạt - Local Factor k=1.4</title>
+    <title>Dalat Travel OS - Premium Analytics</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; }
-        .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .card-travel { background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.2s ease; }
-        .card-travel:hover { border-color: #10b981; transform: translateY(-4px); }
+        .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        
+        /* Game-style Stats Box */
+        .stat-box {
+            background: rgba(20, 20, 20, 0.8);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1);
+            transition: all 0.3s ease;
+        }
+        .stat-box:hover { border-color: rgba(245, 158, 11, 0.6); box-shadow: 0 0 15px rgba(245, 158, 11, 0.2); }
+        
+        .card-travel { 
+            background: rgba(30, 41, 59, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-travel:hover { border-color: #10b981; transform: translateY(-5px); background: rgba(30, 41, 59, 0.5); }
+        
         .cate-chip { transition: all 0.2s ease; cursor: pointer; user-select: none; }
-        .cate-chip.active { filter: brightness(1.2); box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); transform: scale(1.05); }
+        .cate-chip.active { filter: brightness(1.2); box-shadow: 0 0 20px rgba(255, 255, 255, 0.1); transform: scale(1.05); }
+        
+        @keyframes pulse-status { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-status { animation: pulse-status 2s infinite; }
     </style>
 </head>
 <body class="p-4 md:p-10">
 
     <div class="max-w-7xl mx-auto">
+        <!-- HEADER -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
             <div class="space-y-1">
-                <h1 class="text-3xl font-extrabold text-white italic uppercase tracking-tighter">DALAT <span class="text-emerald-400 font-light italic">LOCAL</span></h1>
-                <p class="text-slate-500 text-[10px] uppercase tracking-[0.4em] font-black italic">Terrain Optimized: k=1.4</p>
+                <h1 class="text-3xl font-extrabold text-white tracking-tighter italic uppercase">DALAT <span class="text-amber-500 font-light italic">OS</span></h1>
+                <p class="text-slate-500 text-[10px] uppercase tracking-[0.4em] font-black italic">Advanced Status Logic • k=1.4 • Pro UI</p>
             </div>
-            <div id="gps-box" class="glass-panel px-5 py-3 rounded-2xl border border-slate-800 flex items-center gap-3">
-                <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-                <span id="gps-coords" class="text-[11px] font-mono text-slate-200 italic font-bold uppercase tracking-widest text-emerald-400">GPS ACTIVE</span>
+            <div id="gps-box" class="glass-panel px-6 py-3 rounded-2xl border border-slate-800 flex items-center gap-4">
+                <div class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <span id="gps-coords" class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">System Ready</span>
             </div>
         </header>
 
-        <section class="glass-panel p-8 rounded-[2.5rem] mb-12 border border-emerald-500/10 shadow-2xl">
+        <!-- SEARCH & MULTI-FILTERS -->
+        <section class="glass-panel p-8 rounded-[2.5rem] mb-12 border border-amber-500/10 shadow-2xl">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div class="lg:col-span-4 space-y-4">
-                    <input type="text" id="inputSearch" oninput="applyFilters()" placeholder="Tìm tên / món ăn..." class="w-full bg-slate-900/80 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm focus:border-emerald-500 outline-none transition-all">
-                    <select id="selectKhuVuc" onchange="applyFilters()" class="w-full bg-slate-900/80 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm outline-none cursor-pointer">
-                        <option value="">Tất cả khu vực</option>
-                        <option value="Trung tâm">Trung tâm</option>
-                        <option value="Trại Mát">Trại Mát</option>
-                        <option value="Hồ Tuyền Lâm">Hồ Tuyền Lâm</option>
-                        <option value="Mimosa/Prenn">Mimosa/Prenn</option>
-                        <option value="Tà Nung">Tà Nung</option>
-                        <option value="Ngoại Ô Xa">Ngoại Ô Xa</option>
-                    </select>
+                <div class="lg:col-span-4 space-y-5">
+                    <div>
+                        <label class="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-[0.2em]">Data Query</label>
+                        <input type="text" id="inputSearch" oninput="applyFilters()" placeholder="Tên quán, món ăn, giá..." class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm focus:border-amber-500 outline-none transition-all placeholder:text-slate-600">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-[0.2em]">Location Cluster</label>
+                        <select id="selectKhuVuc" onchange="applyFilters()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm outline-none cursor-pointer appearance-none text-slate-300">
+                            <option value="">Tất cả khu vực</option>
+                            <option value="Trung tâm">Trung tâm</option>
+                            <option value="Trại Mát">Trại Mát</option>
+                            <option value="Hồ Tuyền Lâm">Hồ Tuyền Lâm</option>
+                            <option value="Mimosa/Prenn">Mimosa/Prenn</option>
+                            <option value="Tà Nung">Tà Nung</option>
+                            <option value="Ngoại Ô Xa">Ngoại Ô Xa</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="lg:col-span-8">
-                    <div id="category-container" class="flex flex-wrap gap-2.5"></div>
+                    <label class="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-[0.2em]">Category Filters</label>
+                    <div id="category-container" class="flex flex-wrap gap-3"></div>
                 </div>
             </div>
         </section>
 
-        <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+        <!-- RESULTS GRID -->
+        <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 italic"></div>
     </div>
 
     <script>
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnXggiUJriOBPHz05pt01aIq_qaCDeQAcWpyYTG6zx1XI9WzfVDTbb8rPwYPf2w8uHxeDpx3Tznx53/pub?gid=615358788&single=true&output=csv';
-        
         const CATEGORIES = [
-            { id: 'Ăn', color: '#ffb38a', text: '#5c2d14' },
-            { id: 'Chơi', color: '#c5e8b7', text: '#2d4d1e' },
-            { id: 'Chụp hình', color: '#b3e0ff', text: '#1e3d5c' },
-            { id: 'Uống', color: '#ffeb99', text: '#5c4b14' },
-            { id: 'Local', color: '#ff7070', text: '#5c1414' },
-            { id: 'Ăn Nhẹ', color: '#f7d1ff', text: '#4d1e5c' },
-            { id: 'View Checkin', color: '#bcd6d6', text: '#2d4040' },
-            { id: 'Đặc sản', color: '#eaff8a', text: '#404d1e' }
+            { id: 'Ăn', color: '#ffb38a', text: '#5c2d14' }, { id: 'Chơi', color: '#c5e8b7', text: '#2d4d1e' },
+            { id: 'Chụp hình', color: '#b3e0ff', text: '#1e3d5c' }, { id: 'Uống', color: '#ffeb99', text: '#5c4b14' },
+            { id: 'Local', color: '#ff7070', text: '#5c1414' }, { id: 'Ăn Nhẹ', color: '#f7d1ff', text: '#4d1e5c' },
+            { id: 'View Checkin', color: '#bcd6d6', text: '#2d4040' }, { id: 'Đặc sản', color: '#eaff8a', text: '#404d1e' }
         ];
 
         let fullData = [];
         let userPos = null;
         let selectedCates = new Set();
 
-        // 1. GPS
+        // 1. GPS Watcher
         navigator.geolocation.watchPosition(pos => {
             userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
             applyFilters();
         }, null, { enableHighAccuracy: true });
 
-        // 2. Tính khoảng cách (Factor k=1.4)
+        // 2. Opening Status Logic
+        function getOpeningStatus(timeStr) {
+            if (!timeStr || timeStr.toLowerCase().includes('n/a')) return { status: 'Unknown', color: 'text-slate-500' };
+            
+            const now = new Date();
+            const currentMins = now.getHours() * 60 + now.getMinutes();
+            
+            // Xử lý nhiều ca (ví dụ: "07:00-10:00, 15:00-20:00")
+            const shifts = timeStr.split(',').map(s => s.trim());
+            let finalStatus = { status: 'Closed', color: 'text-rose-500' };
+
+            for (let shift of shifts) {
+                const parts = shift.split('-').map(p => p.trim());
+                if (parts.length !== 2) continue;
+
+                const [h1, m1] = parts[0].split(':').map(Number);
+                const [h2, m2] = parts[1].split(':').map(Number);
+                const startMins = h1 * 60 + (m1 || 0);
+                const endMins = h2 * 60 + (m2 || 0);
+
+                // Đang mở
+                if (currentMins >= startMins && currentMins <= endMins) {
+                    if (endMins - currentMins <= 60) return { status: 'Close in 1h', color: 'text-orange-500 animate-status' };
+                    return { status: 'Open Now', color: 'text-emerald-400' };
+                }
+                
+                // Sắp mở
+                if (startMins > currentMins && startMins - currentMins <= 60) {
+                    return { status: 'Open in 1h', color: 'text-amber-400 animate-status' };
+                }
+            }
+            return finalStatus;
+        }
+
+        // 3. Distance Factor k=1.4
         function getEstimatedDist(target) {
             if (!userPos || !target) return 9999;
             const c = target.split(',').map(Number);
@@ -85,11 +146,10 @@
             const dLat = (c[0] - userPos.lat) * Math.PI / 180;
             const dLon = (c[1] - userPos.lon) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(userPos.lat * Math.PI / 180) * Math.cos(c[0] * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return (dist * 1.4).toFixed(1);
+            return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.4).toFixed(1);
         }
 
-        // 3. Process
+        // 4. Data Processing
         Papa.parse(CSV_URL, {
             download: true, header: true,
             complete: (res) => {
@@ -103,8 +163,8 @@
             const container = document.getElementById('category-container');
             container.innerHTML = CATEGORIES.map(c => `
                 <div onclick="toggleCate('${c.id}')" id="chip-${c.id}" 
-                     class="cate-chip px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-slate-800 italic"
-                     style="color: ${c.color}; background: ${c.color}15; border-color: ${c.color}25">
+                     class="cate-chip px-5 py-2 rounded-2xl text-[10px] font-black uppercase border border-slate-800"
+                     style="background-color: ${c.color}15; color: ${c.color}; border-color: ${c.color}25">
                     ${c.id}
                 </div>
             `).join('');
@@ -116,11 +176,11 @@
             if (selectedCates.has(id)) {
                 selectedCates.delete(id);
                 chip.classList.remove('active');
-                chip.style.background = `${cate.color}15`; chip.style.color = cate.color;
+                chip.style.backgroundColor = `${cate.color}15`; chip.style.color = cate.color;
             } else {
                 selectedCates.add(id);
                 chip.classList.add('active');
-                chip.style.background = cate.color; chip.style.color = cate.text;
+                chip.style.backgroundColor = cate.color; chip.style.color = cate.text;
             }
             applyFilters();
         }
@@ -129,11 +189,11 @@
             const query = document.getElementById('inputSearch').value.toLowerCase();
             const kv = document.getElementById('selectKhuVuc').value;
             let filtered = fullData.filter(item => {
-                const matchSearch = (item.Tên + (item.Recommend || '')).toLowerCase().includes(query);
+                const txt = (item.Tên + ' ' + (item.Recommend || '')).toLowerCase();
                 const matchKV = !kv || item['Khu vực'] === kv;
-                const itemCates = item.Category ? item.Category.split(',').map(c => c.trim()) : [];
-                const matchCate = selectedCates.size === 0 || Array.from(selectedCates).every(s => itemCates.includes(s));
-                return matchSearch && matchKV && matchCate;
+                const cates = item.Category ? item.Category.split(',').map(c => c.trim()) : [];
+                const matchCate = selectedCates.size === 0 || Array.from(selectedCates).every(s => cates.includes(s));
+                return txt.includes(query) && matchKV && matchCate;
             });
             if (userPos) filtered.sort((a, b) => getEstimatedDist(a['Vị trí']) - getEstimatedDist(b['Vị trí']));
             renderGrid(filtered);
@@ -143,28 +203,57 @@
             const grid = document.getElementById('results-grid');
             grid.innerHTML = items.map(item => {
                 const dist = getEstimatedDist(item['Vị trí']);
-                const distLabel = dist > 1000 ? '-- KM' : dist + ' KM';
+                const status = getOpeningStatus(item['Giờ mở cửa']);
                 const moveColor = item['Di chuyển'] === 'Dễ' ? 'text-emerald-400' : (item['Di chuyển'] === 'Khó' ? 'text-rose-400' : 'text-amber-400');
+                
                 return `
-                    <div class="card-travel rounded-[2.5rem] p-7 flex flex-col justify-between h-full italic">
+                    <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group">
                         <div>
-                            <div class="flex justify-between items-center mb-5 text-[9px] font-black uppercase">
-                                <span class="${moveColor}">Đường ${item['Di chuyển']}</span>
-                                <span class="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.15)]">📍 ${distLabel}</span>
+                            <div class="flex justify-between items-center mb-6">
+                                <span class="${status.color} text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]"></span>
+                                    ${status.status}
+                                </span>
+                                <span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                                    📍 ${dist > 1000 ? '-- KM' : dist + ' KM'}
+                                </span>
                             </div>
-                            <h3 class="text-xl font-extrabold text-white mb-4 uppercase leading-tight">${item.Tên}</h3>
-                            <div class="space-y-4 text-xs italic">
-                                <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-emerald-500 text-slate-300">
-                                    <span class="text-emerald-500 font-black not-italic text-[9px] uppercase block mb-1">Món ngon / Gợi ý:</span>
-                                    "${item.Recommend || 'N/A'}"
+                            
+                            <h3 class="text-2xl font-extrabold text-white mb-2 uppercase leading-tight group-hover:text-amber-400 transition-colors">${item.Tên}</h3>
+                            <p class="text-[10px] text-slate-500 mb-6 font-bold uppercase tracking-widest">${item['Khu vực']} • ${item.Category}</p>
+                            
+                            <!-- Game-style Stats Row -->
+                            <div class="grid grid-cols-3 gap-2 mb-6">
+                                <div class="stat-box rounded-xl p-2 text-center">
+                                    <p class="text-[8px] text-slate-500 font-black uppercase mb-1">Clock</p>
+                                    <p class="text-[10px] text-amber-500 font-bold leading-none">${item['Giờ mở cửa'] || 'N/A'}</p>
                                 </div>
-                                <div class="flex justify-between text-[10px] font-black text-slate-500">
-                                    <span>🕒 ${item['Giờ mở cửa']}</span>
-                                    <span>💰 ${item['Giá/món']}</span>
+                                <div class="stat-box rounded-xl p-2 text-center">
+                                    <p class="text-[8px] text-slate-500 font-black uppercase mb-1">Wallet</p>
+                                    <p class="text-[10px] text-amber-500 font-bold leading-none">${item['Giá/món'] || 'N/A'}</p>
+                                </div>
+                                <div class="stat-box rounded-xl p-2 text-center">
+                                    <p class="text-[8px] text-slate-500 font-black uppercase mb-1">Ticket</p>
+                                    <p class="text-[10px] text-amber-500 font-bold leading-none">${item['Vé'] || 'Free'}</p>
                                 </div>
                             </div>
+
+                            <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-amber-500 text-xs italic text-slate-300 leading-relaxed mb-4">
+                                <span class="text-amber-500 font-black not-italic text-[9px] uppercase block mb-1">Intel / Recommend:</span>
+                                "${item.Recommend || 'No specific data'}"
+                            </div>
+                            
+                            ${item['Lưu ý đường vào'] ? `
+                                <div class="bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl flex gap-2 items-start text-rose-400">
+                                    <span class="text-[10px]">⚠️</span>
+                                    <p class="text-[9px] font-bold italic leading-tight">${item['Lưu ý đường vào']}</p>
+                                </div>
+                            ` : ''}
                         </div>
-                        <a href="${item.Link}" target="_blank" class="mt-8 block w-full text-center bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-lg shadow-emerald-900/20 transition-all"> Chỉ đường Maps </a>
+
+                        <a href="${item.Link}" target="_blank" class="mt-8 block w-full text-center bg-amber-600 hover:bg-amber-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-lg shadow-amber-900/20 transition-all flex items-center justify-center gap-2">
+                            Navigation Active
+                        </a>
                     </div>
                 `;
             }).join('');
