@@ -287,8 +287,8 @@
                                     <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${item['Khu vực'] || ''}</p>
                                     <p class="text-[9px] text-slate-500 font-medium uppercase tracking-wider italic line-clamp-1">${item.Category || ''}</p>
                                 </div>
-                                <button id="btn-${index}" onclick="toggleImage(${index}, '${item.Image || ''}')" 
-                                    class="bg-amber-500/20 border border-amber-500/50 text-amber-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95">
+                                <button id="btn-${index}" onclick="toggleImage(${index}, '${item.Image || ''}', event)" 
+                                    class="bg-amber-500/20 border border-amber-500/50 text-amber-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
                                     Image
                                 </button>
                             </div>
@@ -331,19 +331,29 @@
             }).join('');
         }
 
-        /* CODE ADDED: Image Toggle Function */
-        window.toggleImage = function(index, url) {
+        window.toggleImage = function(index, url, event) {
+            // Chống xung đột với hiệu ứng hover/click của card
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+
             const overlay = document.getElementById(`overlay-${index}`);
             const btn = document.getElementById(`btn-${index}`);
             const img = document.getElementById(`img-${index}`);
             
+            if (!url || url.trim() === '') {
+                alert("Chưa có ảnh ref cho chỗ này fen ơi!");
+                return;
+            }
+
             if (overlay.style.display === 'block') {
                 overlay.style.display = 'none';
                 btn.innerText = 'Image';
                 btn.classList.remove('bg-rose-500/20', 'text-rose-500', 'border-rose-500/50');
                 btn.classList.add('bg-amber-500/20', 'text-amber-500', 'border-amber-500/50');
             } else {
-                if (url) img.src = url;
+                img.src = url; 
                 overlay.style.display = 'block';
                 btn.innerText = 'Close';
                 btn.classList.remove('bg-amber-500/20', 'text-amber-500', 'border-amber-500/50');
