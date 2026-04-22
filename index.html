@@ -108,20 +108,23 @@
             display: flex;
             flex-direction: column;
         }
+        .warning-long-card.near-danger {
+            border: 2px solid #ef4444;
+            background: rgba(239, 68, 68, 0.15);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+        }
         .warning-image-box { width: 100%; height: 200px; background: #000; border-bottom: 1px solid rgba(239, 68, 68, 0.1); }
         .warning-image-box img { width: 100%; height: 100%; object-fit: contain; }
     </style>
 </head>
 <body class="p-4 md:p-10">
 
-    <!-- WARNING RADAR ICON (Top Right) -->
     <div id="warning-radar" onclick="toggleWarningModal()">
         <div id="radar-box" class="radar-box">
             <span>!</span>
         </div>
     </div>
 
-    <!-- WARNING CENTER MODAL -->
     <div id="warning-modal">
         <div class="max-w-2xl mx-auto pt-10 pb-20">
             <div class="flex justify-between items-center mb-8 border-b border-white/10 pb-5">
@@ -129,8 +132,7 @@
                 <button onclick="toggleWarningModal()" class="text-white bg-rose-500 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-900/40">Close Center</button>
             </div>
             <div id="warning-list" class="space-y-6">
-                <!-- Danh sách warning sẽ render ở đây -->
-            </div>
+                </div>
         </div>
     </div>
 
@@ -205,46 +207,52 @@
             }
         }, null, { enableHighAccuracy: true });
 
-        // Logic Radar nhấp nháy + Rung cảnh báo
-let radarInterval = null;
+        // Logic Radar biến thiên khoảng cách
+        let radarInterval = null;
+        let currentIntervalTime = 0;
 
-function checkRadarStatus() {
-    if (!userPos || fullData.length === 0) return;
-    
-    const radarIcon = document.getElementById('radar-box');
-    
-    // Kiểm tra xem có điểm cảnh báo nào gần đây không
-    let isNearWarning = fullData.some(item => {
-        const wLoc = item._AC; 
-        if (!wLoc) return false;
-        const dist = getEstimatedDist(wLoc);
-        return dist <= 1.0; 
-    });
-
-    if (isNearWarning) {
-        // Kích hoạt đèn nhấp nháy
-        radarIcon.classList.add('radar-blink');
-        
-        // Tạo vòng lặp rung nếu chưa có
-        if (!radarInterval) {
-            radarInterval = setInterval(() => {
-                if ("vibrate" in navigator) {
-                    // Rung chập chờn kiểu SOS để gây chú ý
-                    navigator.vibrate([200, 100, 200]);
+        function checkRadarStatus() {
+            if (!userPos || fullData.length === 0) return;
+            const radarIcon = document.getElementById('radar-box');
+            
+            let minDistance = 9999;
+            fullData.forEach(item => {
+                if (item._AC) {
+                    const d = getEstimatedDist(item._AC);
+                    if (d < minDistance) minDistance = d;
                 }
-                console.log("Radar: Warning Zone Active!");
-            }, 1500); // Cứ 3 giây nhắc một lần
+            });
+
+            // Xác định thời gian giãn cách rung
+            let intervalTime = 0;
+            if (minDistance <= 0.2) intervalTime = 1000;      // 200m -> 1s
+            else if (minDistance <= 0.5) intervalTime = 1500; // 500m -> 1.5s
+            else if (minDistance <= 1.0) intervalTime = 3000; // 1km -> 3s
+
+            if (intervalTime > 0) {
+                radarIcon.classList.add('radar-blink');
+                
+                // Nếu khoảng cách thay đổi mức độ, reset loop
+                if (radarInterval && currentIntervalTime !== intervalTime) {
+                    clearInterval(radarInterval);
+                    radarInterval = null;
+                }
+
+                if (!radarInterval) {
+                    currentIntervalTime = intervalTime;
+                    radarInterval = setInterval(() => {
+                        if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+                    }, intervalTime);
+                }
+            } else {
+                radarIcon.classList.remove('radar-blink');
+                if (radarInterval) {
+                    clearInterval(radarInterval);
+                    radarInterval = null;
+                }
+                if ("vibrate" in navigator) navigator.vibrate(0);
+            }
         }
-    } else {
-        // Ra khỏi vùng nguy hiểm thì tắt sạch
-        radarIcon.classList.remove('radar-blink');
-        if (radarInterval) {
-            clearInterval(radarInterval);
-            radarInterval = null;
-        }
-        if ("vibrate" in navigator) navigator.vibrate(0);
-    }
-}
 
         function toggleWarningModal() {
             const modal = document.getElementById('warning-modal');
@@ -258,22 +266,32 @@ function checkRadarStatus() {
 
         function renderWarningList() {
             const container = document.getElementById('warning-list');
-            const warnings = fullData.filter(d => d._AB).map(item => {
-                const dist = getEstimatedDist(item._AC);
+            
+            // Lấy danh sách warning, tính khoảng cách và sắp xếp
+            const warnings = fullData
+                .filter(d => d._AB)
+                .map(item => {
+                    return { ...item, currentDist: getEstimatedDist(item._AC) };
+                })
+                .sort((a, b) => a.currentDist - b.currentDist); // Đẩy gần nhất lên đầu
+
+            container.innerHTML = warnings.map(item => {
+                const isNear = item.currentDist <= 1.0;
                 return `
-                    <div class="warning-long-card">
+                    <div class="warning-long-card ${isNear ? 'near-danger' : ''}">
                         ${item._AA ? `<div class="warning-image-box"><img src="${item._AA}" alt="warning-ref"></div>` : ''}
                         <div class="p-5">
                             <div class="flex justify-between items-start mb-3">
-                                <span class="bg-rose-500/20 text-rose-500 text-[10px] font-black px-3 py-1 rounded-full uppercase italic tracking-widest border border-rose-500/30">Traffic Alert</span>
-                                <span class="text-amber-500 font-mono text-xs font-bold italic underline">DIST: ${dist > 1000 ? '--' : dist} KM</span>
+                                <span class="${isNear ? 'bg-rose-500 text-white' : 'bg-rose-500/20 text-rose-500'} text-[10px] font-black px-3 py-1 rounded-full uppercase italic tracking-widest border border-rose-500/30">
+                                    ${isNear ? 'DANGER ZONE' : 'Traffic Alert'}
+                                </span>
+                                <span class="text-amber-500 font-mono text-xs font-bold italic underline">DIST: ${item.currentDist > 1000 ? '--' : item.currentDist} KM</span>
                             </div>
                             <p class="text-slate-200 text-sm font-semibold leading-relaxed italic">"${item._AB}"</p>
                         </div>
                     </div>
                 `;
-            }).join('');
-            container.innerHTML = warnings || '<p class="text-center text-slate-500 py-10">No traffic intel available.</p>';
+            }).join('') || '<p class="text-center text-slate-500 py-10">No traffic intel available.</p>';
         }
 
         // 2. Opening Status Logic
@@ -317,15 +335,13 @@ function checkRadarStatus() {
         // 4. Data Processing - FIXED MAPPING FOR AA, AB, AC
         Papa.parse(CSV_URL, {
             download: true, 
-            header: false, // Lấy mảng để truy cập index chuẩn
+            header: false, 
             complete: (res) => {
                 const rows = res.data;
                 const headerRow = rows[0];
                 fullData = rows.slice(1).map(row => {
                     let obj = {};
-                    // Ánh xạ các cột có tên
                     headerRow.forEach((h, i) => { if(h) obj[h] = row[i]; });
-                    // Cố định ánh xạ cột Warning theo vị trí AA (26), AB (27), AC (28)
                     obj._AA = row[26]; // Image link
                     obj._AB = row[27]; // Warning Text
                     obj._AC = row[28]; // Coordinate
@@ -450,12 +466,7 @@ function checkRadarStatus() {
         }
 
         window.toggleImage = function(index, url, event) {
-            // Chống xung đột với hiệu ứng hover/click của card
-            if (event) {
-                event.stopPropagation();
-                event.preventDefault();
-            }
-
+            if (event) { event.stopPropagation(); event.preventDefault(); }
             const overlay = document.getElementById(`overlay-${index}`);
             const btn = document.getElementById(`btn-${index}`);
             const img = document.getElementById(`img-${index}`);
