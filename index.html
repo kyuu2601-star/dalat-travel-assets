@@ -11,7 +11,6 @@
         body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; }
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
         
-        /* Game-style Stats Box */
         .stat-box {
             background: rgba(20, 20, 20, 0.8);
             border: 1px solid rgba(245, 158, 11, 0.3);
@@ -35,6 +34,8 @@
 
         .recommend-scroll::-webkit-scrollbar { width: 4px; }
         .recommend-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
+        
+        .recommend-text { white-space: pre-line; }
     </style>
 </head>
 <body class="p-4 md:p-10">
@@ -84,7 +85,7 @@
         </section>
 
         <!-- RESULTS GRID -->
-        <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 italic"></div>
+        <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 italic text-slate-200"></div>
     </div>
 
     <script>
@@ -108,27 +109,37 @@
         }, null, { enableHighAccuracy: true });
 
         // 2. Opening Status Logic
-        function getOpeningStatus(timeStr) {
-            if (!timeStr || timeStr.toLowerCase().includes('n/a')) return { status: 'Unknown', color: 'text-slate-500' };
+        function getOpeningStatus(combinedTimeStr) {
+            if (!combinedTimeStr || combinedTimeStr.toLowerCase().includes('n/a')) return { status: 'Unknown', color: 'text-slate-500' };
             
             const now = new Date();
             const currentMins = now.getHours() * 60 + now.getMinutes();
             
-            const shifts = timeStr.split(',').map(s => s.trim());
+            const shifts = combinedTimeStr.split(/[,|]/).map(s => s.trim()).filter(s => s && s.includes(':'));
             let finalStatus = { status: 'Closed', color: 'text-rose-500' };
 
             for (let shift of shifts) {
                 const parts = shift.split('-').map(p => p.trim());
                 if (parts.length !== 2) continue;
 
-                const [h1, m1] = parts[0].split(':').map(Number);
-                const [h2, m2] = parts[1].split(':').map(Number);
-                const startMins = h1 * 60 + (m1 || 0);
-                const endMins = h2 * 60 + (m2 || 0);
+                const parseTime = (t) => {
+                    const [h, m] = t.split(':').map(Number);
+                    return h * 60 + (m || 0);
+                };
 
-                if (currentMins >= startMins && currentMins <= endMins) {
-                    if (endMins - currentMins <= 60) return { status: 'Close in 1h', color: 'text-orange-500 animate-status' };
-                    return { status: 'Open Now', color: 'text-emerald-400' };
+                const startMins = parseTime(parts[0]);
+                const endMins = parseTime(parts[1]);
+
+                // Trường hợp đóng cửa sau nửa đêm (ví dụ: 17:00 - 01:00)
+                if (endMins < startMins) {
+                    if (currentMins >= startMins || currentMins <= endMins) {
+                        return { status: 'Open Now', color: 'text-emerald-400' };
+                    }
+                } else {
+                    if (currentMins >= startMins && currentMins <= endMins) {
+                        if (endMins - currentMins <= 60) return { status: 'Close in 1h', color: 'text-orange-500 animate-status' };
+                        return { status: 'Open Now', color: 'text-emerald-400' };
+                    }
                 }
                 
                 if (startMins > currentMins && startMins - currentMins <= 60) {
@@ -203,15 +214,32 @@
             const grid = document.getElementById('results-grid');
             grid.innerHTML = items.map(item => {
                 const dist = getEstimatedDist(item['Vị trí']);
-                const status = getOpeningStatus(item['Giờ mở cửa']);
                 
-                // Cải tiến logic check màu di chuyển để tránh lỗi encoding
-                const moveRaw = (item['Di chuyển'] || 'Dễ').trim();
-                let dotColor = 'bg-rose-400'; // Mặc định là Khó (Đỏ)
-                if (moveRaw.includes('Dễ')) dotColor = 'bg-emerald-400';
-                else if (moveRaw.includes('Trung')) dotColor = 'bg-amber-400';
+                // Lấy giờ từ các cột tiềm năng (G, H)
+                const keys = Object.keys(item);
+                // Tìm cột "Giờ mở cửa" và cột ngay sau nó (thường PapaParse gán "" hoặc tên tương tự)
+                const timeIdx = keys.findIndex(k => k.includes('Giờ mở cửa'));
+                const timeShifts = [];
+                if (timeIdx !== -1) {
+                    if (item[keys[timeIdx]] && item[keys[timeIdx]].includes(':')) timeShifts.push(item[keys[timeIdx]].trim());
+                    if (keys[timeIdx + 1] !== undefined && item[keys[timeIdx + 1]] && item[keys[timeIdx + 1]].includes(':')) {
+                        timeShifts.push(item[keys[timeIdx + 1]].trim());
+                    }
+                }
                 
-                const formattedRecommend = (item.Recommend || '').replace(/\n/g, ' / ');
+                // Lọc bỏ những giá trị rác như "COUNTING" hoặc text linh tinh
+                const validShifts = timeShifts.filter(t => /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(t.replace(/\s/g, '')));
+                const combinedTimeStr = validShifts.join(', ');
+                const status = getOpeningStatus(combinedTimeStr);
+                
+                const difficulty = (item['Di chuyển'] || 'Dễ').trim();
+                let dotColor = 'bg-rose-400';
+                if (difficulty.includes('Dễ')) dotColor = 'bg-emerald-400';
+                else if (difficulty.includes('Trung')) dotColor = 'bg-amber-400';
+                
+                const timeHtml = validShifts.length > 0 
+                    ? validShifts.map(t => `<p class="text-[9px] text-amber-500 font-bold leading-tight uppercase">${t}</p>`).join('')
+                    : '<p class="text-[9px] text-amber-500 font-bold uppercase">N/A</p>';
 
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group">
@@ -229,36 +257,36 @@
                                 </div>
                             </div>
                             
-                            <div class="min-h-[64px] flex items-center">
+                            <div class="min-h-[64px] flex items-center mb-2">
                                 <h3 class="text-2xl font-extrabold text-white uppercase leading-tight group-hover:text-amber-400 transition-colors">${item.Tên}</h3>
                             </div>
 
-                            <div class="mt-2 mb-6 space-y-1">
-                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${item['Khu vực']}</p>
-                                <p class="text-[9px] text-slate-500 font-medium uppercase tracking-wider italic line-clamp-1">${item.Category}</p>
+                            <div class="mb-6 space-y-1">
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${item['Khu vực'] || ''}</p>
+                                <p class="text-[9px] text-slate-500 font-medium uppercase tracking-wider italic line-clamp-1">${item.Category || ''}</p>
                             </div>
                             
                             <div class="grid grid-cols-3 gap-2 mb-6">
-                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[48px]">
-                                    <p class="text-[7px] text-slate-500 font-black uppercase mb-1">Clock</p>
-                                    <p class="text-[9px] text-amber-500 font-bold leading-tight">${item['Giờ mở cửa'] || 'N/A'}</p>
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1">
+                                    <p class="text-[7px] text-slate-500 font-black uppercase mb-1">Open Time</p>
+                                    ${timeHtml}
                                 </div>
-                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[48px]">
-                                    <p class="text-[7px] text-slate-500 font-black uppercase mb-1">Wallet</p>
-                                    <p class="text-[9px] text-amber-500 font-bold leading-tight">${item['Giá/món'] || 'N/A'}</p>
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1">
+                                    <p class="text-[7px] text-slate-500 font-black uppercase mb-1">Price</p>
+                                    <p class="text-[9px] text-amber-500 font-bold leading-tight uppercase">${item['Giá/món'] || 'N/A'}</p>
                                 </div>
-                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[48px]">
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1">
                                     <p class="text-[7px] text-slate-500 font-black uppercase mb-1">Ticket</p>
-                                    <p class="text-[9px] text-amber-500 font-bold leading-tight">${item['Vé'] || 'Free'}</p>
+                                    <p class="text-[9px] text-amber-500 font-bold leading-tight uppercase">${item['Vé'] || 'Free'}</p>
                                 </div>
                             </div>
 
-                            <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-amber-500 text-xs italic text-slate-300 leading-relaxed mb-4 min-h-[100px] flex flex-col recommend-scroll overflow-y-auto">
+                            <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-amber-500 text-xs italic text-slate-300 leading-relaxed mb-4 min-h-[120px] max-h-[160px] flex flex-col recommend-scroll overflow-y-auto">
                                 <span class="text-amber-500 font-black not-italic text-[9px] uppercase block mb-2 tracking-widest">Intel / Recommend:</span>
-                                <p class="line-clamp-4 group-hover:line-clamp-none transition-all">"${formattedRecommend || 'No specific data'}"</p>
+                                <div class="recommend-text text-[11px] leading-relaxed">${item.Recommend || 'No specific data'}</div>
                             </div>
                             
-                            <div class="min-h-[50px]">
+                            <div class="min-h-[55px] mt-auto">
                                 ${item['Lưu ý đường vào'] ? `
                                     <div class="bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl flex gap-2 items-start text-rose-400">
                                         <span class="text-[10px]">⚠️</span>
