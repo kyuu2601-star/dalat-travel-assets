@@ -65,9 +65,74 @@
             object-fit: contain; 
             padding: 8px; 
         }
+
+        /* WARNING RADAR STYLES - FIXED TOP RIGHT */
+        #warning-radar { 
+            position: fixed; 
+            top: 25px; 
+            right: 20px; 
+            z-index: 9999; 
+            cursor: pointer; 
+        }
+        .radar-box { 
+            width: 22px; /* Tầm 50% size chữ OS */
+            height: 22px; 
+            background: #ef4444; 
+            border-radius: 6px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .radar-box span { color: white; font-weight: 900; font-size: 14px; line-height: 1; }
+        @keyframes radar-blink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.15); filter: brightness(1.5); box-shadow: 0 0 20px #ef4444; } }
+        .radar-blink { animation: radar-blink 0.5s infinite; }
+
+        #warning-modal { 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(2, 6, 23, 0.98); 
+            z-index: 10000; 
+            display: none; 
+            padding: 20px; 
+            overflow-y: auto; 
+            backdrop-filter: blur(15px); 
+        }
+        .warning-long-card { 
+            background: rgba(254, 226, 226, 0.05); 
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 1.25rem; 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .warning-image-box { width: 100%; height: 200px; background: #000; border-bottom: 1px solid rgba(239, 68, 68, 0.1); }
+        .warning-image-box img { width: 100%; height: 100%; object-fit: contain; }
     </style>
 </head>
 <body class="p-4 md:p-10">
+
+    <!-- WARNING RADAR ICON (Top Right) -->
+    <div id="warning-radar" onclick="toggleWarningModal()">
+        <div id="radar-box" class="radar-box">
+            <span>!</span>
+        </div>
+    </div>
+
+    <!-- WARNING CENTER MODAL -->
+    <div id="warning-modal">
+        <div class="max-w-2xl mx-auto pt-10 pb-20">
+            <div class="flex justify-between items-center mb-8 border-b border-white/10 pb-5">
+                <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Traffic <span class="text-rose-500">Warnings</span></h2>
+                <button onclick="toggleWarningModal()" class="text-white bg-rose-500 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-900/40">Close Center</button>
+            </div>
+            <div id="warning-list" class="space-y-6">
+                <!-- Danh sách warning sẽ render ở đây -->
+            </div>
+        </div>
+    </div>
 
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
@@ -126,24 +191,63 @@
         let fullData = [];
         let userPos = null;
         let selectedCates = new Set();
-
-        // 1. GPS Watcher
         let lastPos = null;
 
-navigator.geolocation.watchPosition(pos => {
-    const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-    
-    // Chỉ update nếu khoảng cách thay đổi > 10 mét
-    if (!lastPos || 
-        Math.abs(newPos.lat - lastPos.lat) > 0.0001 || 
-        Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
-        
-        lastPos = newPos;
-        userPos = newPos;
-        document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
-        applyFilters();
-    }
-}, null, { enableHighAccuracy: true });
+        // 1. GPS Watcher
+        navigator.geolocation.watchPosition(pos => {
+            const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            if (!lastPos || Math.abs(newPos.lat - lastPos.lat) > 0.0001 || Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
+                lastPos = newPos;
+                userPos = newPos;
+                document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
+                checkRadarStatus();
+                applyFilters();
+            }
+        }, null, { enableHighAccuracy: true });
+
+        // Logic Radar nhấp nháy
+        function checkRadarStatus() {
+            if (!userPos || fullData.length === 0) return;
+            const radarIcon = document.getElementById('radar-box');
+            let isNearWarning = fullData.some(item => {
+                const wLoc = item._AC; // Tọa độ warning ở cột AC
+                if (!wLoc) return false;
+                const dist = getEstimatedDist(wLoc);
+                return dist <= 1.0; // Nhấp nháy khi dưới 1km
+            });
+            if (isNearWarning) radarIcon.classList.add('radar-blink');
+            else radarIcon.classList.remove('radar-blink');
+        }
+
+        function toggleWarningModal() {
+            const modal = document.getElementById('warning-modal');
+            if (modal.style.display === 'block') {
+                modal.style.display = 'none';
+            } else {
+                renderWarningList();
+                modal.style.display = 'block';
+            }
+        }
+
+        function renderWarningList() {
+            const container = document.getElementById('warning-list');
+            const warnings = fullData.filter(d => d._AB).map(item => {
+                const dist = getEstimatedDist(item._AC);
+                return `
+                    <div class="warning-long-card">
+                        ${item._AA ? `<div class="warning-image-box"><img src="${item._AA}" alt="warning-ref"></div>` : ''}
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="bg-rose-500/20 text-rose-500 text-[10px] font-black px-3 py-1 rounded-full uppercase italic tracking-widest border border-rose-500/30">Traffic Alert</span>
+                                <span class="text-amber-500 font-mono text-xs font-bold italic underline">DIST: ${dist > 1000 ? '--' : dist} KM</span>
+                            </div>
+                            <p class="text-slate-200 text-sm font-semibold leading-relaxed italic">"${item._AB}"</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            container.innerHTML = warnings || '<p class="text-center text-slate-500 py-10">No traffic intel available.</p>';
+        }
 
         // 2. Opening Status Logic
         function getOpeningStatus(combinedTimeStr) {
@@ -175,6 +279,7 @@ navigator.geolocation.watchPosition(pos => {
         function getEstimatedDist(target) {
             if (!userPos || !target) return 9999;
             const c = target.split(',').map(Number);
+            if (c.length < 2) return 9999;
             const R = 6371;
             const dLat = (c[0] - userPos.lat) * Math.PI / 180;
             const dLon = (c[1] - userPos.lon) * Math.PI / 180;
@@ -182,11 +287,23 @@ navigator.geolocation.watchPosition(pos => {
             return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.4).toFixed(1);
         }
 
-        // 4. Data Processing
+        // 4. Data Processing - FIXED MAPPING FOR AA, AB, AC
         Papa.parse(CSV_URL, {
-            download: true, header: true,
+            download: true, 
+            header: false, // Lấy mảng để truy cập index chuẩn
             complete: (res) => {
-                fullData = res.data.filter(d => d.Tên);
+                const rows = res.data;
+                const headerRow = rows[0];
+                fullData = rows.slice(1).map(row => {
+                    let obj = {};
+                    // Ánh xạ các cột có tên
+                    headerRow.forEach((h, i) => { if(h) obj[h] = row[i]; });
+                    // Cố định ánh xạ cột Warning theo vị trí AA (26), AB (27), AC (28)
+                    obj._AA = row[26]; // Image link
+                    obj._AB = row[27]; // Warning Text
+                    obj._AC = row[28]; // Coordinate
+                    return obj;
+                }).filter(d => d.Tên || d._AB);
                 renderChips();
                 applyFilters();
             }
@@ -222,6 +339,7 @@ navigator.geolocation.watchPosition(pos => {
             const query = document.getElementById('inputSearch').value.toLowerCase();
             const kv = document.getElementById('selectKhuVuc').value;
             let filtered = fullData.filter(item => {
+                if (!item.Tên) return false;
                 const txt = (item.Tên + ' ' + (item.Recommend || '')).toLowerCase();
                 const matchKV = !kv || item['Khu vực'] === kv;
                 const cates = item.Category ? item.Category.split(',').map(c => c.trim()) : [];
@@ -250,7 +368,8 @@ navigator.geolocation.watchPosition(pos => {
                     if (keys[timeIdx + 1] !== undefined && item[keys[timeIdx + 1]] && item[keys[timeIdx + 1]].includes(':')) timeShifts.push(item[keys[timeIdx + 1]].trim());
                 }
                 const validShifts = timeShifts.filter(t => /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(t.replace(/\s/g, '')));
-                const status = getOpeningStatus(validShifts.join(', '));
+                const combinedTimeStr = validShifts.join(', ');
+                const status = getOpeningStatus(combinedTimeStr);
                 const diff = (item['Di chuyển'] || 'Dễ').trim();
                 let dotColor = diff.includes('Dễ') ? 'bg-emerald-400' : diff.includes('Trung') ? 'bg-amber-400' : 'bg-rose-400';
                 const timeHtml = validShifts.length > 0 ? validShifts.map(t => `<p class="text-[9px] text-amber-500 font-bold leading-tight uppercase">${t}</p>`).join('') : '<p class="text-[9px] text-amber-500 font-bold uppercase">N/A</p>';
@@ -304,11 +423,21 @@ navigator.geolocation.watchPosition(pos => {
         }
 
         window.toggleImage = function(index, url, event) {
-            if (event) { event.stopPropagation(); event.preventDefault(); }
+            // Chống xung đột với hiệu ứng hover/click của card
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+
             const overlay = document.getElementById(`overlay-${index}`);
             const btn = document.getElementById(`btn-${index}`);
             const img = document.getElementById(`img-${index}`);
-            if (!url || url.trim() === '') { alert("Chưa có ảnh ref cho chỗ này fen ơi!"); return; }
+            
+            if (!url || url.trim() === '') {
+                alert("Chưa có ảnh ref cho chỗ này fen ơi!");
+                return;
+            }
+
             if (overlay.style.display === 'block') {
                 overlay.style.display = 'none';
                 btn.innerText = 'Image';
