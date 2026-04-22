@@ -128,11 +128,22 @@
         let selectedCates = new Set();
 
         // 1. GPS Watcher
-        navigator.geolocation.watchPosition(pos => {
-            userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-            document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
-            applyFilters();
-        }, null, { enableHighAccuracy: true });
+        let lastPos = null;
+
+navigator.geolocation.watchPosition(pos => {
+    const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    
+    // Chỉ update nếu khoảng cách thay đổi > 10 mét
+    if (!lastPos || 
+        Math.abs(newPos.lat - lastPos.lat) > 0.0001 || 
+        Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
+        
+        lastPos = newPos;
+        userPos = newPos;
+        document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
+        applyFilters();
+    }
+}, null, { enableHighAccuracy: true });
 
         // 2. Opening Status Logic
         function getOpeningStatus(combinedTimeStr) {
