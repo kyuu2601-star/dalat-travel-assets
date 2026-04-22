@@ -205,19 +205,31 @@
             }
         }, null, { enableHighAccuracy: true });
 
-        // Logic Radar nhấp nháy
-        function checkRadarStatus() {
-            if (!userPos || fullData.length === 0) return;
-            const radarIcon = document.getElementById('radar-box');
-            let isNearWarning = fullData.some(item => {
-                const wLoc = item._AC; // Tọa độ warning ở cột AC
-                if (!wLoc) return false;
-                const dist = getEstimatedDist(wLoc);
-                return dist <= 1.0; // Nhấp nháy khi dưới 1km
-            });
-            if (isNearWarning) radarIcon.classList.add('radar-blink');
-            else radarIcon.classList.remove('radar-blink');
+        // Logic Radar nhấp nháy + Rung cảnh báo
+function checkRadarStatus() {
+    if (!userPos || fullData.length === 0) return;
+    const radarIcon = document.getElementById('radar-box');
+    
+    let isNearWarning = fullData.some(item => {
+        const wLoc = item._AC; 
+        if (!wLoc) return false;
+        const dist = getEstimatedDist(wLoc);
+        return dist <= 1.0; // Khoảng cách dưới 1km
+    });
+
+    if (isNearWarning) {
+        radarIcon.classList.add('radar-blink');
+        // Lệnh Rung: Rung 500ms, nghỉ 200ms, rung tiếp 500ms
+        if ("vibrate" in navigator) {
+            navigator.vibrate([500, 200, 500]);
         }
+    } else {
+        radarIcon.classList.remove('radar-blink');
+        if ("vibrate" in navigator) {
+            navigator.vibrate(0); // Tắt rung nếu đã ra khỏi vùng nguy hiểm
+        }
+    }
+}
 
         function toggleWarningModal() {
             const modal = document.getElementById('warning-modal');
