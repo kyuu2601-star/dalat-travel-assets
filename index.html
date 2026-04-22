@@ -23,6 +23,7 @@
             background: rgba(30, 41, 59, 0.3); 
             border: 1px solid rgba(255, 255, 255, 0.03);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; /* Thêm để định vị ảnh overlay */
         }
         .card-travel:hover { border-color: #10b981; transform: translateY(-5px); background: rgba(30, 41, 59, 0.5); }
         
@@ -36,12 +37,33 @@
         .recommend-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
         
         .recommend-text { white-space: pre-line; }
+
+        /* CODE ADDED: Image Overlay Style */
+        .image-overlay {
+            position: absolute;
+            top: 175px; 
+            left: 15px;
+            right: 15px;
+            bottom: 95px;
+            background: #080c14;
+            border-radius: 1.25rem;
+            z-index: 50;
+            display: none;
+            border: 1.5px solid rgba(245, 158, 11, 0.4);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .image-overlay img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            padding: 8px; 
+        }
     </style>
 </head>
 <body class="p-4 md:p-10">
 
     <div class="max-w-7xl mx-auto">
-        <!-- HEADER -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
             <div class="space-y-1">
                 <h1 class="text-3xl font-extrabold text-white tracking-tighter italic uppercase">DALAT <span class="text-amber-500 font-light italic">OS</span></h1>
@@ -56,7 +78,6 @@
             </div>
         </header>
 
-        <!-- SEARCH & MULTI-FILTERS -->
         <section class="glass-panel p-8 rounded-[2.5rem] mb-12 border border-amber-500/10 shadow-2xl">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div class="lg:col-span-4 space-y-5">
@@ -84,7 +105,6 @@
             </div>
         </section>
 
-        <!-- RESULTS GRID -->
         <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 italic text-slate-200"></div>
     </div>
 
@@ -130,7 +150,6 @@
                 const startMins = parseTime(parts[0]);
                 const endMins = parseTime(parts[1]);
 
-                // Trường hợp đóng cửa sau nửa đêm (ví dụ: 17:00 - 01:00)
                 if (endMins < startMins) {
                     if (currentMins >= startMins || currentMins <= endMins) {
                         return { status: 'Open Now', color: 'text-emerald-400' };
@@ -212,12 +231,10 @@
 
         function renderGrid(items) {
             const grid = document.getElementById('results-grid');
-            grid.innerHTML = items.map(item => {
+            grid.innerHTML = items.map((item, index) => {
                 const dist = getEstimatedDist(item['Vị trí']);
                 
-                // Lấy giờ từ các cột tiềm năng (G, H)
                 const keys = Object.keys(item);
-                // Tìm cột "Giờ mở cửa" và cột ngay sau nó (thường PapaParse gán "" hoặc tên tương tự)
                 const timeIdx = keys.findIndex(k => k.includes('Giờ mở cửa'));
                 const timeShifts = [];
                 if (timeIdx !== -1) {
@@ -227,7 +244,6 @@
                     }
                 }
                 
-                // Lọc bỏ những giá trị rác như "COUNTING" hoặc text linh tinh
                 const validShifts = timeShifts.filter(t => /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(t.replace(/\s/g, '')));
                 const combinedTimeStr = validShifts.join(', ');
                 const status = getOpeningStatus(combinedTimeStr);
@@ -243,6 +259,11 @@
 
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group">
+                        
+                        <div id="overlay-${index}" class="image-overlay">
+                            <img id="img-${index}" src="" alt="Preview">
+                        </div>
+
                         <div>
                             <div class="flex justify-between items-center mb-6">
                                 <span class="${status.color} text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
@@ -261,9 +282,15 @@
                                 <h3 class="text-2xl font-extrabold text-white uppercase leading-tight group-hover:text-amber-400 transition-colors">${item.Tên}</h3>
                             </div>
 
-                            <div class="mb-6 space-y-1">
-                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${item['Khu vực'] || ''}</p>
-                                <p class="text-[9px] text-slate-500 font-medium uppercase tracking-wider italic line-clamp-1">${item.Category || ''}</p>
+                            <div class="mb-6 flex justify-between items-start gap-4">
+                                <div class="space-y-1">
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${item['Khu vực'] || ''}</p>
+                                    <p class="text-[9px] text-slate-500 font-medium uppercase tracking-wider italic line-clamp-1">${item.Category || ''}</p>
+                                </div>
+                                <button id="btn-${index}" onclick="toggleImage(${index}, '${item.Image || ''}')" 
+                                    class="bg-amber-500/20 border border-amber-500/50 text-amber-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95">
+                                    Image
+                                </button>
                             </div>
                             
                             <div class="grid grid-cols-3 gap-2 mb-6">
@@ -303,6 +330,26 @@
                 `;
             }).join('');
         }
+
+        /* CODE ADDED: Image Toggle Function */
+        window.toggleImage = function(index, url) {
+            const overlay = document.getElementById(`overlay-${index}`);
+            const btn = document.getElementById(`btn-${index}`);
+            const img = document.getElementById(`img-${index}`);
+            
+            if (overlay.style.display === 'block') {
+                overlay.style.display = 'none';
+                btn.innerText = 'Image';
+                btn.classList.remove('bg-rose-500/20', 'text-rose-500', 'border-rose-500/50');
+                btn.classList.add('bg-amber-500/20', 'text-amber-500', 'border-amber-500/50');
+            } else {
+                if (url) img.src = url;
+                overlay.style.display = 'block';
+                btn.innerText = 'Close';
+                btn.classList.remove('bg-amber-500/20', 'text-amber-500', 'border-amber-500/50');
+                btn.classList.add('bg-rose-500/20', 'text-rose-500', 'border-rose-500/50');
+            }
+        };
     </script>
 </body>
 </html>
