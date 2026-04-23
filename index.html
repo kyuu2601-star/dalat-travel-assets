@@ -220,23 +220,29 @@
             const radarIcon = document.getElementById('radar-box');
             
             let minDistance = 9999;
+            let nearestWarning = null;
+
             fullData.forEach(item => {
                 if (item._AC) {
                     const d = getEstimatedDist(item._AC);
-                    if (d < minDistance) minDistance = d;
+                    if (d < minDistance) {
+                        minDistance = d;
+                        nearestWarning = item._AB;
+                    }
                 }
             });
 
-            // Xác định thời gian giãn cách rung
             let intervalTime = 0;
             if (minDistance <= 0.2) intervalTime = 1000;      // 200m -> 1s
             else if (minDistance <= 0.5) intervalTime = 1500; // 500m -> 1.5s
             else if (minDistance <= 1.0) intervalTime = 3000; // 1km -> 3s
 
-            if (intervalTime > 0) {
+            if (nearestWarning && intervalTime > 0) {
                 radarIcon.classList.add('radar-blink');
                 
-                // Nếu khoảng cách thay đổi mức độ, reset loop
+                // BẮN THÔNG BÁO KHI VÀO VÙNG NGUY HIỂM (ĐỂ RUNG KHI TẮT MÀN HÌNH)
+                triggerHeavyWarning("⚠️ CẢNH BÁO GIAO THÔNG", nearestWarning + " (Cách bạn " + minDistance + "km)");
+
                 if (radarInterval && currentIntervalTime !== intervalTime) {
                     clearInterval(radarInterval);
                     radarInterval = null;
@@ -271,13 +277,12 @@
         function renderWarningList() {
             const container = document.getElementById('warning-list');
             
-            // Lấy danh sách warning, tính khoảng cách và sắp xếp
             const warnings = fullData
                 .filter(d => d._AB)
                 .map(item => {
                     return { ...item, currentDist: getEstimatedDist(item._AC) };
                 })
-                .sort((a, b) => a.currentDist - b.currentDist); // Đẩy gần nhất lên đầu
+                .sort((a, b) => a.currentDist - b.currentDist); 
 
             container.innerHTML = warnings.map(item => {
                 const isNear = item.currentDist <= 1.0;
@@ -298,7 +303,6 @@
             }).join('') || '<p class="text-center text-slate-500 py-10">No traffic intel available.</p>';
         }
 
-        // 2. Opening Status Logic
         function getOpeningStatus(combinedTimeStr) {
             if (!combinedTimeStr || combinedTimeStr.toLowerCase().includes('n/a')) return { status: 'Unknown', color: 'text-slate-500' };
             const now = new Date();
@@ -324,7 +328,6 @@
             return finalStatus;
         }
 
-        // 3. Distance Factor k=1.4
         function getEstimatedDist(target) {
             if (!userPos || !target) return 9999;
             const c = target.split(',').map(Number);
@@ -336,7 +339,6 @@
             return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.4).toFixed(1);
         }
 
-        // 4. Data Processing - FIXED MAPPING FOR AA, AB, AC
         Papa.parse(CSV_URL, {
             download: true, 
             header: false, 
@@ -346,9 +348,9 @@
                 fullData = rows.slice(1).map(row => {
                     let obj = {};
                     headerRow.forEach((h, i) => { if(h) obj[h] = row[i]; });
-                    obj._AA = row[26]; // Image link
-                    obj._AB = row[27]; // Warning Text
-                    obj._AC = row[28]; // Coordinate
+                    obj._AA = row[26]; 
+                    obj._AB = row[27]; 
+                    obj._AC = row[28]; 
                     return obj;
                 }).filter(d => d.Tên || d._AB);
                 renderChips();
@@ -397,7 +399,6 @@
             renderGrid(filtered);
         }
 
-        // HÀM CHỌN CARD (THAY THẾ HOVER)
         window.selectCard = function(element) {
             document.querySelectorAll('.card-travel').forEach(c => c.classList.remove('active'));
             element.classList.add('active');
@@ -474,12 +475,7 @@
             const overlay = document.getElementById(`overlay-${index}`);
             const btn = document.getElementById(`btn-${index}`);
             const img = document.getElementById(`img-${index}`);
-            
-            if (!url || url.trim() === '') {
-                alert("Chưa có ảnh ref cho chỗ này fen ơi!");
-                return;
-            }
-
+            if (!url || url.trim() === '') { alert("Chưa có ảnh ref cho chỗ này fen ơi!"); return; }
             if (overlay.style.display === 'block') {
                 overlay.style.display = 'none';
                 btn.innerText = 'Image';
@@ -494,35 +490,37 @@
             }
         };
 
-        // --- LOGIC GIỮ APP CHẠY KHI TẮT MÀN HÌNH ---
         let wakeLock = null;
-
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock is active! App will not sleep.');
-                    
-                    wakeLock.addEventListener('release', () => {
-                        console.log('Wake Lock was released');
-                    });
                 }
-            } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
-            }
+            } catch (err) { console.error(`${err.name}, ${err.message}`); }
+        }
+        document.addEventListener('click', () => { if (!wakeLock) requestWakeLock(); }, { once: true });
+        document.addEventListener('visibilitychange', async () => { if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock(); });
+
+        // --- CODE CHẠY NGẦM: SERVICE WORKER & NOTIFICATIONS ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(function(reg) {
+                console.log('Service Worker Active');
+                // Xin quyền thông báo ngay khi app mở
+                Notification.requestPermission();
+            });
         }
 
-        document.addEventListener('click', () => {
-            if (!wakeLock) {
-                requestWakeLock();
+        function triggerHeavyWarning(title, message) {
+            if (Notification.permission === 'granted') {
+                navigator.serviceWorker.ready.then(function(registration) {
+                    registration.showNotification(title, {
+                        body: message,
+                        vibrate: [500, 200, 500],
+                        tag: 'traffic-warning' // Giữ 1 thông báo duy nhất để không gây phiền
+                    });
+                });
             }
-        }, { once: true });
-
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                requestWakeLock();
-            }
-        });
+        }
     </script>
 </body>
 </html>
