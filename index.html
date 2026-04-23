@@ -15,7 +15,7 @@
         body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; }
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
         
-        /* --- LOADING SCREEN ANIMATIONS --- */
+        /* --- TÍCH HỢP LOADING SCREEN (GIỮ NGUYÊN STYLE GỐC BÊN DƯỚI) --- */
         #loading-screen { 
             position: fixed; inset: 0; z-index: 10000; 
             background: url('bg.png') no-repeat center center;
@@ -23,12 +23,12 @@
             display: flex; flex-direction: column; align-items: center; justify-content: space-between;
             transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
-            padding: 60px 0 15px 0; /* Padding Bottom 40px để neo chữ Loading sát cạnh dưới */
+            padding: 60px 0 15px 0; /* Neo chữ Loading cách cạnh dưới 15px */
         }
 
         @keyframes slide-scenery { from { background-position: 0 0; } to { background-position: -3000px 0; } }
         .scenery-layer {
-            position: absolute; bottom: 160px; width: 100%; height: 130px; /* Tăng lên 150px và neo sát mép lề tại 120px */
+            position: absolute; bottom: 160px; width: 100%; height: 130px; /* Theo yêu cầu: cao 130px, neo cách đáy 160px */
             background: url('scenery.png') repeat-x;
             background-size: auto 100%;
             animation: slide-scenery 15s linear infinite;
@@ -46,7 +46,7 @@
 
         @keyframes bike-ride { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(1deg); } }
         .bike-layer {
-            position: absolute; bottom: 70px; left: 15%; width: 110px;
+            position: absolute; bottom: 75px; left: 15%; width: 110px;
             z-index: 4; animation: bike-ride 0.4s ease-in-out infinite;
         }
 
@@ -56,31 +56,111 @@
         .c4{animation-delay:0.4s} .c5{animation-delay:0.5s} .c6{animation-delay:0.6s}
         .c7{animation-delay:0.7s} .c8{animation-delay:0.8s} .c9{animation-delay:0.9s}
 
-        /* --- IN-APP STYLES --- */
-        .stat-box { background: rgba(20, 20, 20, 0.8); border: 1px solid rgba(245, 158, 11, 0.3); box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1); transition: all 0.3s ease; }
+        /* --- GIỮ NGUYÊN TOÀN BỘ STYLE GỐC --- */
+        .stat-box {
+            background: rgba(20, 20, 20, 0.8);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1);
+            transition: all 0.3s ease;
+        }
         .stat-box:hover { border-color: rgba(245, 158, 11, 0.6); box-shadow: 0 0 15px rgba(245, 158, 11, 0.2); }
-        .card-travel { background: rgba(30, 41, 59, 0.3); border: 1px solid rgba(255, 255, 255, 0.03); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; cursor: pointer; }
-        .card-travel.active { border-color: #10b981; transform: translateY(-5px); background: rgba(30, 41, 59, 0.5); }
+        
+        .card-travel { 
+            background: rgba(30, 41, 59, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .card-travel.active { 
+            border-color: #10b981; 
+            transform: translateY(-5px); 
+            background: rgba(30, 41, 59, 0.5); 
+        }
+        
         .cate-chip { transition: all 0.2s ease; cursor: pointer; user-select: none; }
         .cate-chip.active { filter: brightness(1.2); box-shadow: 0 0 20px rgba(255, 255, 255, 0.1); transform: scale(1.05); }
+        
         @keyframes pulse-status { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .animate-status { animation: pulse-status 2s infinite; }
+
         .recommend-scroll::-webkit-scrollbar { width: 4px; }
         .recommend-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
+        
         .recommend-text { white-space: pre-line; }
         .recommend-text b, .recommend-text strong { color: #ffffff !important; font-weight: 800 !important; }
-        .image-overlay { position: absolute; top: 175px; left: 15px; right: 15px; bottom: 95px; background: #080c14; border-radius: 1.25rem; z-index: 50; display: none; border: 1.5px solid rgba(245, 158, 11, 0.4); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
-        .image-overlay img { width: 100%; height: 100%; object-fit: contain; padding: 8px; }
-        #warning-radar { position: fixed; top: 25px; right: 20px; z-index: 9999; cursor: pointer; }
-        .radar-box { width: 22px; height: 22px; background: #ef4444; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); border: 1px solid rgba(255,255,255,0.2); }
+
+        .image-overlay {
+            position: absolute;
+            top: 175px; 
+            left: 15px;
+            right: 15px;
+            bottom: 95px;
+            background: #080c14;
+            border-radius: 1.25rem;
+            z-index: 50;
+            display: none;
+            border: 1.5px solid rgba(245, 158, 11, 0.4);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .image-overlay img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            padding: 8px; 
+        }
+
+        #warning-radar { 
+            position: fixed; 
+            top: 25px; 
+            right: 20px; 
+            z-index: 9999; 
+            cursor: pointer; 
+        }
+        .radar-box { 
+            width: 22px; 
+            height: 22px; 
+            background: #ef4444; 
+            border-radius: 6px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
         .radar-box span { color: white; font-weight: 900; font-size: 14px; line-height: 1; }
         @keyframes radar-blink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.15); filter: brightness(1.5); box-shadow: 0 0 20px #ef4444; } }
         .radar-blink { animation: radar-blink 0.5s infinite; }
-        #warning-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 6, 23, 0.98); z-index: 10000; display: none; padding: 20px; overflow-y: auto; backdrop-filter: blur(15px); }
-        .warning-long-card { background: rgba(254, 226, 226, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 1.25rem; overflow: hidden; display: flex; flex-direction: column; }
-        .warning-long-card.near-danger { border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.15); box-shadow: 0 0 20px rgba(239, 68, 68, 0.2); }
+
+        #warning-modal { 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(2, 6, 23, 0.98); 
+            z-index: 10000; 
+            display: none; 
+            padding: 20px; 
+            overflow-y: auto; 
+            backdrop-filter: blur(15px); 
+        }
+        .warning-long-card { 
+            background: rgba(254, 226, 226, 0.05); 
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 1.25rem; 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .warning-long-card.near-danger {
+            border: 2px solid #ef4444;
+            background: rgba(239, 68, 68, 0.15);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+        }
         .warning-image-box { width: 100%; height: 200px; background: #000; border-bottom: 1px solid rgba(239, 68, 68, 0.1); }
         .warning-image-box img { width: 100%; height: 100%; object-fit: contain; }
+
         .toggle-switch { position: relative; width: 44px; height: 22px; cursor: pointer; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .toggle-slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ef4444; transition: .4s; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.2); }
@@ -111,13 +191,16 @@
     </div>
 
     <div id="warning-radar" onclick="toggleWarningModal()">
-        <div id="radar-box" class="radar-box"><span>!</span></div>
+        <div id="radar-box" class="radar-box">
+            <span>!</span>
+        </div>
     </div>
 
     <div id="warning-modal">
         <div class="max-w-2xl mx-auto pt-10 pb-20">
             <div class="flex justify-between items-center mb-8 border-b border-white/10 pb-5">
                 <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Traffic <span class="text-rose-500">Warning</span></h2>
+                
                 <div class="flex items-center gap-2 bg-white/5 pl-3 pr-1 py-1 rounded-full border border-white/10">
                     <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest mr-1">Notify</span>
                     <label class="toggle-switch scale-75 origin-right">
@@ -142,94 +225,233 @@
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                 </div>
-                <span id="gps-coords" class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">Searching...</span>
+                <span id="gps-coords" class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">System Ready</span>
             </div>
         </header>
 
         <section class="glass-panel p-8 rounded-[2.5rem] mb-12 border border-amber-500/10 shadow-2xl">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div class="lg:col-span-4 space-y-5">
-                    <input type="text" id="inputSearch" oninput="applyFilters()" placeholder="Tên quán, món ăn..." class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm focus:border-amber-500 outline-none transition-all placeholder:text-slate-600">
-                    <select id="selectKhuVuc" onchange="applyFilters()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm outline-none cursor-pointer appearance-none text-slate-300">
-                        <option value="">Tất cả khu vực</option>
-                        <option value="Trung tâm">Trung tâm</option>
-                        <option value="Trại Mát">Trại Mát</option>
-                        <option value="Hồ Tuyền Lâm">Hồ Tuyền Lâm</option>
-                        <option value="Mimosa/Prenn">Mimosa/Prenn</option>
-                        <option value="Tà Nung">Tà Nung</option>
-                        <option value="Ngoại Ô Xa">Ngoại Ô Xa</option>
-                    </select>
+                    <div>
+                        <label class="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-[0.2em]">Data Query</label>
+                        <input type="text" id="inputSearch" oninput="applyFilters()" placeholder="Tên quán, món ăn, đồ uống..." class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm focus:border-amber-500 outline-none transition-all placeholder:text-slate-600">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-[0.2em]">Location Cluster</label>
+                        <select id="selectKhuVuc" onchange="applyFilters()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm outline-none cursor-pointer appearance-none text-slate-300">
+                            <option value="">Tất cả khu vực</option>
+                            <option value="Trung tâm">Trung tâm</option>
+                            <option value="Trại Mát">Trại Mát</option>
+                            <option value="Hồ Tuyền Lâm">Hồ Tuyền Lâm</option>
+                            <option value="Mimosa/Prenn">Mimosa/Prenn</option>
+                            <option value="Tà Nung">Tà Nung</option>
+                            <option value="Ngoại Ô Xa">Ngoại Ô Xa</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="lg:col-span-8">
+                    <label class="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-[0.2em]">Category Filters</label>
                     <div id="category-container" class="flex flex-wrap gap-3"></div>
                 </div>
             </div>
         </section>
+
         <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 italic text-slate-200"></div>
     </div>
 
     <script>
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnXggiUJriOBPHz05pt01aIq_qaCDeQAcWpyYTG6zx1XI9WzfVDTbb8rPwYPf2w8uHxeDpx3Tznx53/pub?gid=615358788&single=true&output=csv';
-        const CATEGORIES = [{id:'Ăn',color:'#ffb38a',text:'#5c2d14'},{id:'Chơi',color:'#c5e8b7',text:'#2d4d1e'},{id:'Chụp hình',color:'#b3e0ff',text:'#1e3d5c'},{id:'Uống',color:'#ffeb99',text:'#5c4b14'},{id:'Local',color:'#ff7070',text:'#5c1414'},{id:'Ăn Nhẹ',color:'#f7d1ff',text:'#4d1e5c'},{id:'View Checkin',color:'#bcd6d6',text:'#2d4040'},{id:'Đặc sản',color:'#eaff8a',text:'#404d1e'}];
+        const CATEGORIES = [
+            { id: 'Ăn', color: '#ffb38a', text: '#5c2d14' }, { id: 'Chơi', color: '#c5e8b7', text: '#2d4d1e' },
+            { id: 'Chụp hình', color: '#b3e0ff', text: '#1e3d5c' }, { id: 'Uống', color: '#ffeb99', text: '#5c4b14' },
+            { id: 'Local', color: '#ff7070', text: '#5c1414' }, { id: 'Ăn Nhẹ', color: '#f7d1ff', text: '#4d1e5c' },
+            { id: 'View Checkin', color: '#bcd6d6', text: '#2d4040' }, { id: 'Đặc sản', color: '#eaff8a', text: '#404d1e' }
+        ];
 
-        let fullData = []; let userPos = null; let selectedCates = new Set(); let lastPos = null; let isSystemLive = false;
+        let fullData = [];
+        let userPos = null;
+        let selectedCates = new Set();
+        let lastPos = null;
+        let isSystemLive = false; // Logic loading screen
 
-        const audio500 = new Audio('500m.mp3'); const audio100 = new Audio('100m.mp3'); const audio10 = new Audio('10m.mp3');
+        // --- GIỮ NGUYÊN HỆ THỐNG ÂM THANH GỐC ---
+        const audio500 = new Audio('500m.mp3');
+        const audio100 = new Audio('100m.mp3');
+        const audio10 = new Audio('10m.mp3');
         let lastAlertDistance = 999;
 
         function unlockAudio() {
-            [audio500, audio100, audio10].forEach(a => { a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(()=>{}); });
+            [audio500, audio100, audio10].forEach(a => {
+                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(()=>{});
+            });
             document.removeEventListener('click', unlockAudio);
         }
         document.addEventListener('click', unlockAudio);
 
         function playSmartWarning(dist) {
-            if (!document.getElementById('vibrateToggle').checked) return;
+            const isMasterOn = document.getElementById('vibrateToggle').checked;
+            if (!isMasterOn) return;
             const d = parseFloat(dist);
-            if (d <= 0.5 && d > 0.1 && lastAlertDistance > 0.5) { audio500.play().catch(()=>{}); lastAlertDistance = 0.5; } 
-            else if (d <= 0.1 && d > 0.01 && lastAlertDistance > 0.1) { audio100.play().catch(()=>{}); lastAlertDistance = 0.1; } 
-            else if (d <= 0.01 && lastAlertDistance > 0.01) { audio10.play().catch(()=>{}); lastAlertDistance = 0.01; }
+            if (d <= 0.5 && d > 0.1 && lastAlertDistance > 0.5) {
+                audio500.play().catch(e => {});
+                lastAlertDistance = 0.5;
+            } 
+            else if (d <= 0.1 && d > 0.01 && lastAlertDistance > 0.1) {
+                audio100.play().catch(e => {});
+                lastAlertDistance = 0.1;
+            } 
+            else if (d <= 0.01 && lastAlertDistance > 0.01) {
+                audio10.play().catch(e => {});
+                lastAlertDistance = 0.01;
+            }
             if (d > 1.0) lastAlertDistance = 999;
         }
 
+        window.onload = () => {
+            const savedState = localStorage.getItem('vibrateEnabled');
+            if (savedState !== null) {
+                document.getElementById('vibrateToggle').checked = savedState === 'true';
+            }
+        };
+
+        function saveVibrateState() {
+            const isEnabled = document.getElementById('vibrateToggle').checked;
+            localStorage.setItem('vibrateEnabled', isEnabled);
+        }
+
+        // --- GIỮ NGUYÊN LOGIC GPS GỐC + TẮT LOADING KHI CÓ GPS ---
         navigator.geolocation.watchPosition(pos => {
             const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            
+            // TẮT LOADING KHI LẦN ĐẦU NHẬN TỌA ĐỘ
             if (!isSystemLive) {
                 const ls = document.getElementById('loading-screen');
-                if (ls) { ls.style.opacity = '0'; setTimeout(() => ls.remove(), 1000); }
+                if (ls) {
+                    ls.style.opacity = '0';
+                    setTimeout(() => ls.remove(), 1000);
+                }
                 isSystemLive = true;
             }
+
             if (!lastPos || Math.abs(newPos.lat - lastPos.lat) > 0.0001 || Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
-                lastPos = newPos; userPos = newPos;
+                lastPos = newPos;
+                userPos = newPos;
                 document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
-                checkRadarStatus(); applyFilters();
+                checkRadarStatus();
+                applyFilters();
             }
         }, err => {
-            document.getElementById('loading-status').innerText = "GPS Error: Please enable location";
-            document.getElementById('loading-status').style.backgroundColor = "rgba(239, 68, 68, 0.5)";
+            // Hiển thị lỗi ngay trên màn hình loading nếu GPS tạch
+            const statusNode = document.getElementById('loading-status');
+            if(statusNode) {
+                statusNode.innerText = "GPS ERROR: PLEASE ENABLE LOCATION";
+                statusNode.style.backgroundColor = "rgba(239, 68, 68, 0.5)";
+            }
         }, { enableHighAccuracy: true });
+
+        // --- GIỮ NGUYÊN TOÀN BỘ CÁC HÀM CŨ ---
+        let radarInterval = null;
+        let currentIntervalTime = 0;
 
         function checkRadarStatus() {
             if (!userPos || fullData.length === 0) return;
-            let minDistance = 9999; let nearestWarning = null;
-            fullData.forEach(item => { if (item._AC) { const d = getEstimatedDist(item._AC); if (d < minDistance) { minDistance = d; nearestWarning = item._AB; } } });
-            if (nearestWarning && minDistance <= 1.0) {
-                document.getElementById('radar-box').classList.add('radar-blink');
-                triggerHeavyWarning("⚠️ CẢNH BÁO", nearestWarning + " (" + minDistance + "km)");
+            const radarIcon = document.getElementById('radar-box');
+            let minDistance = 9999;
+            let nearestWarning = null;
+            fullData.forEach(item => {
+                if (item._AC) {
+                    const d = getEstimatedDist(item._AC);
+                    if (d < minDistance) { minDistance = d; nearestWarning = item._AB; }
+                }
+            });
+            let intervalTime = 0;
+            if (minDistance <= 0.2) intervalTime = 1000;      
+            else if (minDistance <= 0.5) intervalTime = 1500; 
+            else if (minDistance <= 1.0) intervalTime = 3000; 
+            if (nearestWarning && intervalTime > 0) {
+                radarIcon.classList.add('radar-blink');
+                triggerHeavyWarning("⚠️ CẢNH BÁO GIAO THÔNG", nearestWarning + " (Cách bạn " + minDistance + "km)");
                 playSmartWarning(minDistance);
-            } else { document.getElementById('radar-box').classList.remove('radar-blink'); }
-        }
-
-        function triggerHeavyWarning(title, message) {
-            if (!document.getElementById('vibrateToggle').checked) return;
-            if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(reg => { reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title, body: message, silent: false } }); });
+                if (radarInterval && currentIntervalTime !== intervalTime) { clearInterval(radarInterval); radarInterval = null; }
+                if (!radarInterval) {
+                    currentIntervalTime = intervalTime;
+                    radarInterval = setInterval(() => {
+                        const isMasterOn = document.getElementById('vibrateToggle').checked;
+                        if (isMasterOn && "vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+                    }, intervalTime);
+                }
+            } else {
+                radarIcon.classList.remove('radar-blink');
+                if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
+                if ("vibrate" in navigator) navigator.vibrate(0);
             }
         }
 
+        function toggleWarningModal() {
+            const modal = document.getElementById('warning-modal');
+            if (modal.style.display === 'block') { modal.style.display = 'none'; } 
+            else { renderWarningList(); modal.style.display = 'block'; }
+        }
+
+        function renderWarningList() {
+            const container = document.getElementById('warning-list');
+            const warnings = fullData.filter(d => d._AB).map(item => {
+                return { ...item, currentDist: getEstimatedDist(item._AC) };
+            }).sort((a, b) => a.currentDist - b.currentDist); 
+            container.innerHTML = warnings.map(item => {
+                const isNear = item.currentDist <= 1.0;
+                return `
+                    <div class="warning-long-card ${isNear ? 'near-danger' : ''}">
+                        ${item._AA ? `<div class="warning-image-box"><img src="${item._AA}" alt="warning-ref"></div>` : ''}
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="${isNear ? 'bg-rose-500 text-white' : 'bg-rose-500/20 text-rose-500'} text-[10px] font-black px-3 py-1 rounded-full uppercase italic tracking-widest border border-rose-500/30">
+                                    ${isNear ? 'DANGER ZONE' : 'Traffic Alert'}
+                                </span>
+                                <span class="text-amber-500 font-mono text-xs font-bold italic underline">DIST: ${item.currentDist > 1000 ? '--' : item.currentDist} KM</span>
+                            </div>
+                            <p class="text-slate-200 text-sm font-semibold leading-relaxed italic">"${item._AB}"</p>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p class="text-center text-slate-500 py-10">No traffic intel available.</p>';
+        }
+
+        function getOpeningStatus(combinedTimeStr) {
+            if (!combinedTimeStr || combinedTimeStr.toLowerCase().includes('n/a')) return { status: 'Unknown', color: 'text-slate-500' };
+            const now = new Date();
+            const currentMins = now.getHours() * 60 + now.getMinutes();
+            const shifts = combinedTimeStr.split(/[,|]/).map(s => s.trim()).filter(s => s && s.includes(':'));
+            let finalStatus = { status: 'Closed', color: 'text-rose-500' };
+            for (let shift of shifts) {
+                const parts = shift.split('-').map(p => p.trim());
+                if (parts.length !== 2) continue;
+                const parseTime = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+                const startMins = parseTime(parts[0]);
+                const endMins = parseTime(parts[1]);
+                if (endMins < startMins) { if (currentMins >= startMins || currentMins <= endMins) return { status: 'Open Now', color: 'text-emerald-400' }; } 
+                else { if (currentMins >= startMins && currentMins <= endMins) { if (endMins - currentMins <= 60) return { status: 'Close in 1h', color: 'text-orange-500 animate-status' }; return { status: 'Open Now', color: 'text-emerald-400' }; } }
+                if (startMins > currentMins && startMins - currentMins <= 60) return { status: 'Open in 1h', color: 'text-amber-400 animate-status' };
+            }
+            return finalStatus;
+        }
+
+        function getEstimatedDist(target) {
+            if (!userPos || !target) return 9999;
+            const c = target.split(',').map(Number);
+            if (c.length < 2) return 9999;
+            const R = 6371;
+            const dLat = (c[0] - userPos.lat) * Math.PI / 180;
+            const dLon = (c[1] - userPos.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(userPos.lat * Math.PI / 180) * Math.cos(c[0] * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.4).toFixed(1);
+        }
+
         Papa.parse(CSV_URL, {
-            download: true, header: false, complete: (res) => {
-                const rows = res.data; const headerRow = rows[0];
+            download: true, header: false, 
+            complete: (res) => {
+                const rows = res.data;
+                const headerRow = rows[0];
                 fullData = rows.slice(1).map(row => {
                     let obj = {}; headerRow.forEach((h, i) => { if(h) obj[h] = row[i]; });
                     obj._AA = row[26]; obj._AB = row[27]; obj._AC = row[28]; return obj;
@@ -238,22 +460,15 @@
             }
         });
 
-        function getEstimatedDist(target) {
-            if (!userPos || !target) return 9999;
-            const c = target.split(',').map(Number); const R = 6371;
-            const dLat = (c[0] - userPos.lat) * Math.PI / 180; const dLon = (c[1] - userPos.lon) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(userPos.lat * Math.PI / 180) * Math.cos(c[0] * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.4).toFixed(1);
-        }
-
         function renderChips() {
             const container = document.getElementById('category-container');
-            container.innerHTML = CATEGORIES.map(c => `<div onclick="toggleCate('${c.id}')" id="chip-${c.id}" class="cate-chip px-5 py-2 rounded-2xl text-[10px] font-black uppercase border border-slate-800" style="background-color: ${c.color}15; color: ${c.color}">${c.id}</div>`).join('');
+            container.innerHTML = CATEGORIES.map(c => `<div onclick="toggleCate('${c.id}')" id="chip-${c.id}" class="cate-chip px-5 py-2 rounded-2xl text-[10px] font-black uppercase border border-slate-800" style="background-color: ${c.color}15; color: ${c.color}; border-color: ${c.color}25">${c.id}</div>`).join('');
         }
 
         function toggleCate(id) {
-            const chip = document.getElementById(`chip-${id}`); const cate = CATEGORIES.find(c => c.id === id);
-            if (selectedCates.has(id)) { selectedCates.delete(id); chip.classList.remove('active'); chip.style.backgroundColor = cate.color+'15'; chip.style.color = cate.color; }
+            const chip = document.getElementById(`chip-${id}`);
+            const cate = CATEGORIES.find(c => c.id === id);
+            if (selectedCates.has(id)) { selectedCates.delete(id); chip.classList.remove('active'); chip.style.backgroundColor = `${cate.color}15`; chip.style.color = cate.color; } 
             else { selectedCates.add(id); chip.classList.add('active'); chip.style.backgroundColor = cate.color; chip.style.color = cate.text; }
             applyFilters();
         }
@@ -265,37 +480,90 @@
                 if (!item.Tên) return false;
                 const txt = (item.Tên + ' ' + (item.Recommend || '')).toLowerCase();
                 const matchKV = !kv || item['Khu vực'] === kv;
-                const matchCate = selectedCates.size === 0 || Array.from(selectedCates).every(s => (item.Category || '').includes(s));
+                const cates = item.Category ? item.Category.split(',').map(c => c.trim()) : [];
+                const matchCate = selectedCates.size === 0 || Array.from(selectedCates).every(s => cates.includes(s));
                 return txt.includes(query) && matchKV && matchCate;
             });
             if (userPos) filtered.sort((a, b) => getEstimatedDist(a['Vị trí']) - getEstimatedDist(b['Vị trí']));
             renderGrid(filtered);
         }
 
+        window.selectCard = function(element) {
+            document.querySelectorAll('.card-travel').forEach(c => c.classList.remove('active'));
+            element.classList.add('active');
+        };
+
         function renderGrid(items) {
             const grid = document.getElementById('results-grid');
             grid.innerHTML = items.map((item, index) => {
                 const dist = getEstimatedDist(item['Vị trí']);
-                let recommendHtml = (item.Recommend || '').replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>').replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
-                return `<div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
-                    <div id="overlay-${index}" class="image-overlay"><img id="img-${index}" src="" alt="Preview"></div>
-                    <div>
-                        <div class="flex justify-between items-center mb-6">
-                            <span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">📍 ${dist} KM</span>
+                const keys = Object.keys(item);
+                const timeIdx = keys.findIndex(k => k.includes('Giờ mở cửa'));
+                const timeShifts = [];
+                if (timeIdx !== -1) {
+                    if (item[keys[timeIdx]] && item[keys[timeIdx]].includes(':')) timeShifts.push(item[keys[timeIdx]].trim());
+                    if (keys[timeIdx + 1] !== undefined && item[keys[timeIdx + 1]] && item[keys[timeIdx + 1]].includes(':')) timeShifts.push(item[keys[timeIdx + 1]].trim());
+                }
+                const combinedTimeStr = timeShifts.join(', ');
+                const status = getOpeningStatus(combinedTimeStr);
+                const diff = (item['Di chuyển'] || 'Dễ').trim();
+                let dotColor = diff.includes('Dễ') ? 'bg-emerald-400' : diff.includes('Trung') ? 'bg-amber-400' : 'bg-rose-400';
+                let recommendHtml = (item.Recommend || 'No specific data').replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>').replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
+                return `
+                    <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
+                        <div id="overlay-${index}" class="image-overlay"><img id="img-${index}" src="" alt="Preview"></div>
+                        <div>
+                            <div class="flex justify-between items-center mb-6">
+                                <span class="${status.color} text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]"></span>${status.status}</span>
+                                <div class="flex items-center gap-2 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20"><span class="w-2 h-2 rounded-full ${dotColor} shadow-[0_0_5px_currentColor]"></span><span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">📍 ${dist > 1500 ? '--' : dist} KM</span></div>
+                            </div>
+                            <div class="min-h-[64px] flex items-center mb-2"><h3 class="text-2xl font-extrabold text-white uppercase leading-tight group-hover:text-amber-400 transition-colors">${item.Tên}</h3></div>
+                            <div class="mb-6 flex justify-between items-start gap-4">
+                                <div class="space-y-1"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${item['Khu vực'] || ''}</p><p class="text-[9px] text-slate-500 font-medium uppercase tracking-wider italic line-clamp-1">${item.Category || ''}</p></div>
+                                <button id="btn-${index}" onclick="toggleImage(${index}, '${item.Image || ''}', event)" class="bg-amber-500/20 border border-amber-500/50 text-amber-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Image</button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mb-6">
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Open Time</p><p class="text-[9px] text-amber-500 font-bold uppercase tracking-tighter">${timeShifts[0] || 'N/A'}</p></div>
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Price</p><p class="text-[8px] text-amber-500 font-bold leading-tight uppercase whitespace-pre-line">${item['Giá/món'] || 'N/A'}</p></div>
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Ticket</p><p class="text-[9px] text-amber-500 font-bold leading-tight uppercase">${item['Vé'] || 'Free'}</p></div>
+                            </div>
+                            <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-amber-500 text-xs italic text-slate-300 leading-relaxed mb-4 min-h-[120px] max-h-[160px] flex flex-col recommend-scroll overflow-y-auto">
+                                <span class="text-amber-500 font-black not-italic text-[9px] uppercase block mb-2 tracking-widest">Recommend / Note:</span>
+                                <div class="recommend-text text-[11px] leading-relaxed">${recommendHtml}</div>
+                            </div>
+                            <div class="min-h-[55px] mt-auto">${item['Lưu ý đường vào'] ? `<div class="bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl flex gap-2 items-start text-rose-400"><span class="text-[10px]">⚠️</span><p class="text-[9px] font-bold italic leading-tight">${item['Lưu ý đường vào']}</p></div>` : ''}</div>
                         </div>
-                        <h3 class="text-2xl font-extrabold text-white uppercase mb-4">${item.Tên}</h3>
-                        <div class="bg-white/5 p-4 rounded-2xl text-xs italic text-slate-300 leading-relaxed recommend-text line-clamp-4">${recommendHtml}</div>
-                    </div>
-                    <a href="${item.Link}" target="_blank" class="mt-8 block w-full text-center bg-amber-600 hover:bg-amber-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Chỉ Đường</a>
-                </div>`;
+                        <a href="${item.Link}" target="_blank" class="mt-8 block w-full text-center bg-amber-600 hover:bg-amber-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-lg shadow-amber-900/20 transition-all flex items-center justify-center gap-2">Chỉ Đường</a>
+                    </div>`;
             }).join('');
         }
 
-        window.selectCard = function(element) { document.querySelectorAll('.card-travel').forEach(c => c.classList.remove('active')); element.classList.add('active'); };
-        function toggleWarningModal() { const m = document.getElementById('warning-modal'); m.style.display = (m.style.display === 'block') ? 'none' : 'block'; if(m.style.display === 'block') renderWarningList(); }
-        window.onload = () => { const s = localStorage.getItem('vibrateEnabled'); if (s !== null) document.getElementById('vibrateToggle').checked = s === 'true'; };
-        function saveVibrateState() { localStorage.setItem('vibrateEnabled', document.getElementById('vibrateToggle').checked); }
+        window.toggleImage = function(index, url, event) {
+            if (event) { event.stopPropagation(); event.preventDefault(); }
+            const overlay = document.getElementById(`overlay-${index}`);
+            const btn = document.getElementById(`btn-${index}`);
+            const img = document.getElementById(`img-${index}`);
+            if (!url || url.trim() === '') { alert("Chưa có ảnh ref!"); return; }
+            if (overlay.style.display === 'block') { overlay.style.display = 'none'; btn.innerText = 'Image'; btn.classList.replace('text-rose-500', 'text-amber-500'); } 
+            else { img.src = url; overlay.style.display = 'block'; btn.innerText = 'Close'; btn.classList.replace('text-amber-500', 'text-rose-500'); }
+        };
+
+        let wakeLock = null;
+        async function requestWakeLock() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
+        document.addEventListener('click', () => { if (!wakeLock) requestWakeLock(); }, { once: true });
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+        async function requestNotificationPermission() { if (Notification.permission !== 'granted') await Notification.requestPermission(); }
+        document.addEventListener('click', requestNotificationPermission, { once: true });
+
+        function triggerHeavyWarning(title, message) {
+            const isMasterOn = document.getElementById('vibrateToggle').checked;
+            if (!isMasterOn) return;
+            if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(function(reg) {
+                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title: title, body: message, silent: false } });
+                });
+            }
+        }
     </script>
 </body>
 </html>
