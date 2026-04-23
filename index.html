@@ -47,8 +47,8 @@
         .recommend-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
         
         .recommend-text { white-space: pre-line; }
-        /* Tối ưu in đậm màu xám cho Recommend */
-        .recommend-text b { color: #94a3b8; font-weight: 800; }
+        /* Tối ưu in đậm màu trắng cho Recommend như fen yêu cầu */
+        .recommend-text b, .recommend-text strong { color: #ffffff !important; font-weight: 800 !important; }
 
         .image-overlay {
             position: absolute;
@@ -275,7 +275,6 @@
                 if (!radarInterval) {
                     currentIntervalTime = intervalTime;
                     radarInterval = setInterval(() => {
-                        // Kiểm tra toggle trước khi rung thủ công ở app chính
                         const isVibrateOn = document.getElementById('vibrateToggle').checked;
                         if (isVibrateOn && "vibrate" in navigator) navigator.vibrate([200, 100, 200]);
                     }, intervalTime);
@@ -437,13 +436,18 @@
                 const diff = (item['Di chuyển'] || 'Dễ').trim();
                 let dotColor = diff.includes('Dễ') ? 'bg-emerald-400' : diff.includes('Trung') ? 'bg-amber-400' : 'bg-rose-400';
                 
+                // PARSE THẺ IN ĐẬM TỪ CSV
+                let recommendHtml = (item.Recommend || 'No specific data')
+                    .replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')
+                    .replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
+
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
                         <div id="overlay-${index}" class="image-overlay"><img id="img-${index}" src="" alt="Preview"></div>
                         <div>
                             <div class="flex justify-between items-center mb-6">
                                 <span class="${status.color} text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]"></span>${status.status}</span>
-                                <div class="flex items-center gap-2 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20"><span class="w-2 h-2 rounded-full ${dotColor} shadow-[0_0_5px_currentColor]"></span><span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">📍 ${dist > 1500 ? '-- KM' : dist + ' KM'}</span></div>
+                                <div class="flex items-center gap-2 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20"><span class="w-2 h-2 rounded-full ${dotColor} shadow-[0_0_5px_currentColor]"></span><span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">📍 ${dist > 1500 ? '--' : dist} KM</span></div>
                             </div>
                             <div class="min-h-[64px] flex items-center mb-2"><h3 class="text-2xl font-extrabold text-white uppercase leading-tight group-hover:text-amber-400 transition-colors">${item.Tên}</h3></div>
                             <div class="mb-6 flex justify-between items-start gap-4">
@@ -451,13 +455,13 @@
                                 <button id="btn-${index}" onclick="toggleImage(${index}, '${item.Image || ''}', event)" class="bg-amber-500/20 border border-amber-500/50 text-amber-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Image</button>
                             </div>
                             <div class="grid grid-cols-3 gap-2 mb-6">
-                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Open Time</p><p class="text-[9px] text-amber-500 font-bold leading-tight uppercase tracking-tighter">${timeShifts[0] || 'N/A'}</p></div>
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Open Time</p><p class="text-[9px] text-amber-500 font-bold uppercase tracking-tighter">${timeShifts[0] || 'N/A'}</p></div>
                                 <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Price</p><p class="text-[8px] text-amber-500 font-bold leading-tight uppercase whitespace-pre-line">${item['Giá/món'] || 'N/A'}</p></div>
                                 <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Ticket</p><p class="text-[9px] text-amber-500 font-bold leading-tight uppercase">${item['Vé'] || 'Free'}</p></div>
                             </div>
                             <div class="bg-white/5 p-4 rounded-2xl border-l-4 border-amber-500 text-xs italic text-slate-300 leading-relaxed mb-4 min-h-[120px] max-h-[160px] flex flex-col recommend-scroll overflow-y-auto">
                                 <span class="text-amber-500 font-black not-italic text-[9px] uppercase block mb-2 tracking-widest">Recommend / Note:</span>
-                                <div class="recommend-text text-[11px] leading-relaxed">${item.Recommend || 'No specific data'}</div>
+                                <div class="recommend-text text-[11px] leading-relaxed">${recommendHtml}</div>
                             </div>
                             <div class="min-h-[55px] mt-auto">${item['Lưu ý đường vào'] ? `<div class="bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl flex gap-2 items-start text-rose-400"><span class="text-[10px]">⚠️</span><p class="text-[9px] font-bold italic leading-tight">${item['Lưu ý đường vào']}</p></div>` : ''}</div>
                         </div>
@@ -471,13 +475,11 @@
             const overlay = document.getElementById(`overlay-${index}`);
             const btn = document.getElementById(`btn-${index}`);
             const img = document.getElementById(`img-${index}`);
-            if (!url || url.trim() === '') { alert("Chưa có ảnh ref cho chỗ này fen ơi!"); return; }
+            if (!url || url.trim() === '') { alert("Chưa có ảnh ref!"); return; }
             if (overlay.style.display === 'block') {
                 overlay.style.display = 'none'; btn.innerText = 'Image';
-                btn.classList.replace('text-rose-500', 'text-amber-500');
             } else {
                 img.src = url; overlay.style.display = 'block'; btn.innerText = 'Close';
-                btn.classList.replace('text-amber-500', 'text-rose-500');
             }
         };
 
@@ -495,7 +497,6 @@
         function triggerHeavyWarning(title, message) {
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
-                    // Lấy trạng thái vibrate từ toggle
                     const isVibrateOn = document.getElementById('vibrateToggle').checked;
                     reg.active.postMessage({
                         type: 'SHOW_NOTIFICATION',
