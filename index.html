@@ -12,9 +12,50 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; }
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
         
+        /* --- LOADING SCREEN ANIMATIONS --- */
+        #loading-screen { 
+            position: fixed; inset: 0; z-index: 10000; 
+            background: url('bg.png') no-repeat center center;
+            background-size: cover;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        @keyframes slide-scenery { from { background-position: 0 0; } to { background-position: -3000px 0; } }
+        .scenery-layer {
+            position: absolute; bottom: 160px; width: 100%; height: 350px;
+            background: url('scenery.png') repeat-x;
+            background-size: auto 100%;
+            animation: slide-scenery 30s linear infinite;
+            z-index: 2; opacity: 0.9;
+        }
+
+        @keyframes slide-road { from { background-position: 0 0; } to { background-position: -1000px 0; } }
+        .road-layer {
+            position: absolute; bottom: 0; width: 100%; height: 180px;
+            background: url('road.png') repeat-x;
+            background-size: auto 100%;
+            animation: slide-road 2s linear infinite;
+            z-index: 3;
+        }
+
+        @keyframes bike-ride { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(1deg); } }
+        .bike-layer {
+            position: absolute; bottom: 85px; left: 15%; width: 140px;
+            z-index: 4; animation: bike-ride 0.4s ease-in-out infinite;
+        }
+
+        @keyframes piano { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-10px); opacity: 1; } }
+        .char { display: inline-block; animation: piano 1.2s infinite; font-style: italic; }
+        .c1{animation-delay:0.1s} .c2{animation-delay:0.2s} .c3{animation-delay:0.3s}
+        .c4{animation-delay:0.4s} .c5{animation-delay:0.5s} .c6{animation-delay:0.6s}
+        .c7{animation-delay:0.7s} .c8{animation-delay:0.8s} .c9{animation-delay:0.9s}
+        /* ---------------------------------- */
+
         .stat-box {
             background: rgba(20, 20, 20, 0.8);
             border: 1px solid rgba(245, 158, 11, 0.3);
@@ -47,7 +88,6 @@
         .recommend-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
         
         .recommend-text { white-space: pre-line; }
-        /* Tối ưu in đậm màu trắng cho Recommend như fen yêu cầu */
         .recommend-text b, .recommend-text strong { color: #ffffff !important; font-weight: 800 !important; }
 
         .image-overlay {
@@ -120,7 +160,6 @@
         .warning-image-box { width: 100%; height: 200px; background: #000; border-bottom: 1px solid rgba(239, 68, 68, 0.1); }
         .warning-image-box img { width: 100%; height: 100%; object-fit: contain; }
 
-        /* Style cho nút trượt Toggle */
         .toggle-switch { position: relative; width: 44px; height: 22px; cursor: pointer; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .toggle-slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ef4444; transition: .4s; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.2); }
@@ -130,6 +169,25 @@
     </style>
 </head>
 <body class="p-4 md:p-10">
+
+    <div id="loading-screen">
+        <div class="absolute top-20 w-full text-center z-10">
+            <img src="logo.png" class="w-48 mx-auto mb-4 drop-shadow-2xl" alt="Logo">
+        </div>
+
+        <div class="scenery-layer"></div>
+        <div class="road-layer"></div>
+        <img src="bike.png" class="bike-layer" alt="Bike">
+
+        <div class="absolute bottom-28 w-full text-center z-10">
+            <div class="text-white font-black text-4xl tracking-widest uppercase italic">
+                <span class="char c1">L</span><span class="char c2">o</span><span class="char c3">a</span><span class="char c4">d</span><span class="char c5">i</span><span class="char c6">n</span><span class="char c7">g</span><span class="char c8">.</span><span class="char c9">.</span>
+            </div>
+            <p id="loading-status" class="text-[#020617] font-bold text-[10px] mt-6 uppercase tracking-[0.4em] bg-white/30 px-6 py-2 rounded-full inline-block backdrop-blur-sm">
+                Searching for GPS Satellites...
+            </p>
+        </div>
+    </div>
 
     <div id="warning-radar" onclick="toggleWarningModal()">
         <div id="radar-box" class="radar-box">
@@ -166,7 +224,7 @@
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                 </div>
-                <span id="gps-coords" class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">System Ready</span>
+                <span id="gps-coords" class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">Searching...</span>
             </div>
         </header>
 
@@ -213,14 +271,14 @@
         let userPos = null;
         let selectedCates = new Set();
         let lastPos = null;
+        let isSystemLive = false;
 
         // --- HỆ THỐNG ÂM THANH THÔNG MINH ---
         const audio500 = new Audio('500m.mp3');
         const audio100 = new Audio('100m.mp3');
         const audio10 = new Audio('10m.mp3');
-        let lastAlertDistance = 999; // Ghi nhớ mốc để chống lặp
+        let lastAlertDistance = 999;
 
-        // Mở khóa âm thanh (Bắt buộc cho trình duyệt di động)
         function unlockAudio() {
             [audio500, audio100, audio10].forEach(a => {
                 a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(()=>{});
@@ -232,28 +290,22 @@
         function playSmartWarning(dist) {
             const isMasterOn = document.getElementById('vibrateToggle').checked;
             if (!isMasterOn) return;
-
             const d = parseFloat(dist);
-            // Mốc 500m (0.5km)
             if (d <= 0.5 && d > 0.1 && lastAlertDistance > 0.5) {
                 audio500.play().catch(e => {});
                 lastAlertDistance = 0.5;
             } 
-            // Mốc 100m (0.1km)
             else if (d <= 0.1 && d > 0.01 && lastAlertDistance > 0.1) {
                 audio100.play().catch(e => {});
                 lastAlertDistance = 0.1;
             } 
-            // Mốc 10m (0.01km)
             else if (d <= 0.01 && lastAlertDistance > 0.01) {
                 audio10.play().catch(e => {});
                 lastAlertDistance = 0.01;
             }
-            // Reset mốc khi đi xa hẳn (> 1km)
             if (d > 1.0) lastAlertDistance = 999;
         }
 
-        // Khôi phục trạng thái từ LocalStorage
         window.onload = () => {
             const savedState = localStorage.getItem('vibrateEnabled');
             if (savedState !== null) {
@@ -268,6 +320,17 @@
 
         navigator.geolocation.watchPosition(pos => {
             const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            
+            // LOGIC TẮT LOADING KHI CÓ TỌA ĐỘ
+            if (!isSystemLive) {
+                const ls = document.getElementById('loading-screen');
+                if (ls) {
+                    ls.style.opacity = '0';
+                    setTimeout(() => ls.remove(), 1000);
+                }
+                isSystemLive = true;
+            }
+
             if (!lastPos || Math.abs(newPos.lat - lastPos.lat) > 0.0001 || Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
                 lastPos = newPos;
                 userPos = newPos;
@@ -275,7 +338,10 @@
                 checkRadarStatus();
                 applyFilters();
             }
-        }, null, { enableHighAccuracy: true });
+        }, err => {
+            document.getElementById('loading-status').innerText = "GPS Error: Please enable location";
+            document.getElementById('loading-status').style.backgroundColor = "rgba(239, 68, 68, 0.5)";
+        }, { enableHighAccuracy: true });
 
         let radarInterval = null;
         let currentIntervalTime = 0;
@@ -283,7 +349,6 @@
         function checkRadarStatus() {
             if (!userPos || fullData.length === 0) return;
             const radarIcon = document.getElementById('radar-box');
-            
             let minDistance = 9999;
             let nearestWarning = null;
 
@@ -304,8 +369,6 @@
 
             if (nearestWarning && intervalTime > 0) {
                 radarIcon.classList.add('radar-blink');
-                
-                // Gửi lệnh thông báo & âm thanh
                 triggerHeavyWarning("⚠️ CẢNH BÁO GIAO THÔNG", nearestWarning + " (Cách bạn " + minDistance + "km)");
                 playSmartWarning(minDistance);
 
@@ -406,8 +469,7 @@
         }
 
         Papa.parse(CSV_URL, {
-            download: true, 
-            header: false, 
+            download: true, header: false, 
             complete: (res) => {
                 const rows = res.data;
                 const headerRow = rows[0];
@@ -477,10 +539,7 @@
                 const status = getOpeningStatus(combinedTimeStr);
                 const diff = (item['Di chuyển'] || 'Dễ').trim();
                 let dotColor = diff.includes('Dễ') ? 'bg-emerald-400' : diff.includes('Trung') ? 'bg-amber-400' : 'bg-rose-400';
-                
-                let recommendHtml = (item.Recommend || 'No specific data')
-                    .replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')
-                    .replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
+                let recommendHtml = (item.Recommend || 'No specific data').replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>').replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
 
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
@@ -529,18 +588,13 @@
         let wakeLock = null;
         async function requestWakeLock() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
         document.addEventListener('click', () => { if (!wakeLock) requestWakeLock(); }, { once: true });
-
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-
-        async function requestNotificationPermission() {
-            if (Notification.permission !== 'granted') await Notification.requestPermission();
-        }
+        async function requestNotificationPermission() { if (Notification.permission !== 'granted') await Notification.requestPermission(); }
         document.addEventListener('click', requestNotificationPermission, { once: true });
 
         function triggerHeavyWarning(title, message) {
             const isMasterOn = document.getElementById('vibrateToggle').checked;
             if (!isMasterOn) return;
-
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
                     reg.active.postMessage({
