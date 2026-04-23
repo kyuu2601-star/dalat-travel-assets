@@ -47,7 +47,7 @@
         .recommend-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
         
         .recommend-text { white-space: pre-line; }
-        /* In đậm màu trắng cho text trong thẻ b */
+        /* Tối ưu in đậm màu trắng cho Recommend */
         .recommend-text b, .recommend-text strong { color: #ffffff !important; font-weight: 800 !important; }
 
         .image-overlay {
@@ -143,7 +143,7 @@
                 <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Traffic <span class="text-rose-500">Warnings</span></h2>
                 
                 <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
-                    <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Noti</span>
+                    <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Alert</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="vibrateToggle" checked onchange="saveVibrateState()">
                         <span class="toggle-slider"></span>
@@ -266,7 +266,7 @@
             if (nearestWarning && intervalTime > 0) {
                 radarIcon.classList.add('radar-blink');
                 
-                // Hàm triggerHeavyWarning đã có logic chặn ở dưới, nên cứ gọi bình thường
+                // Gửi lệnh cảnh báo (hàm này sẽ tự kiểm tra Switch để nổ hay chặn)
                 triggerHeavyWarning("⚠️ CẢNH BÁO GIAO THÔNG", nearestWarning + " (Cách bạn " + minDistance + "km)");
 
                 if (radarInterval && currentIntervalTime !== intervalTime) {
@@ -500,9 +500,14 @@
         document.addEventListener('click', requestNotificationPermission, { once: true });
 
         function triggerHeavyWarning(title, message) {
-            // NẾU MASTER ALERT TẮT -> CHẶN LUÔN KHÔNG GỬI THÔNG BÁO ĐẨY SANG SERVICE WORKER
+            // KIỂM TRA NÚT GẠT MASTER SWITCH TRƯỚC KHI GỬI LỆNH
             const isMasterOn = document.getElementById('vibrateToggle').checked;
-            if (!isMasterOn) return;
+            
+            // Nếu nút đang OFF thì chặn hoàn toàn (không thông báo, không rung)
+            if (!isMasterOn) {
+                console.log("Master Alert đang OFF: Chặn thông báo.");
+                return;
+            }
 
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
