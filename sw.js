@@ -12,9 +12,9 @@ self.addEventListener('message', (event) => {
             renotify: true
         };
 
-        // Nếu người dùng tắt rung (silent: true), thì không bỏ vibrate vào options
+        // Khi lệnh được gửi sang đây (tức là nút Notify đang BẬT), ta cho rung mạnh
         if (!data.silent) {
-            options.vibrate = [500, 200, 500];
+            options.vibrate = [500, 110, 500, 110, 450, 110];
         }
 
         self.registration.showNotification(data.title, options);
