@@ -123,7 +123,7 @@
 </head>
 <body class="p-4 md:p-10">
 
-    <div id="warning-radar" onclick="toggleWarningModal()">
+    <div id="warning-radar">
         <div id="radar-box" class="radar-box">
             <span>!</span>
         </div>
@@ -342,7 +342,6 @@
             return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.4).toFixed(1);
         }
 
-        // 4. Data Processing - FIXED MAPPING FOR AA, AB, AC
         Papa.parse(CSV_URL, {
             download: true, 
             header: false, 
@@ -531,6 +530,39 @@
                 });
             }
         }
+
+        // --- BỘ HÀM TEST GIẢ LẬP DI CHUYỂN (CHỈ DÙNG ĐỂ TEST) ---
+        function startFakeMovementTest() {
+            let fakeDist = 1.0; // Bắt đầu từ 1km
+            console.log("Bắt đầu test di chuyển ảo...");
+            
+            const testInterval = setInterval(() => {
+                if (fakeDist <= 0) {
+                    triggerHeavyWarning("🏁 TEST HOÀN TẤT", "Bạn đã cán đích điểm đen ảo.");
+                    clearInterval(testInterval);
+                    return;
+                }
+
+                // Bắn thông báo giả lập
+                triggerHeavyWarning("⚠️ TEST RADAR GẦN", `Khoảng cách ảo: ${fakeDist.toFixed(2)} km`);
+                console.log(`Đang giả lập khoảng cách: ${fakeDist.toFixed(2)} km`);
+
+                // Giảm dần khoảng cách để test nhịp rung
+                fakeDist -= 0.1; 
+            }, 4000); 
+        }
+
+        // Kích hoạt: Bấm vào cái Radar Box (dấu chấm than) để bắt đầu chuỗi thông báo test
+        document.getElementById('radar-box').onclick = function(e) {
+            e.stopPropagation();
+            // Nếu modal đang mở thì cho nút này làm việc khác (mở modal cảnh báo)
+            // Nhưng ở đây mình mượn nó để kích hoạt test
+            if (confirm("Bắt đầu giả lập di chuyển trong 40 giây? (Hãy tắt màn hình ngay sau khi bấm OK)")) {
+                startFakeMovementTest();
+            } else {
+                toggleWarningModal();
+            }
+        };
     </script>
 </body>
 </html>
