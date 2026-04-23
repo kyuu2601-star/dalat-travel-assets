@@ -240,7 +240,7 @@
             if (nearestWarning && intervalTime > 0) {
                 radarIcon.classList.add('radar-blink');
                 
-                // BẮN THÔNG BÁO KHI VÀO VÙNG NGUY HIỂM (ĐỂ RUNG KHI TẮT MÀN HÌNH)
+                // BẮN THÔNG BÁO QUA SERVICE WORKER (ĐỂ RUNG KHI TẮT MÀN HÌNH)
                 triggerHeavyWarning("⚠️ CẢNH BÁO GIAO THÔNG", nearestWarning + " (Cách bạn " + minDistance + "km)");
 
                 if (radarInterval && currentIntervalTime !== intervalTime) {
@@ -277,12 +277,13 @@
         function renderWarningList() {
             const container = document.getElementById('warning-list');
             
+            // Lấy danh sách warning, tính khoảng cách và sắp xếp
             const warnings = fullData
                 .filter(d => d._AB)
                 .map(item => {
                     return { ...item, currentDist: getEstimatedDist(item._AC) };
                 })
-                .sort((a, b) => a.currentDist - b.currentDist); 
+                .sort((a, b) => a.currentDist - b.currentDist); // Đẩy gần nhất lên đầu
 
             container.innerHTML = warnings.map(item => {
                 const isNear = item.currentDist <= 1.0;
@@ -303,6 +304,7 @@
             }).join('') || '<p class="text-center text-slate-500 py-10">No traffic intel available.</p>';
         }
 
+        // 2. Opening Status Logic
         function getOpeningStatus(combinedTimeStr) {
             if (!combinedTimeStr || combinedTimeStr.toLowerCase().includes('n/a')) return { status: 'Unknown', color: 'text-slate-500' };
             const now = new Date();
@@ -328,6 +330,7 @@
             return finalStatus;
         }
 
+        // 3. Distance Factor k=1.4
         function getEstimatedDist(target) {
             if (!userPos || !target) return 9999;
             const c = target.split(',').map(Number);
@@ -339,6 +342,7 @@
             return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.4).toFixed(1);
         }
 
+        // 4. Data Processing - FIXED MAPPING FOR AA, AB, AC
         Papa.parse(CSV_URL, {
             download: true, 
             header: false, 
@@ -501,22 +505,28 @@
         document.addEventListener('click', () => { if (!wakeLock) requestWakeLock(); }, { once: true });
         document.addEventListener('visibilitychange', async () => { if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock(); });
 
-        // --- CODE CHẠY NGẦM: SERVICE WORKER & NOTIFICATIONS ---
+        // --- UPDATE CODE CHẠY NGẦM: SERVICE WORKER & NOTIFICATIONS ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(function(reg) {
                 console.log('Service Worker Active');
-                // Xin quyền thông báo ngay khi app mở
-                Notification.requestPermission();
             });
         }
 
+        // Hàm xin quyền thông báo khi fen chạm vào màn hình lần đầu
+        async function requestNotificationPermission() {
+            if (Notification.permission !== 'granted') {
+                await Notification.requestPermission();
+            }
+        }
+        document.addEventListener('click', requestNotificationPermission, { once: true });
+
         function triggerHeavyWarning(title, message) {
-            if (Notification.permission === 'granted') {
-                navigator.serviceWorker.ready.then(function(registration) {
-                    registration.showNotification(title, {
-                        body: message,
-                        vibrate: [500, 200, 500],
-                        tag: 'traffic-warning' // Giữ 1 thông báo duy nhất để không gây phiền
+            if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(function(reg) {
+                    // Gửi lệnh sang Service Worker để bắn thông báo hệ thống
+                    reg.active.postMessage({
+                        type: 'SHOW_NOTIFICATION',
+                        payload: { title: title, body: message }
                     });
                 });
             }
