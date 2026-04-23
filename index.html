@@ -23,15 +23,15 @@
             display: flex; flex-direction: column; align-items: center; justify-content: space-between;
             transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
-            padding: 60px 0 60px 0; /* Padding để neo Top và Bottom */
+            padding: 60px 0 40px 0; /* Padding Bottom 40px để neo chữ Loading sát cạnh dưới */
         }
 
         @keyframes slide-scenery { from { background-position: 0 0; } to { background-position: -3000px 0; } }
         .scenery-layer {
-            position: absolute; bottom: 120px; width: 100%; height: 120px; /* Thu nhỏ size scenery để không bị bể */
+            position: absolute; bottom: 120px; width: 100%; height: 150px; /* Tăng lên 150px và neo sát mép lề tại 120px */
             background: url('scenery.png') repeat-x;
             background-size: auto 100%;
-            animation: slide-scenery 15s linear infinite; /* Chạy nhanh hơn (30s -> 15s) */
+            animation: slide-scenery 15s linear infinite;
             z-index: 2; opacity: 0.9;
         }
 
@@ -56,7 +56,7 @@
         .c4{animation-delay:0.4s} .c5{animation-delay:0.5s} .c6{animation-delay:0.6s}
         .c7{animation-delay:0.7s} .c8{animation-delay:0.8s} .c9{animation-delay:0.9s}
 
-        /* --- CÁC STYLE KHÁC GIỮ NGUYÊN --- */
+        /* --- IN-APP STYLES --- */
         .stat-box { background: rgba(20, 20, 20, 0.8); border: 1px solid rgba(245, 158, 11, 0.3); box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1); transition: all 0.3s ease; }
         .stat-box:hover { border-color: rgba(245, 158, 11, 0.6); box-shadow: 0 0 15px rgba(245, 158, 11, 0.2); }
         .card-travel { background: rgba(30, 41, 59, 0.3); border: 1px solid rgba(255, 255, 255, 0.03); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; cursor: pointer; }
@@ -165,7 +165,6 @@
                 </div>
             </div>
         </section>
-
         <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 italic text-slate-200"></div>
     </div>
 
@@ -175,7 +174,6 @@
 
         let fullData = []; let userPos = null; let selectedCates = new Set(); let lastPos = null; let isSystemLive = false;
 
-        // --- ÂM THANH ---
         const audio500 = new Audio('500m.mp3'); const audio100 = new Audio('100m.mp3'); const audio10 = new Audio('10m.mp3');
         let lastAlertDistance = 999;
 
@@ -194,17 +192,13 @@
             if (d > 1.0) lastAlertDistance = 999;
         }
 
-        // --- GPS WATCHER ---
         navigator.geolocation.watchPosition(pos => {
             const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-            
-            // TẮT LOADING KHI CÓ TỌA ĐỘ
             if (!isSystemLive) {
                 const ls = document.getElementById('loading-screen');
                 if (ls) { ls.style.opacity = '0'; setTimeout(() => ls.remove(), 1000); }
                 isSystemLive = true;
             }
-
             if (!lastPos || Math.abs(newPos.lat - lastPos.lat) > 0.0001 || Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
                 lastPos = newPos; userPos = newPos;
                 document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
@@ -215,7 +209,6 @@
             document.getElementById('loading-status').style.backgroundColor = "rgba(239, 68, 68, 0.5)";
         }, { enableHighAccuracy: true });
 
-        // --- RADAR & FILTER LOGIC ---
         function checkRadarStatus() {
             if (!userPos || fullData.length === 0) return;
             let minDistance = 9999; let nearestWarning = null;
