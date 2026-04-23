@@ -47,7 +47,7 @@
         .recommend-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
         
         .recommend-text { white-space: pre-line; }
-        /* Tối ưu in đậm màu trắng cho Recommend như fen yêu cầu */
+        /* In đậm màu trắng cho text trong thẻ b */
         .recommend-text b, .recommend-text strong { color: #ffffff !important; font-weight: 800 !important; }
 
         .image-overlay {
@@ -143,7 +143,7 @@
                 <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Traffic <span class="text-rose-500">Warnings</span></h2>
                 
                 <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
-                    <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Vibrate</span>
+                    <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Noti</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="vibrateToggle" checked onchange="saveVibrateState()">
                         <span class="toggle-slider"></span>
@@ -214,7 +214,7 @@
         let selectedCates = new Set();
         let lastPos = null;
 
-        // Khôi phục trạng thái rung từ cache
+        // Khôi phục trạng thái từ LocalStorage
         window.onload = () => {
             const savedState = localStorage.getItem('vibrateEnabled');
             if (savedState !== null) {
@@ -265,6 +265,8 @@
 
             if (nearestWarning && intervalTime > 0) {
                 radarIcon.classList.add('radar-blink');
+                
+                // Hàm triggerHeavyWarning đã có logic chặn ở dưới, nên cứ gọi bình thường
                 triggerHeavyWarning("⚠️ CẢNH BÁO GIAO THÔNG", nearestWarning + " (Cách bạn " + minDistance + "km)");
 
                 if (radarInterval && currentIntervalTime !== intervalTime) {
@@ -275,8 +277,9 @@
                 if (!radarInterval) {
                     currentIntervalTime = intervalTime;
                     radarInterval = setInterval(() => {
-                        const isVibrateOn = document.getElementById('vibrateToggle').checked;
-                        if (isVibrateOn && "vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+                        // Kiểm tra Master Switch trước khi Rung thủ công ở app chính
+                        const isMasterOn = document.getElementById('vibrateToggle').checked;
+                        if (isMasterOn && "vibrate" in navigator) navigator.vibrate([200, 100, 200]);
                     }, intervalTime);
                 }
             } else {
@@ -455,7 +458,7 @@
                                 <button id="btn-${index}" onclick="toggleImage(${index}, '${item.Image || ''}', event)" class="bg-amber-500/20 border border-amber-500/50 text-amber-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Image</button>
                             </div>
                             <div class="grid grid-cols-3 gap-2 mb-6">
-                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Open Time</p><p class="text-[9px] text-amber-500 font-bold uppercase tracking-tighter">${timeShifts[0] || 'N/A'}</p></div>
+                                <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Open Time</p><p class="text-[9px] text-amber-500 font-bold leading-tight uppercase tracking-tighter">${timeShifts[0] || 'N/A'}</p></div>
                                 <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Price</p><p class="text-[8px] text-amber-500 font-bold leading-tight uppercase whitespace-pre-line">${item['Giá/món'] || 'N/A'}</p></div>
                                 <div class="stat-box rounded-xl p-2 text-center flex flex-col justify-center min-h-[60px] w-full px-1"><p class="text-[7px] text-slate-500 font-black uppercase mb-1">Ticket</p><p class="text-[9px] text-amber-500 font-bold leading-tight uppercase">${item['Vé'] || 'Free'}</p></div>
                             </div>
@@ -478,8 +481,10 @@
             if (!url || url.trim() === '') { alert("Chưa có ảnh ref!"); return; }
             if (overlay.style.display === 'block') {
                 overlay.style.display = 'none'; btn.innerText = 'Image';
+                btn.classList.replace('text-rose-500', 'text-amber-500');
             } else {
                 img.src = url; overlay.style.display = 'block'; btn.innerText = 'Close';
+                btn.classList.replace('text-amber-500', 'text-rose-500');
             }
         };
 
@@ -495,12 +500,15 @@
         document.addEventListener('click', requestNotificationPermission, { once: true });
 
         function triggerHeavyWarning(title, message) {
+            // NẾU MASTER ALERT TẮT -> CHẶN LUÔN KHÔNG GỬI THÔNG BÁO ĐẨY SANG SERVICE WORKER
+            const isMasterOn = document.getElementById('vibrateToggle').checked;
+            if (!isMasterOn) return;
+
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
-                    const isVibrateOn = document.getElementById('vibrateToggle').checked;
                     reg.active.postMessage({
                         type: 'SHOW_NOTIFICATION',
-                        payload: { title: title, body: message, silent: !isVibrateOn }
+                        payload: { title: title, body: message, silent: false }
                     });
                 });
             }
