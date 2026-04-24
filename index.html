@@ -272,7 +272,7 @@
         let userPos = null;
         let selectedCates = new Set();
         let lastPos = null;
-        let isSystemLive = false;
+        let isSystemLive = false; 
 
         // --- HỆ THỐNG ÂM THANH THÔNG MINH ---
         const audio500 = new Audio('500m.mp3');
@@ -317,6 +317,40 @@
             if (d > 1.0) lastAlertDistance = 999;
         }
 
+        // --- HỆ THỐNG SIMULATOR (AUTO-TRIGGER MODE) ---
+        function runAutoSimulator() {
+            console.log("SIMULATOR: Khởi động chế độ giả lập...");
+            let targetPoint = fullData.find(item => item._AC);
+            if (!targetPoint) return;
+            
+            const coords = targetPoint._AC.split(',').map(Number);
+            const targetLat = coords[0];
+            const targetLon = coords[1];
+
+            let simLat = targetLat + 0.01; 
+            let simLon = targetLon;
+
+            // Tắt màn hình loading để thấy simulator
+            isSystemLive = true;
+            const ls = document.getElementById('loading-screen');
+            if (ls) { ls.style.opacity = '0'; setTimeout(() => ls.remove(), 1000); }
+
+            const simInterval = setInterval(() => {
+                simLat -= 0.0005;
+                userPos = { lat: simLat, lon: simLon };
+                document.getElementById('gps-coords').innerText = `SIM: ${simLat.toFixed(4)}, ${simLon.toFixed(4)}`;
+                
+                checkRadarStatus();
+                applyFilters();
+
+                const d = getEstimatedDist(targetPoint._AC);
+                if (d <= 0.005) {
+                    clearInterval(simInterval);
+                    document.getElementById('gps-coords').innerText = "SIM FINISHED";
+                }
+            }, 1000); 
+        }
+
         window.onload = () => {
             const savedState = localStorage.getItem('vibrateEnabled');
             if (savedState !== null) {
@@ -331,19 +365,13 @@
 
         navigator.geolocation.watchPosition(pos => {
             const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-            
             if (!isSystemLive) {
                 const ls = document.getElementById('loading-screen');
-                if (ls) {
-                    ls.style.opacity = '0';
-                    setTimeout(() => ls.remove(), 1000);
-                }
+                if (ls) { ls.style.opacity = '0'; setTimeout(() => ls.remove(), 1000); }
                 isSystemLive = true;
             }
-
             if (!lastPos || Math.abs(newPos.lat - lastPos.lat) > 0.0001 || Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
-                lastPos = newPos;
-                userPos = newPos;
+                lastPos = newPos; userPos = newPos;
                 document.getElementById('gps-coords').innerText = `${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}`;
                 checkRadarStatus();
                 applyFilters();
@@ -494,6 +522,8 @@
                 }).filter(d => d.Tên || d._AB);
                 renderChips();
                 applyFilters();
+                // TỰ KÍCH HOẠT SIMULATOR SAU 2S LOAD DATA
+                setTimeout(runAutoSimulator, 2000);
             }
         });
 
@@ -610,7 +640,7 @@
             if (!isMasterOn) return;
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
-                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title, body: message, silent: false, sound: soundFile } });
+                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title: title, body: message, silent: false, sound: soundFile } });
                 });
             }
         }
