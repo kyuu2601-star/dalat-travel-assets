@@ -272,9 +272,9 @@
         let userPos = null;
         let selectedCates = new Set();
         let lastPos = null;
-        let isSystemLive = false; // Logic loading screen
+        let isSystemLive = false;
 
-        // --- GIỮ NGUYÊN HỆ THỐNG ÂM THANH GỐC ---
+        // --- HỆ THỐNG ÂM THANH THÔNG MINH ---
         const audio500 = new Audio('500m.mp3');
         const audio100 = new Audio('100m.mp3');
         const audio10 = new Audio('10m.mp3');
@@ -291,19 +291,29 @@
         function playSmartWarning(dist) {
             const isMasterOn = document.getElementById('vibrateToggle').checked;
             if (!isMasterOn) return;
+
             const d = parseFloat(dist);
+            let audioToPlay = null;
+
             if (d <= 0.5 && d > 0.1 && lastAlertDistance > 0.5) {
-                audio500.play().catch(e => {});
+                audioToPlay = '500m.mp3';
                 lastAlertDistance = 0.5;
             } 
             else if (d <= 0.1 && d > 0.01 && lastAlertDistance > 0.1) {
-                audio100.play().catch(e => {});
+                audioToPlay = '100m.mp3';
                 lastAlertDistance = 0.1;
             } 
             else if (d <= 0.01 && lastAlertDistance > 0.01) {
-                audio10.play().catch(e => {});
+                audioToPlay = '10m.mp3';
                 lastAlertDistance = 0.01;
             }
+            
+            if (audioToPlay) {
+                new Audio(audioToPlay).play().catch(() => {
+                    triggerHeavyWarning("CẢNH BÁO KHOẢNG CÁCH", `Còn ${dist}km nữa tới điểm đen!`, audioToPlay);
+                });
+            }
+
             if (d > 1.0) lastAlertDistance = 999;
         }
 
@@ -319,11 +329,9 @@
             localStorage.setItem('vibrateEnabled', isEnabled);
         }
 
-        // --- GIỮ NGUYÊN LOGIC GPS GỐC + TẮT LOADING KHI CÓ GPS ---
         navigator.geolocation.watchPosition(pos => {
             const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
             
-            // TẮT LOADING KHI LẦN ĐẦU NHẬN TỌA ĐỘ
             if (!isSystemLive) {
                 const ls = document.getElementById('loading-screen');
                 if (ls) {
@@ -341,7 +349,6 @@
                 applyFilters();
             }
         }, err => {
-            // Hiển thị lỗi ngay trên màn hình loading nếu GPS tạch
             const statusNode = document.getElementById('loading-status');
             if(statusNode) {
                 statusNode.innerText = "GPS ERROR: PLEASE ENABLE LOCATION";
@@ -349,7 +356,6 @@
             }
         }, { enableHighAccuracy: true });
 
-        // --- GIỮ NGUYÊN TOÀN BỘ CÁC HÀM CŨ ---
         let radarInterval = null;
         let currentIntervalTime = 0;
 
@@ -358,21 +364,32 @@
             const radarIcon = document.getElementById('radar-box');
             let minDistance = 9999;
             let nearestWarning = null;
+
             fullData.forEach(item => {
                 if (item._AC) {
                     const d = getEstimatedDist(item._AC);
-                    if (d < minDistance) { minDistance = d; nearestWarning = item._AB; }
+                    if (d < minDistance) {
+                        minDistance = d;
+                        nearestWarning = item._AB;
+                    }
                 }
             });
+
             let intervalTime = 0;
             if (minDistance <= 0.2) intervalTime = 1000;      
             else if (minDistance <= 0.5) intervalTime = 1500; 
             else if (minDistance <= 1.0) intervalTime = 3000; 
+
             if (nearestWarning && intervalTime > 0) {
                 radarIcon.classList.add('radar-blink');
                 triggerHeavyWarning("⚠️ CẢNH BÁO GIAO THÔNG", nearestWarning + " (Cách bạn " + minDistance + "km)");
                 playSmartWarning(minDistance);
-                if (radarInterval && currentIntervalTime !== intervalTime) { clearInterval(radarInterval); radarInterval = null; }
+
+                if (radarInterval && currentIntervalTime !== intervalTime) {
+                    clearInterval(radarInterval);
+                    radarInterval = null;
+                }
+
                 if (!radarInterval) {
                     currentIntervalTime = intervalTime;
                     radarInterval = setInterval(() => {
@@ -382,22 +399,33 @@
                 }
             } else {
                 radarIcon.classList.remove('radar-blink');
-                if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
+                if (radarInterval) {
+                    clearInterval(radarInterval);
+                    radarInterval = null;
+                }
                 if ("vibrate" in navigator) navigator.vibrate(0);
             }
         }
 
         function toggleWarningModal() {
             const modal = document.getElementById('warning-modal');
-            if (modal.style.display === 'block') { modal.style.display = 'none'; } 
-            else { renderWarningList(); modal.style.display = 'block'; }
+            if (modal.style.display === 'block') {
+                modal.style.display = 'none';
+            } else {
+                renderWarningList();
+                modal.style.display = 'block';
+            }
         }
 
         function renderWarningList() {
             const container = document.getElementById('warning-list');
-            const warnings = fullData.filter(d => d._AB).map(item => {
-                return { ...item, currentDist: getEstimatedDist(item._AC) };
-            }).sort((a, b) => a.currentDist - b.currentDist); 
+            const warnings = fullData
+                .filter(d => d._AB)
+                .map(item => {
+                    return { ...item, currentDist: getEstimatedDist(item._AC) };
+                })
+                .sort((a, b) => a.currentDist - b.currentDist); 
+
             container.innerHTML = warnings.map(item => {
                 const isNear = item.currentDist <= 1.0;
                 return `
@@ -429,8 +457,14 @@
                 const parseTime = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
                 const startMins = parseTime(parts[0]);
                 const endMins = parseTime(parts[1]);
-                if (endMins < startMins) { if (currentMins >= startMins || currentMins <= endMins) return { status: 'Open Now', color: 'text-emerald-400' }; } 
-                else { if (currentMins >= startMins && currentMins <= endMins) { if (endMins - currentMins <= 60) return { status: 'Close in 1h', color: 'text-orange-500 animate-status' }; return { status: 'Open Now', color: 'text-emerald-400' }; } }
+                if (endMins < startMins) {
+                    if (currentMins >= startMins || currentMins <= endMins) return { status: 'Open Now', color: 'text-emerald-400' };
+                } else {
+                    if (currentMins >= startMins && currentMins <= endMins) {
+                        if (endMins - currentMins <= 60) return { status: 'Close in 1h', color: 'text-orange-500 animate-status' };
+                        return { status: 'Open Now', color: 'text-emerald-400' };
+                    }
+                }
                 if (startMins > currentMins && startMins - currentMins <= 60) return { status: 'Open in 1h', color: 'text-amber-400 animate-status' };
             }
             return finalStatus;
@@ -453,10 +487,13 @@
                 const rows = res.data;
                 const headerRow = rows[0];
                 fullData = rows.slice(1).map(row => {
-                    let obj = {}; headerRow.forEach((h, i) => { if(h) obj[h] = row[i]; });
-                    obj._AA = row[26]; obj._AB = row[27]; obj._AC = row[28]; return obj;
+                    let obj = {};
+                    headerRow.forEach((h, i) => { if(h) obj[h] = row[i]; });
+                    obj._AA = row[26]; obj._AB = row[27]; obj._AC = row[28]; 
+                    return obj;
                 }).filter(d => d.Tên || d._AB);
-                renderChips(); applyFilters();
+                renderChips();
+                applyFilters();
             }
         });
 
@@ -468,8 +505,15 @@
         function toggleCate(id) {
             const chip = document.getElementById(`chip-${id}`);
             const cate = CATEGORIES.find(c => c.id === id);
-            if (selectedCates.has(id)) { selectedCates.delete(id); chip.classList.remove('active'); chip.style.backgroundColor = `${cate.color}15`; chip.style.color = cate.color; } 
-            else { selectedCates.add(id); chip.classList.add('active'); chip.style.backgroundColor = cate.color; chip.style.color = cate.text; }
+            if (selectedCates.has(id)) {
+                selectedCates.delete(id);
+                chip.classList.remove('active');
+                chip.style.backgroundColor = `${cate.color}15`; chip.style.color = cate.color;
+            } else {
+                selectedCates.add(id);
+                chip.classList.add('active');
+                chip.style.backgroundColor = cate.color; chip.style.color = cate.text;
+            }
             applyFilters();
         }
 
@@ -509,6 +553,7 @@
                 const diff = (item['Di chuyển'] || 'Dễ').trim();
                 let dotColor = diff.includes('Dễ') ? 'bg-emerald-400' : diff.includes('Trung') ? 'bg-amber-400' : 'bg-rose-400';
                 let recommendHtml = (item.Recommend || 'No specific data').replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>').replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
+
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
                         <div id="overlay-${index}" class="image-overlay"><img id="img-${index}" src="" alt="Preview"></div>
@@ -544,8 +589,13 @@
             const btn = document.getElementById(`btn-${index}`);
             const img = document.getElementById(`img-${index}`);
             if (!url || url.trim() === '') { alert("Chưa có ảnh ref!"); return; }
-            if (overlay.style.display === 'block') { overlay.style.display = 'none'; btn.innerText = 'Image'; btn.classList.replace('text-rose-500', 'text-amber-500'); } 
-            else { img.src = url; overlay.style.display = 'block'; btn.innerText = 'Close'; btn.classList.replace('text-amber-500', 'text-rose-500'); }
+            if (overlay.style.display === 'block') {
+                overlay.style.display = 'none'; btn.innerText = 'Image';
+                btn.classList.replace('text-rose-500', 'text-amber-500');
+            } else {
+                img.src = url; overlay.style.display = 'block'; btn.innerText = 'Close';
+                btn.classList.replace('text-amber-500', 'text-rose-500');
+            }
         };
 
         let wakeLock = null;
@@ -555,12 +605,12 @@
         async function requestNotificationPermission() { if (Notification.permission !== 'granted') await Notification.requestPermission(); }
         document.addEventListener('click', requestNotificationPermission, { once: true });
 
-        function triggerHeavyWarning(title, message) {
+        function triggerHeavyWarning(title, message, soundFile = null) {
             const isMasterOn = document.getElementById('vibrateToggle').checked;
             if (!isMasterOn) return;
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
-                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title: title, body: message, silent: false } });
+                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title, body: message, silent: false, sound: soundFile } });
                 });
             }
         }
