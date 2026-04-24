@@ -15,7 +15,6 @@
         body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; }
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
         
-        /* --- TÍCH HỢP LOADING SCREEN (GIỮ NGUYÊN STYLE GỐC BÊN DƯỚI) --- */
         #loading-screen { 
             position: fixed; inset: 0; z-index: 10000; 
             background: url('bg.png') no-repeat center center;
@@ -23,12 +22,12 @@
             display: flex; flex-direction: column; align-items: center; justify-content: space-between;
             transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
-            padding: 60px 0 15px 0; /* Neo chữ Loading cách cạnh dưới 15px */
+            padding: 60px 0 15px 0;
         }
 
         @keyframes slide-scenery { from { background-position: 0 0; } to { background-position: -3000px 0; } }
         .scenery-layer {
-            position: absolute; bottom: 160px; width: 100%; height: 130px; /* Theo yêu cầu: cao 130px, neo cách đáy 160px */
+            position: absolute; bottom: 160px; width: 100%; height: 130px;
             background: url('scenery.png') repeat-x;
             background-size: auto 100%;
             animation: slide-scenery 15s linear infinite;
@@ -56,7 +55,6 @@
         .c4{animation-delay:0.4s} .c5{animation-delay:0.5s} .c6{animation-delay:0.6s}
         .c7{animation-delay:0.7s} .c8{animation-delay:0.8s} .c9{animation-delay:0.9s}
 
-        /* --- GIỮ NGUYÊN TOÀN BỘ STYLE GỐC --- */
         .stat-box {
             background: rgba(20, 20, 20, 0.8);
             border: 1px solid rgba(245, 158, 11, 0.3);
@@ -272,9 +270,8 @@
         let userPos = null;
         let selectedCates = new Set();
         let lastPos = null;
-        let isSystemLive = false; // Logic loading screen
+        let isSystemLive = false;
 
-        // --- GIỮ NGUYÊN HỆ THỐNG ÂM THANH GỐC ---
         const audio500 = new Audio('500m.mp3');
         const audio100 = new Audio('100m.mp3');
         const audio10 = new Audio('10m.mp3');
@@ -319,11 +316,9 @@
             localStorage.setItem('vibrateEnabled', isEnabled);
         }
 
-        // --- GIỮ NGUYÊN LOGIC GPS GỐC + TẮT LOADING KHI CÓ GPS ---
         navigator.geolocation.watchPosition(pos => {
             const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
             
-            // TẮT LOADING KHI LẦN ĐẦU NHẬN TỌA ĐỘ
             if (!isSystemLive) {
                 const ls = document.getElementById('loading-screen');
                 if (ls) {
@@ -341,7 +336,6 @@
                 applyFilters();
             }
         }, err => {
-            // Hiển thị lỗi ngay trên màn hình loading nếu GPS tạch
             const statusNode = document.getElementById('loading-status');
             if(statusNode) {
                 statusNode.innerText = "GPS ERROR: PLEASE ENABLE LOCATION";
@@ -349,7 +343,6 @@
             }
         }, { enableHighAccuracy: true });
 
-        // --- GIỮ NGUYÊN TOÀN BỘ CÁC HÀM CŨ ---
         let radarInterval = null;
         let currentIntervalTime = 0;
 
@@ -560,10 +553,80 @@
             if (!isMasterOn) return;
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
-                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title: title, body: message, silent: false } });
+                    if (reg.active) {
+                        reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title: title, body: message, silent: false } });
+                    }
                 });
             }
         }
     </script>
+
+    <!-- ===== GPS SIMULATOR — XÓA SAU KHI TEST XONG ===== -->
+    <script>
+        (function() {
+            const TARGET_LAT = 10.80334953622072;
+            const TARGET_LON = 106.69085717231354;
+            const SPEED_KMH  = 40;
+            const STOP_M     = 5;
+
+            // Điểm xuất phát cách target 1.5km về phía bắc
+            const START_LAT  = TARGET_LAT + (1.5 / 111.32);
+            const START_LON  = TARGET_LON;
+
+            // 40km/h → mỗi 500ms đi được: 40/3600 * 0.5 = 0.00556 km = 5.56m
+            const INTERVAL_MS   = 500;
+            const STEP_KM       = (SPEED_KMH / 3600) * (INTERVAL_MS / 1000);
+            const STEP_LAT      = STEP_KM / 111.32;
+            const STOP_KM       = STOP_M / 1000;
+
+            let fakeLat = START_LAT;
+
+            // Chờ app init xong (GPS + data) rồi mới chạy sim
+            function waitAndStart() {
+                // Tắt loading screen ngay khi sim khởi động
+                if (!isSystemLive) {
+                    const ls = document.getElementById('loading-screen');
+                    if (ls) { ls.style.opacity = '0'; setTimeout(() => ls.remove(), 1000); }
+                    isSystemLive = true;
+                }
+
+                userPos = { lat: fakeLat, lon: START_LON };
+                document.getElementById('gps-coords').innerText =
+                    `[SIM] ${fakeLat.toFixed(5)}, ${START_LON.toFixed(5)}`;
+
+                const timer = setInterval(() => {
+                    fakeLat -= STEP_LAT;
+                    userPos = { lat: fakeLat, lon: START_LON };
+
+                    const dKm = parseFloat(getEstimatedDist(TARGET_LAT + ',' + TARGET_LON));
+                    const label = dKm < 1
+                        ? '[SIM] ' + (dKm * 1000).toFixed(0) + 'm to target'
+                        : '[SIM] ' + dKm + 'km to target';
+
+                    document.getElementById('gps-coords').innerText = label;
+
+                    checkRadarStatus();
+                    playSmartWarning(dKm);
+                    applyFilters();
+
+                    if (dKm <= STOP_KM) {
+                        clearInterval(timer);
+                        document.getElementById('gps-coords').innerText = '[SIM] Arrived — 5m from target';
+                    }
+                }, INTERVAL_MS);
+            }
+
+            // Đợi fullData load xong thì mới kick off sim
+            const boot = setInterval(() => {
+                if (typeof getEstimatedDist === 'function' && typeof checkRadarStatus === 'function') {
+                    clearInterval(boot);
+                    // Thêm 1s buffer để PapaParse kịp fetch data
+                    setTimeout(waitAndStart, 1000);
+                }
+            }, 200);
+        })();
+    </script>
+    <!-- ===== END GPS SIMULATOR ===== -->
+
 </body>
 </html>
