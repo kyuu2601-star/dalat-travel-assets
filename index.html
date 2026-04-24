@@ -28,7 +28,7 @@
 
         @keyframes slide-scenery { from { background-position: 0 0; } to { background-position: -3000px 0; } }
         .scenery-layer {
-            position: absolute; bottom: 158px; width: 100%; height: 180px; /* Theo yêu cầu: cao 130px, neo cách đáy 160px */
+            position: absolute; bottom: 160px; width: 100%; height: 130px; 
             background: url('scenery.png') repeat-x;
             background-size: auto 100%;
             animation: slide-scenery 15s linear infinite;
@@ -46,7 +46,7 @@
 
         @keyframes bike-ride { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(1deg); } }
         .bike-layer {
-            position: absolute; bottom: 85px; left: 15%; width: 110px;
+            position: absolute; bottom: 75px; left: 15%; width: 110px;
             z-index: 4; animation: bike-ride 0.4s ease-in-out infinite;
         }
 
@@ -111,6 +111,32 @@
             object-fit: contain; 
             padding: 8px; 
         }
+
+        /* Slider mượt cho Mobile */
+        .slider-container {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        .slider-container::-webkit-scrollbar { display: none; }
+        .slide-item {
+            flex: 0 0 100%;
+            scroll-snap-align: start;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .slider-dots {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 0;
+        }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.3); }
+        .dot.active { background: #f59e0b; width: 12px; border-radius: 10px; }
 
         #warning-radar { 
             position: fixed; 
@@ -309,7 +335,6 @@
             }
             
             if (audioToPlay) {
-                // Đẩy lệnh sang Service Worker kèm tên file âm thanh - Nội dung rút gọn theo yêu cầu
                 triggerHeavyWarning("⚠️ DALAT OS", `Cảnh báo còn ${d.toFixed(2)}km`, audioToPlay);
             }
 
@@ -381,15 +406,11 @@
 
             if (nearestWarning && intervalTime > 0) {
                 radarIcon.classList.add('radar-blink');
-                
-                // Vẫn gọi playSmartWarning để xử lý âm thanh/thông báo
                 playSmartWarning(minDistance);
-
                 if (radarInterval && currentIntervalTime !== intervalTime) {
                     clearInterval(radarInterval);
                     radarInterval = null;
                 }
-
                 if (!radarInterval) {
                     currentIntervalTime = intervalTime;
                     radarInterval = setInterval(() => {
@@ -556,7 +577,7 @@
 
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
-                        <div id="overlay-${index}" class="image-overlay"><img id="img-${index}" src="" alt="Preview"></div>
+                        <div id="overlay-${index}" class="image-overlay"></div>
                         <div>
                             <div class="flex justify-between items-center mb-6">
                                 <span class="${status.color} text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]"></span>${status.status}</span>
@@ -583,19 +604,54 @@
             }).join('');
         }
 
-        window.toggleImage = function(index, url, event) {
+        window.toggleImage = function(index, firstUrl, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
+            
             const overlay = document.getElementById(`overlay-${index}`);
             const btn = document.getElementById(`btn-${index}`);
-            const img = document.getElementById(`img-${index}`);
-            if (!url || url.trim() === '') { alert("Chưa có ảnh ref!"); return; }
+            const titles = document.querySelectorAll('.card-travel h3');
+            const itemData = fullData.find(d => d.Tên === titles[index].innerText);
+
             if (overlay.style.display === 'block') {
-                overlay.style.display = 'none'; btn.innerText = 'Image';
+                overlay.style.display = 'none';
+                btn.innerText = 'Image';
                 btn.classList.replace('text-rose-500', 'text-amber-500');
-            } else {
-                img.src = url; overlay.style.display = 'block'; btn.innerText = 'Close';
-                btn.classList.replace('text-amber-500', 'text-rose-500');
+                return;
             }
+
+            // --- LOGIC QUÉT ẢNH TỪ CỘT N (index 13) ĐẾN W (index 22) ---
+            let images = [];
+            const dataKeys = Object.keys(itemData);
+            for (let i = 13; i <= 22; i++) {
+                const val = itemData[dataKeys[i]];
+                if (val && val.toString().startsWith('http')) images.push(val.toString().trim());
+            }
+            
+            if (images.length === 0 && firstUrl) images.push(firstUrl);
+            if (images.length === 0) { alert("Chưa có ảnh gallery!"); return; }
+
+            overlay.innerHTML = `
+                <div class="flex flex-col h-full relative">
+                    <div class="slider-container h-full" id="scroll-${index}">
+                        ${images.map(img => `<div class="slide-item"><img src="${img}" class="rounded-xl"></div>`).join('')}
+                    </div>
+                    <div class="slider-dots" id="dots-${index}">
+                        ${images.map((_, i) => `<div class="dot ${i===0?'active':''}"></div>`).join('')}
+                    </div>
+                    <div class="absolute top-2 right-4 text-[8px] text-white/50 uppercase font-black tracking-widest pointer-events-none">Swipe to view</div>
+                </div>
+            `;
+
+            overlay.style.display = 'block';
+            btn.innerText = 'Close';
+            btn.classList.replace('text-amber-500', 'text-rose-500');
+
+            const container = document.getElementById(`scroll-${index}`);
+            container.addEventListener('scroll', () => {
+                const scrollIndex = Math.round(container.scrollLeft / container.clientWidth);
+                const dots = document.querySelectorAll(`#dots-${index} .dot`);
+                dots.forEach((dot, i) => dot.classList.toggle('active', i === scrollIndex));
+            });
         };
 
         let wakeLock = null;
@@ -610,7 +666,7 @@
             if (!isMasterOn) return;
             if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(function(reg) {
-                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title: title, body: message, silent: false, sound: soundFile } });
+                    reg.active.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title, body: message, silent: false, sound: soundFile } });
                 });
             }
         }
