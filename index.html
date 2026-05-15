@@ -555,7 +555,7 @@
                 let recommendHtml = (item.Recommend || 'No specific data')
     .replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')
     .replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>')
-    .replace(/\*([^*]+)\*/g, '<span style="color:#ef4444;font-weight:900;">$1</span>');
+    .replace(/\*([^*]+)\*/g, '<span style="color:#34d399;font-weight:900;">$1</span>');
 
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
