@@ -552,7 +552,10 @@
                 const status = getOpeningStatus(combinedTimeStr);
                 const diff = (item['Di chuyển'] || 'Dễ').trim();
                 let dotColor = diff.includes('Dễ') ? 'bg-emerald-400' : diff.includes('Trung') ? 'bg-amber-400' : 'bg-rose-400';
-                let recommendHtml = (item.Recommend || 'No specific data').replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>').replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
+                let recommendHtml = (item.Recommend || 'No specific data')
+    .replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')
+    .replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>')
+    .replace(/\*([^*]+)\*/g, '<span style="color:#ef4444;font-weight:900;">$1</span>');
 
                 return `
                     <div class="card-travel rounded-[2.5rem] p-8 flex flex-col justify-between h-full group" onclick="selectCard(this)">
