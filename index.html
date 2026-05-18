@@ -696,8 +696,9 @@
 
     // 5. GỌI TRỰC TIẾP GOOGLE GEMINI API (BỎ QUA BACKEND)
     // Để bảo mật hơn một chút, fen có thể dùng btoa mã hóa cái key này rồi atob lại ở đây
-    const API_KEY = _ENV.AI_KEY; 
-    const DIRECT_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    const API_KEY = _ENV.AI_KEY;
+    // URL chuẩn xác nhất hiện tại cho Gemini 1.5 Flash:
+    const DIRECT_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     try {
         const response = await fetch(DIRECT_URL, {
@@ -709,18 +710,24 @@
         });
 
         const data = await response.json();
+        
+        // Xóa hiệu ứng loading
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) loadingEl.remove();
 
         if (data.candidates && data.candidates[0]) {
             const aiText = data.candidates[0].content.parts[0].text;
+            // Hiển thị câu trả lời
             content.innerHTML += `<div class="ai-msg p-3 rounded-2xl shadow-sm">${aiText}</div>`;
+        } else if (data.error) {
+            // Hiển thị lỗi từ Google nếu có (ví dụ sai Key)
+            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl text-rose-400">Google báo lỗi: ${data.error.message}</div>`;
         } else {
-            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl">Lỗi API rồi fen: ${data.error?.message || 'Unknown'}</div>`;
+            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl">AI đang bận đi hái dâu, thử lại sau nha fen!</div>`;
         }
     } catch (e) {
         if (document.getElementById(loadingId)) document.getElementById(loadingId).remove();
-        content.innerHTML += `<div class="ai-msg p-3 rounded-2xl text-rose-400">Kết nối trực tiếp thất bại. Kiểm tra lại mạng nhé!</div>`;
+        content.innerHTML += `<div class="ai-msg p-3 rounded-2xl text-rose-400">Sóng yếu quá, kết nối thất bại!</div>`;
     }
     content.scrollTop = content.scrollHeight;
 }
