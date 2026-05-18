@@ -167,6 +167,10 @@
         .toggle-slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 2.5px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
         input:checked + .toggle-slider { background-color: #10b981; }
         input:checked + .toggle-slider:before { transform: translateX(21px); }
+        #ai-chat-box { z-index: 9999; }
+        .ai-msg { background: rgba(255, 255, 255, 0.1); color: #e2e8f0; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .user-msg { background: rgba(245, 158, 11, 0.2); color: #fbbf24; align-self: flex-end; border-bottom-right-radius: 2px; text-align: right; margin-left: 2rem; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="p-4 md:p-10">
@@ -618,4 +622,94 @@
             }
         }
     </script>
+    <div id="ai-chat-wrapper" class="fixed bottom-24 right-5 z-[9998]">
+    <button onclick="toggleAIChat()" class="w-14 h-14 bg-amber-500 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 transition-transform border-2 border-white/20">🤖</button>
+
+    <div id="ai-chat-box" class="hidden absolute bottom-16 right-0 w-[340px] h-[500px] glass-panel rounded-[2rem] flex flex-col overflow-hidden border-2 border-amber-500/50 shadow-2xl">
+        <div class="bg-amber-500 p-4 text-[#020617] font-black italic flex justify-between items-center">
+            <span class="tracking-tighter">DALAT OS AI AGENT</span>
+            <button onclick="toggleAIChat()" class="text-xl">✕</button>
+        </div>
+        
+        <div id="chat-content" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 scrollbar-hide text-[11px] leading-relaxed">
+            <div class="ai-msg p-3 rounded-2xl">Lên xe đi fen! Tui là thổ địa Dalat OS. Tui có thể tìm món ngon, né điểm đen và canh giờ quán đóng cửa cho fen luôn. Muốn đi đâu hỏi tui nha!</div>
+        </div>
+
+        <div class="p-3 bg-slate-900/90 border-t border-white/5 flex gap-2">
+            <input type="text" id="ai-input" placeholder="Hỏi đường, món ăn, lịch trình..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-xs outline-none focus:border-amber-500 text-white">
+            <button onclick="askAI()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl font-bold text-[10px] transition-colors">GỬI</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const GEMINI_API_KEY = "DÁN_API_KEY_CỦA_FEN_VÀO_ĐÂY";
+
+    function toggleAIChat() {
+        document.getElementById('ai-chat-box').classList.toggle('hidden');
+    }
+
+    async function askAI() {
+        const input = document.getElementById('ai-input');
+        const content = document.getElementById('chat-content');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        content.innerHTML += `<div class="user-msg p-3 rounded-2xl">${msg}</div>`;
+        input.value = '';
+        content.scrollTop = content.scrollHeight;
+
+        // 1. Chuẩn bị Dữ liệu Ngữ Cảnh (Gom hết data Sheets vào prompt)
+        const placesData = fullData.filter(d => d.Tên).map(d => 
+            `{Tên: "${d.Tên}", Khu vực: "${d['Khu vực']}", Món: "${d.Recommend}", Tọa độ: "${d['Vị trí']}", Giờ: "${d['Giờ mở cửa'] || ''}-${d['Giờ đóng cửa'] || ''}"}`
+        ).join('\n');
+
+        const blackPoints = fullData.filter(d => d._AB).map(d => 
+            `{Cảnh báo: "${d._AB}", Tọa độ: "${d._AC}"}`
+        ).join('\n');
+
+        const userLocation = userPos ? `${userPos.lat}, ${userPos.lon}` : "Chợ Đà Lạt (11.942, 108.437)";
+        const currentTime = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+        const prompt = `Bạn là "Thổ địa Dalat OS" - một AI thông minh, am hiểu Đà Lạt. 
+        Sử dụng danh sách dữ liệu sau để hỗ trợ người dùng:
+
+        DANH SÁCH ĐỊA ĐIỂM:
+        ${placesData}
+
+        DANH SÁCH ĐIỂM ĐEN/ĐƯỜNG KHÓ:
+        ${blackPoints}
+
+        NGỮ CẢNH HIỆN TẠI:
+        - Vị trí User: ${userLocation}
+        - Giờ hiện tại: ${currentTime}
+        - Tốc độ di chuyển trung bình giả định: 30km/h (Dùng để tính thời gian đến).
+
+        NHIỆM VỤ:
+        1. TRẢ LỜI: Trả lời mọi câu hỏi về Đà Lạt bằng giọng thân thiện, ngắn gọn, dân phượt.
+        2. WARNING ĐƯỜNG ĐI: Nếu User muốn tới 1 quán, hãy check xem trên lộ trình (dựa trên map kiến thức của bạn) có đi ngang điểm đen nào trong list trên không. Nếu có, phải CẢNH BÁO và dặn né.
+        3. CANH GIỜ ĐÓNG CỬA: Tính toán: Khoảng cách từ User đến quán / 30km/h + Giờ hiện tại. Nếu khi tới nơi mà quán còn dưới 30p là đóng cửa, hoặc đã đóng, phải WARNING User đừng đi.
+        4. GỢI Ý MÓN & TOUR: Tìm quán theo món User thích. Nếu User nói muốn đi chơi, hãy gợi ý hỏi họ có muốn bạn vẽ lộ trình 1 ngày không. Nếu User đồng ý, hãy thiết kế tour hợp lý về cung đường (không nhảy cóc quãng đường xa).
+
+        YÊU CẦU: Không dùng markdown phức tạp. Trả lời dưới 120 từ.`;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            const data = await response.json();
+            const aiText = data.candidates[0].content.parts[0].text;
+
+            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl">${aiText}</div>`;
+            content.scrollTop = content.scrollHeight;
+        } catch (e) {
+            content.innerHTML += `<div class="text-rose-500 text-[10px]">Hết xăng giữa dốc rồi fen, check lại Key nhé!</div>`;
+        }
+    }
+
+    document.getElementById('ai-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
+</script>
 </body>
