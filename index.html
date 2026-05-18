@@ -697,7 +697,7 @@
     // 5. GỌI TRỰC TIẾP GOOGLE GEMINI API (BỎ QUA BACKEND)
     // Để bảo mật hơn một chút, fen có thể dùng btoa mã hóa cái key này rồi atob lại ở đây
     const API_KEY = _ENV.AI_KEY; 
-    const DIRECT_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    const DIRECT_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     try {
         const response = await fetch(DIRECT_URL, {
