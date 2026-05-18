@@ -621,6 +621,7 @@
             }
         }
     </script>
+    <script src="env.js"></script>
     <div id="ai-chat-wrapper" class="fixed bottom-24 right-5 z-[9998]">
     <button onclick="toggleAIChat()" class="w-14 h-14 bg-amber-500 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 transition-transform border-2 border-white/20">🤖</button>
 
@@ -651,79 +652,78 @@
     }
 
     async function askAI() {
-        const input = document.getElementById('ai-input');
-        const content = document.getElementById('chat-content');
-        const msg = input.value.trim();
-        if (!msg) return;
+    const input = document.getElementById('ai-input');
+    const content = document.getElementById('chat-content');
+    const msg = input.value.trim();
+    if (!msg) return;
 
-        // Hiển thị tin nhắn của User
-        content.innerHTML += `<div class="user-msg p-3 rounded-2xl shadow-sm">${msg}</div>`;
-        input.value = '';
-        content.scrollTop = content.scrollHeight;
+    // 1. Hiển thị tin nhắn user
+    content.innerHTML += `<div class="user-msg p-3 rounded-2xl shadow-sm">${msg}</div>`;
+    input.value = '';
+    content.scrollTop = content.scrollHeight;
 
-        // Thêm trạng thái đang trả lời
-        const loadingId = "loading-" + Date.now();
-        content.innerHTML += `<div id="${loadingId}" class="ai-msg p-3 rounded-2xl italic opacity-50">Đợi tui xíu...</div>`;
-        content.scrollTop = content.scrollHeight;
-
-        // 1. Chuẩn bị dữ liệu từ Sheets
-        const placesData = fullData.filter(d => d.Tên).map(d => 
-            `{Tên: "${d.Tên}", Món: "${d.Recommend}", Tọa độ: "${d['Vị trí']}", Giờ: "${d['Giờ mở cửa'] || ''}-${d['Giờ đóng cửa'] || ''}"}`
-        ).join('\n');
-
-        const blackPoints = fullData.filter(d => d._AB).map(d => 
-            `{Cảnh báo: "${d._AB}", Tọa độ: "${d._AC}"}`
-        ).join('\n');
-
-        const userLocation = userPos ? `${userPos.lat}, ${userPos.lon}` : "Trung tâm Đà Lạt";
-        const currentTime = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-        const prompt = `Bạn là "Thổ địa Dalat OS". 
-        Vị trí User: ${userLocation}. Giờ: ${currentTime}.
-        Dữ liệu quán: ${placesData}. 
-        Điểm đen: ${blackPoints}.
-        
-        Nhiệm vụ: 
-        1. Tìm quán theo món/khu vực. 
-        2. Cảnh báo né điểm đen nếu quán đó nằm trên trục đường có điểm đen. 
-        3. Check giờ đóng cửa (nếu di chuyển tới đó mà quán sắp đóng thì nhắc user).
-        4. Hỏi user có muốn lên tour 1 ngày không nếu họ hỏi về lịch trình.
-        Trả lời ngắn, chất phượt, tối đa 120 chữ.`;
-
-        // 2. Gọi về Backend Google Apps Script của fen
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbz-BRdToVZ3-d34ck07NZXUWth4TQqw4G8lC5GcwFvZ4gWW9-H2ncAQ-7SPdPq6pKc/exec";
-
-        try {
-            const response = await fetch(GAS_URL, {
-                method: 'POST',
-                mode: 'no-cors', // Dùng no-cors nếu gặp lỗi, nhưng ưu tiên để mặc định
-                body: JSON.stringify({ prompt: prompt })
-            });
-
-            // Vì Google Script trả về redirect, nếu dùng fetch thông thường đôi khi bị lỗi CORS
-            // Cách xử lý chuẩn cho GAS:
-            const finalResponse = await fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ prompt: prompt })
-            });
-            
-            const data = await finalResponse.json();
-            document.getElementById(loadingId).remove();
-
-            if (data.error) {
-                content.innerHTML += `<div class="text-rose-500 p-2">Lỗi: ${data.error}</div>`;
-            } else {
-                const aiText = data.candidates[0].content.parts[0].text;
-                content.innerHTML += `<div class="ai-msg p-3 rounded-2xl shadow-sm">${aiText}</div>`;
-            }
+    // 2. Fast Response cho lời chào (Trả lời trong 0.1s)
+    const lowMsg = msg.toLowerCase();
+    const quickReplies = {
+        "hi": "Hú fen! Kiếm quán ăn hay muốn tui lên lịch trình nè?",
+        "hello": "Chào fen! Đà Lạt hôm nay đẹp, đi đâu chơi không tui chỉ?",
+        "ê": "Nghe nè fen! Có quán nào mới hay sao cần tui check?",
+        "tên gì": "Tui là Thổ địa Dalat OS, AI riêng của fen đó."
+    };
+    if (quickReplies[lowMsg]) {
+        setTimeout(() => {
+            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl shadow-sm">🤖 ${quickReplies[lowMsg]}</div>`;
             content.scrollTop = content.scrollHeight;
-
-        } catch (e) {
-            document.getElementById(loadingId).remove();
-            content.innerHTML += `<div class="text-rose-500 p-2 text-[10px]">Fen check lại Deployment đã để 'Anyone' chưa? Lỗi: ${e.message}</div>`;
-        }
+        }, 100);
+        return;
     }
 
+    // 3. Hiển thị Loading ngay lập tức
+    const loadingId = "loading-" + Date.now();
+    content.innerHTML += `<div id="${loadingId}" class="ai-msg p-3 rounded-2xl italic opacity-70 flex flex-col gap-1">
+        <span>Đang check map trực tiếp...</span>
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>`;
+    content.scrollTop = content.scrollHeight;
+
+    // 4. Chuẩn bị Prompt & Data (Rút gọn tối đa để truyền nhanh)
+    const placesData = fullData.filter(d => d.Tên).slice(0, 50).map(d => 
+        `{T:"${d.Tên}",M:"${d.Recommend}",C:"${d['Vị trí']}"}`
+    ).join('\n');
+    
+    const userLocation = userPos ? `${userPos.lat},${userPos.lon}` : "Chợ Đà Lạt";
+    const prompt = `Bạn là Thổ địa Đà Lạt. Vị trí user: ${userLocation}. Data: ${placesData}. Trả lời ngắn (<60 từ). Câu hỏi: ${msg}`;
+
+    // 5. GỌI TRỰC TIẾP GOOGLE GEMINI API (BỎ QUA BACKEND)
+    // Để bảo mật hơn một chút, fen có thể dùng btoa mã hóa cái key này rồi atob lại ở đây
+    const API_KEY = _ENV.AI_KEY; 
+    const DIRECT_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+    try {
+        const response = await fetch(DIRECT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+
+        const data = await response.json();
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+
+        if (data.candidates && data.candidates[0]) {
+            const aiText = data.candidates[0].content.parts[0].text;
+            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl shadow-sm">${aiText}</div>`;
+        } else {
+            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl">Lỗi API rồi fen: ${data.error?.message || 'Unknown'}</div>`;
+        }
+    } catch (e) {
+        if (document.getElementById(loadingId)) document.getElementById(loadingId).remove();
+        content.innerHTML += `<div class="ai-msg p-3 rounded-2xl text-rose-400">Kết nối trực tiếp thất bại. Kiểm tra lại mạng nhé!</div>`;
+    }
+    content.scrollTop = content.scrollHeight;
+}
     // Nhấn Enter để gửi
     document.getElementById('ai-input').onkeypress = (e) => { if (e.key === 'Enter') askAI(); };
 </script>
