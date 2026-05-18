@@ -624,29 +624,30 @@
     <div id="ai-chat-wrapper" class="fixed bottom-24 right-5 z-[9998]">
     <button onclick="toggleAIChat()" class="w-14 h-14 bg-amber-500 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 transition-transform border-2 border-white/20">🤖</button>
 
+<div id="ai-chat-wrapper" class="fixed bottom-24 right-5 z-[9998]">
+    <button onclick="toggleAIChat()" class="w-14 h-14 bg-amber-500 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 active:scale-95 transition-all border-2 border-white/20 animate-bounce">🤖</button>
+
     <div id="ai-chat-box" class="hidden absolute bottom-16 right-0 w-[340px] h-[500px] glass-panel rounded-[2rem] flex flex-col overflow-hidden border-2 border-amber-500/50 shadow-2xl">
         <div class="bg-amber-500 p-4 text-[#020617] font-black italic flex justify-between items-center">
             <span class="tracking-tighter">DALAT OS AI AGENT</span>
-            <button onclick="toggleAIChat()" class="text-xl">✕</button>
+            <button onclick="toggleAIChat()" class="hover:rotate-90 transition-transform">✕</button>
         </div>
         
         <div id="chat-content" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 scrollbar-hide text-[11px] leading-relaxed">
-            <div class="ai-msg p-3 rounded-2xl">Lên xe đi fen! Tui là thổ địa Dalat OS. Tui có thể tìm món ngon, né điểm đen và canh giờ quán đóng cửa cho fen luôn. Muốn gì thì hỏi tui!</div>
+            <div class="ai-msg p-3 rounded-2xl shadow-sm">Hú fen! Tui là thổ địa Dalat OS đây. Muốn ăn gì, né điểm đen nào hay nhờ tui lên lịch trình 1 ngày thì cứ nhắn nha! 🛵💨</div>
         </div>
 
         <div class="p-3 bg-slate-900/90 border-t border-white/5 flex gap-2">
-            <input type="text" id="ai-input" placeholder="Hỏi đường, món ăn, lịch trình..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-xs outline-none focus:border-amber-500 transition-colors">
+            <input type="text" id="ai-input" placeholder="Hỏi đường, món ăn, tour..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-xs outline-none focus:border-amber-500 text-white">
             <button onclick="askAI()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl font-bold text-[10px] transition-colors">GỬI</button>
         </div>
     </div>
 </div>
 
 <script>
-    const GEMINI_API_KEY = "AIzaSyDvb0xeF6XTWEZoZcbuOjMNat1ZL5o5Ekw";
-    const CORS_PROXY = "https://api.allorigins.win/raw?url=";
-
     function toggleAIChat() {
-        document.getElementById('ai-chat-box').classList.toggle('hidden');
+        const box = document.getElementById('ai-chat-box');
+        box.classList.toggle('hidden');
     }
 
     async function askAI() {
@@ -655,93 +656,75 @@
         const msg = input.value.trim();
         if (!msg) return;
 
-        content.innerHTML += `<div class="user-msg p-3 rounded-2xl">${msg}</div>`;
+        // Hiển thị tin nhắn của User
+        content.innerHTML += `<div class="user-msg p-3 rounded-2xl shadow-sm">${msg}</div>`;
         input.value = '';
         content.scrollTop = content.scrollHeight;
 
-        // Show loading state
-        const loadingId = 'loading-' + Date.now();
-        content.innerHTML += `<div id="${loadingId}" class="ai-loading p-3 rounded-2xl">🤔 Thổ địa đang suy nghĩ...</div>`;
+        // Thêm trạng thái đang trả lời
+        const loadingId = "loading-" + Date.now();
+        content.innerHTML += `<div id="${loadingId}" class="ai-msg p-3 rounded-2xl italic opacity-50">Đợi tui xíu...</div>`;
         content.scrollTop = content.scrollHeight;
 
+        // 1. Chuẩn bị dữ liệu từ Sheets
+        const placesData = fullData.filter(d => d.Tên).map(d => 
+            `{Tên: "${d.Tên}", Món: "${d.Recommend}", Tọa độ: "${d['Vị trí']}", Giờ: "${d['Giờ mở cửa'] || ''}-${d['Giờ đóng cửa'] || ''}"}`
+        ).join('\n');
+
+        const blackPoints = fullData.filter(d => d._AB).map(d => 
+            `{Cảnh báo: "${d._AB}", Tọa độ: "${d._AC}"}`
+        ).join('\n');
+
+        const userLocation = userPos ? `${userPos.lat}, ${userPos.lon}` : "Trung tâm Đà Lạt";
+        const currentTime = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+        const prompt = `Bạn là "Thổ địa Dalat OS". 
+        Vị trí User: ${userLocation}. Giờ: ${currentTime}.
+        Dữ liệu quán: ${placesData}. 
+        Điểm đen: ${blackPoints}.
+        
+        Nhiệm vụ: 
+        1. Tìm quán theo món/khu vực. 
+        2. Cảnh báo né điểm đen nếu quán đó nằm trên trục đường có điểm đen. 
+        3. Check giờ đóng cửa (nếu di chuyển tới đó mà quán sắp đóng thì nhắc user).
+        4. Hỏi user có muốn lên tour 1 ngày không nếu họ hỏi về lịch trình.
+        Trả lời ngắn, chất phượt, tối đa 120 chữ.`;
+
+        // 2. Gọi về Backend Google Apps Script của fen
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz-BRdToVZ3-d34ck07NZXUWth4TQqw4G8lC5GcwFvZ4gWW9-H2ncAQ-7SPdPq6pKc/exec";
+
         try {
-            // Prepare context data
-            const placesData = fullData.filter(d => d.Tên).map(d => 
-                `{Tên: "${d.Tên}", Khu vực: "${d['Khu vực']}", Món: "${d.Recommend}", Tọa độ: "${d['Vị trí']}"}`
-            ).join('\n');
-
-            const blackPoints = fullData.filter(d => d._AB).map(d => 
-                `{Cảnh báo: "${d._AB}", Tọa độ: "${d._AC}"}`
-            ).join('\n');
-
-            const userLocation = userPos ? `${userPos.lat}, ${userPos.lon}` : "Chợ Đà Lạt (11.942, 108.437)";
-            const currentTime = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-            const systemPrompt = `Bạn là "Thổ địa Dalat OS" - một AI thông minh, am hiểu Đà Lạt, nói chuyện thân thiện kiểu phượt thủ.
-
-DANH SÁCH ĐỊA ĐIỂM:
-${placesData}
-
-DANH SÁCH ĐIỂM ĐEN/ĐƯỜNG KHÓ:
-${blackPoints}
-
-NGỮ CẢNH:
-- Vị trí User: ${userLocation}
-- Giờ hiện tại: ${currentTime}
-
-HƯỚNG DẪN:
-1. Trả lời thân thiện, ngắn gọn (dưới 120 từ)
-2. Nếu User hỏi về quán, gợi ý các lựa chọn gần nhất
-3. Cảnh báo điểm đen nếu liên quan
-4. Không dùng markdown phức tạp`;
-
-            const requestPayload = {
-                contents: [{
-                    parts: [{
-                        text: systemPrompt + "\n\nCâu hỏi của user: " + msg
-                    }]
-                }]
-            };
-
-            // Call Gemini API directly (works from localhost, or use CORS proxy if needed)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-            
-            const response = await fetch(url, {
+            const response = await fetch(GAS_URL, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestPayload)
+                mode: 'no-cors', // Dùng no-cors nếu gặp lỗi, nhưng ưu tiên để mặc định
+                body: JSON.stringify({ prompt: prompt })
             });
 
-            if (!response.ok) {
-                throw new Error(`API error: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
+            // Vì Google Script trả về redirect, nếu dùng fetch thông thường đôi khi bị lỗi CORS
+            // Cách xử lý chuẩn cho GAS:
+            const finalResponse = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ prompt: prompt })
+            });
             
-            if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-                throw new Error('Invalid response structure from Gemini API');
+            const data = await finalResponse.json();
+            document.getElementById(loadingId).remove();
+
+            if (data.error) {
+                content.innerHTML += `<div class="text-rose-500 p-2">Lỗi: ${data.error}</div>`;
+            } else {
+                const aiText = data.candidates[0].content.parts[0].text;
+                content.innerHTML += `<div class="ai-msg p-3 rounded-2xl shadow-sm">${aiText}</div>`;
             }
-
-            const aiText = data.candidates[0].content.parts[0].text;
-
-            // Remove loading and add response
-            document.getElementById(loadingId).remove();
-            content.innerHTML += `<div class="ai-msg p-3 rounded-2xl">${aiText}</div>`;
             content.scrollTop = content.scrollHeight;
+
         } catch (e) {
-            console.error('AI Error:', e);
             document.getElementById(loadingId).remove();
-            const errorMsg = e.message.includes('CORS') 
-                ? '⚠️ CORS block! Key đúng nhưng browser chặn. Cần backend để gọi API.'
-                : e.message.includes('API error')
-                ? '❌ API lỗi - check Key hoặc quota hết'
-                : '⚠️ Lỗi: ' + e.message;
-            content.innerHTML += `<div class="text-rose-500 text-[10px] p-3 rounded-2xl bg-rose-500/10">${errorMsg}</div>`;
+            content.innerHTML += `<div class="text-rose-500 p-2 text-[10px]">Fen check lại Deployment đã để 'Anyone' chưa? Lỗi: ${e.message}</div>`;
         }
     }
 
-    document.getElementById('ai-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
+    // Nhấn Enter để gửi
+    document.getElementById('ai-input').onkeypress = (e) => { if (e.key === 'Enter') askAI(); };
 </script>
 </body>
