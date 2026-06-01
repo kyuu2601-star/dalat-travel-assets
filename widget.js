@@ -55,7 +55,7 @@
         </div>
         <div id="chat-widget-window">
             <div class="widget-header">
-                <h2>🌲 DalatOS Thổ Địa</h2>
+                <h2>Thổ Địa Đà Lạt</h2>
                 <span id="close-widget" style="cursor:pointer; font-size:24px;">×</span>
             </div>
             <div id="chat-box"></div>
