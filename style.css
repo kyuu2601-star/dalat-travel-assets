@@ -104,7 +104,11 @@
 .ai { align-self: flex-start; background: #1e293b; color: #cbd5e1; border-bottom-left-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
 
 /* Link trong chat */
-.msg a { color: #f59e0b; text-decoration: underline; font-weight: bold; }
+.msg a {
+    color: #38bdf8 !important; /* Xanh bầu trời dạ quang */
+    text-decoration: underline;
+    font-weight: 800;
+}
 
 /* Hiệu ứng loading */
 .typing { display: flex; align-items: center; gap: 5px; color: #64748b; font-size: 12px; font-style: italic; }
