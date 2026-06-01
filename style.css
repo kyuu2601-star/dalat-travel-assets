@@ -114,3 +114,17 @@
 .typing { display: flex; align-items: center; gap: 5px; color: #64748b; font-size: 12px; font-style: italic; }
 .dot { width: 5px; height: 5px; background: #f59e0b; border-radius: 50%; animation: bounceDot 1.4s infinite; }
 @keyframes bounceDot { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+/* Lớp nền mờ phía sau Khung Chat */
+#chat-widget-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(2, 6, 23, 0.6); /* Màu Slate tối, mờ 60% hòa quyện với App fen */
+    backdrop-filter: blur(4px);    /* Làm nhòe nhẹ các thành phần phía sau cực Premium */
+    z-index: 19999;               /* Nằm ngay DƯỚI khung chat (20000) nhưng ĐÈ lên toàn bộ app gốc */
+    display: none;                /* Mặc định ẩn đi */
+    transition: opacity 0.3s ease;
+}
