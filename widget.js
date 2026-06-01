@@ -48,6 +48,8 @@
     // 2. INJECT HTML (Khung xương của Bot)
     const widgetContainer = document.createElement('div');
     widgetContainer.innerHTML = `
+        <div id="chat-widget-overlay"></div>
+
         <div id="chat-widget-button">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -63,8 +65,8 @@
                 <input type="text" id="userInput" placeholder="Hỏi đường, quán xá...">
                 <button class="send-btn" id="send-btn">
                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block; margin: 0 auto;">
-                       <line x1="22" y1="2" x2="11" y2="13"></line>
-                       <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                    </svg>
                 </button>
             </div>
@@ -76,17 +78,28 @@
     const btn = document.getElementById('chat-widget-button');
     const win = document.getElementById('chat-widget-window');
     const close = document.getElementById('close-widget');
+    const overlay = document.getElementById('chat-widget-overlay');
 
     btn.onclick = () => {
         const isHidden = win.style.display === 'none' || win.style.display === '';
         win.style.display = isHidden ? 'flex' : 'none';
+        if (overlay) overlay.style.display = isHidden ? 'block' : 'none';
         if (isHidden) setTimeout(() => document.getElementById('userInput').focus(), 300);
     };
 
     close.onclick = (e) => {
         e.stopPropagation();
         win.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
     };
+
+    // Bấm vào overlay cũng tự động đóng widget
+    if (overlay) {
+        overlay.onclick = () => {
+            win.style.display = 'none';
+            overlay.style.display = 'none';
+        };
+    }
 
     // 4. GÁN SỰ KIỆN ENTER CHO INPUT
     document.getElementById('userInput').addEventListener('keypress', (e) => {
