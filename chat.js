@@ -33,12 +33,10 @@ async function handleChat() {
     `);
 
     try {
-        // 🎯 LẤY GPS AN TOÀN TỪ WINDOW (Ưu tiên biến từ App Radar)
+        // 🎯 LẤY GPS AN TOÀN (Không gây lỗi nếu thiếu userPos)
         let gpsInfo = "";
-        const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
-
-        if (currentPos && currentPos.lat && currentPos.lon) {
-            gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${currentPos.lat}, Longitude ${currentPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
+        if (typeof userPos !== "undefined" && userPos !== null && userPos.lat && userPos.lon) {
+            gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${userPos.lat}, Longitude ${userPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
         } else {
             gpsInfo = `\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở đâu nếu cần tính khoảng cách.`;
         }
@@ -64,7 +62,7 @@ async function handleChat() {
         console.error(err);
         const loadingElement = document.getElementById(loadingId);
         if (loadingElement) {
-            loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen! " + err.message;
+            loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen! Thử lại nha.";
         }
     }
 }
