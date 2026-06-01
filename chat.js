@@ -34,24 +34,17 @@ async function handleChat() {
 
     try {
         // 🟢 1. LẤY DỮ LIỆU ĐANG HIỂN THỊ TRÊN MÀN HÌNH (Giao diện FE đã tính sẵn KM)
+        // 🎯 LẤY DỮ LIỆU ĐANG HIỂN THỊ TRÊN MÀN HÌNH (Giao diện FE đã tính sẵn KM)
         let finalKnowledge = knowledgeBase;
         if (typeof window.layDataHienThiChoBot === "function") {
             finalKnowledge = window.layDataHienThiChoBot();
             console.log("🎯 Đã bốc dữ liệu DOM màn hình gửi cho Bot.");
         }
 
-        // 🟢 2. GỬI TỌA ĐỘ KÍN ĐÁO (Mã hóa thành thông số toán học phẳng để giấu Google)
-        let gpsInfo = "";
-        const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
+        // 🟢 FIX TRIỆT ĐỂ: Xóa bỏ hoàn toàn số Lat/Lon thập phân để Google không thể bắt bẻ
+        let gpsInfo = `\n[PARAMETER_LOGIC]: Toàn bộ khoảng cách KM của các quán trong danh sách trên đều được tính toán trực tiếp từ vị trí thực tế hiện tại của khách hàng. Quán xếp số 1 là quán gần khách nhất. Hãy dựa vào số KM đó để tư vấn chỉ đường.`;
 
-        if (currentPos && currentPos.lat && currentPos.lon && !isNaN(currentPos.lat) && !isNaN(currentPos.lon)) {
-            // Biến hóa vĩ độ/kinh độ thành Anchor point toán học để lách bộ lọc Geofencing
-            gpsInfo = `\n[PARAMETER_LOGIC]: Anchor point A sets X=${currentPos.lat} and Y=${currentPos.lon}.`;
-        } else {
-            gpsInfo = `\n[PARAMETER_LOGIC]: Anchor point A is not set.`;
-        }
-
-        // 🟢 3. ĐÓNG GÓI PAYLOAD THEO FORMAT MỚI (Khớp với Worker nhận dạng)
+        // ĐÓNG GÓI PAYLOAD GỬI LÊN WORKER (Giữ nguyên format tách biệt)
         const response = await fetch(CONFIG.WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
