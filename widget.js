@@ -127,6 +127,14 @@
     // Khi mở chat lên, thêm class này vào body để khóa UI nền
     document.body.classList.add('chat-open');
 
+    // Tự động kéo xuống đáy sau khi khung chat đã mở hẳn
+    setTimeout(() => {
+    const chatBox = document.getElementById('chat-box');
+    if (chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    }, 150); // Chờ 150ms cho giao diện dựng xong rồi cuộn
+
     // Khi đóng chat, xóa class này đi để user tương tác lại bình thường
     document.body.classList.remove('chat-open');
 
