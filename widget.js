@@ -41,15 +41,52 @@
         
         #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #020617; }
         
-        .widget-input-area { padding: 15px; display: flex; gap: 10px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.05); }
-        input#userInput { flex: 1; padding: 12px 20px; background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; color: white; outline: none; }
-        .send-btn { background: #f59e0b; border: none; padding: 0 20px; border-radius: 15px; color: #020617; font-weight: 800; cursor: pointer; }
+        .widget-input-area { 
+            padding: 12px; /* Thu nhỏ padding từ 15px xuống 12px cho gọn */
+            display: flex; 
+            align-items: center; /* Căn giữa các phần tử theo chiều dọc */
+            gap: 8px; 
+            background: #0f172a; 
+            border-top: 1px solid rgba(255,255,255,0.05); 
+            box-sizing: border-box;
+            width: 100%;
+        }
+        input#userInput { 
+            flex: 1; 
+            min-width: 0; /* 🌟 ÉP BUỘC: Không cho ô nhập phình to đẩy nút gửi ra ngoài */
+            padding: 10px 14px; /* Chỉnh lại padding cho cân đối */
+            background: #1e293b; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 15px; 
+            color: white; 
+            outline: none; 
+        }
+        .send-btn { 
+            background: #f59e0b; 
+            border: none; 
+            width: 40px !important;  /* Khóa cứng chiều rộng 40px */
+            height: 40px !important; /* Khóa cứng chiều cao 40px tạo nút tròn */
+            border-radius: 12px; 
+            color: #020617; 
+            font-weight: 800; 
+            cursor: pointer; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;          /* 🌟 ÉP BUỘC: Không cho flexbox bóp méo nút */
+            padding: 0;              /* Xóa padding chữ cũ */
+        }
 
         /* Style tin nhắn */
         .msg { padding: 12px 16px; border-radius: 18px; font-size: 14px; max-width: 85%; line-height: 1.5; color: #cbd5e1; }
         .user { align-self: flex-end; background: #334155; color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: #1e293b; border-bottom-left-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
         .msg img { max-width: 100%; border-radius: 12px; margin-top: 10px; }
+        .msg a {
+            color: #38bdf8 !important; /* Xanh bầu trời dạ quang */
+            text-decoration: underline;
+            font-weight: 800;
+        }
         
         /* Loading */
         .typing { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #64748b; }
