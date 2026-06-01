@@ -15,6 +15,11 @@
         body { background: #020617; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; }
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
 
+        /* Khi body có class này, màn hình nền đứng im re, không vuốt, không tương tác được */
+        body.chat-open {
+            overflow: hidden !important;
+            touch-action: none !important;
+        }
         /* --- TÍCH HỢP LOADING SCREEN (GIỮ NGUYÊN STYLE GỐC BÊN DƯỚI) --- */
         #loading-screen { 
             position: fixed; inset: 0; z-index: 10000; 
