@@ -124,6 +124,12 @@
     `;
     document.body.appendChild(widgetContainer);
 
+    // Khi mở chat lên, thêm class này vào body để khóa UI nền
+    document.body.classList.add('chat-open');
+
+    // Khi đóng chat, xóa class này đi để user tương tác lại bình thường
+    document.body.classList.remove('chat-open');
+
     // 3. LOGIC ĐÓNG MỞ
     const btn = document.getElementById('chat-widget-button');
     const win = document.getElementById('chat-widget-window');
