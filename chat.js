@@ -2,7 +2,7 @@ let knowledgeBase = "";
 const CHAT_STORAGE_KEY = 'dalatos_chat_history';
 const EXPIRY_TIME = 24 * 60 * 60 * 1000; // 24 giờ tính bằng miliseconds
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initBot() {
     // 1. Nạp dữ liệu CSV
     try {
         const res = await fetch(CONFIG.CSV_URL);
