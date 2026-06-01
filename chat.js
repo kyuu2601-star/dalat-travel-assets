@@ -13,7 +13,7 @@ async function initBot() {
     }
     // 2. Phục hồi lịch sử chat
     loadChatHistory();
-}
+};
 
 async function handleChat() {
     const input = document.getElementById('userInput');
@@ -32,30 +32,67 @@ async function handleChat() {
         </div>
     `);
 
-    try {
-        // 🟢 1. LẤY DỮ LIỆU ĐANG HIỂN THỊ TRÊN MÀN HÌNH (Giao diện FE đã tính sẵn KM)
-        // 🎯 LẤY DỮ LIỆU ĐANG HIỂN THỊ TRÊN MÀN HÌNH (Giao diện FE đã tính sẵn KM)
-        let finalKnowledge = knowledgeBase;
-        if (typeof window.layDataHienThiChoBot === "function") {
-            finalKnowledge = window.layDataHienThiChoBot();
-            console.log("🎯 Đã bốc dữ liệu DOM màn hình gửi cho Bot.");
+    // 🟢 THAY ĐỔI DUY NHẤT: Bọc logic gọi fetch vào vòng lặp tự động retry né server HK
+    let data = null;
+    let retries = 3; // Thử tối đa 3 lần nếu dính lỗi region
+
+    while (retries > 0) {
+        try {
+            // 🎯 LẤY GPS AN TOÀN (Ép buộc phải có số thực tế mới gửi lên Google)
+            let gpsInfo = "";
+            const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
+
+            // Phải check kỹ xem có đúng là CHỨA SỐ (Number) không, tránh gửi chữ "undefined" lên Google
+            if (currentPos && currentPos.lat && currentPos.lon && !isNaN(currentPos.lat) && !isNaN(currentPos.lon)) {
+                gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${currentPos.lat}, Longitude ${currentPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
+            } else {
+                // Nếu chưa có tọa độ chuẩn, gửi chuỗi thuần chữ này, tuyệt đối không kẹp biến undefined vào
+                gpsInfo = `\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở khu nào ở Đà Lạt nếu cần tính khoảng cách.`;
+            }
+
+            // Giao diện FE đã tính toán sẵn KM qua hàm của index, bốc thẳng thảy cho Bot hít cho nhanh
+            let finalKnowledge = knowledgeBase;
+            if (typeof window.layDataHienThiChoBot === "function") {
+                finalKnowledge = window.layDataHienThiChoBot();
+            }
+
+            const response = await fetch(CONFIG.WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // Sử dụng format tách biệt tương thích với Worker mới của fen
+                body: JSON.stringify({ 
+                    systemPrompt: CONFIG.SYSTEM_PROMPT(finalKnowledge) + gpsInfo,
+                    userMessage: text 
+                })
+            });
+
+            if (response.ok) {
+                data = await response.json();
+                
+                // Kiểm tra xem chuỗi JSON trả về từ Google có chứa từ khóa chặn location (do rớt server HK) không
+                if (data && data.error && data.error.message && data.error.message.includes("location")) {
+                    console.log("⚠️ Trúng server Cloudflare HK lỗi vị trí, đang tự động gửi lại...");
+                    retries--;
+                    if (retries > 0) {
+                        await new Promise(res => setTimeout(res, 300)); // Chờ 0.3s lắc xúc xắc lại tuyến đường
+                        continue;
+                    }
+                } else {
+                    // Nhận data sạch thành công, thoát khỏi vòng lặp retry
+                    break;
+                }
+            }
+        } catch (err) {
+            console.error("Lỗi kết nối mạng, đang thử lại...", err);
         }
-
-        // 🟢 FIX TRIỆT ĐỂ: Xóa bỏ hoàn toàn số Lat/Lon thập phân để Google không thể bắt bẻ
-        let gpsInfo = `\n[PARAMETER_LOGIC]: Toàn bộ khoảng cách KM của các quán trong danh sách trên đều được tính toán trực tiếp từ vị trí thực tế hiện tại của khách hàng. Quán xếp số 1 là quán gần khách nhất. Hãy dựa vào số KM đó để tư vấn chỉ đường.`;
-
-        // ĐÓNG GÓI PAYLOAD GỬI LÊN WORKER (Giữ nguyên format tách biệt)
-        const response = await fetch(CONFIG.WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                systemPrompt: CONFIG.SYSTEM_PROMPT(finalKnowledge) + gpsInfo,
-                userMessage: text
-            })
-        });
-
-        const data = await response.json();
         
+        retries--;
+        if (retries > 0) {
+            await new Promise(res => setTimeout(res, 300));
+        }
+    }
+
+    try {
         let aiMsg = "";
         // 🛠️ BẪY LỖI AN TOÀN: Check cấu trúc trả về xem nằm ở đâu để lấy ra chuỗi text
         if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
@@ -63,7 +100,7 @@ async function handleChat() {
         } else if (data && data.text) {
             aiMsg = data.text;
         } else {
-            // Nếu Google trả về object lỗi gì đó, in thẳng ra màn hình chat để đọc luôn thay vì văng crash
+            // Nếu sau 3 lần vẫn lỗi hoặc dính lỗi cấu trúc khác, in ra màn hình chat
             aiMsg = "⚠️ Thiết lập lỗi cấu trúc dữ liệu: " + JSON.stringify(data);
         }
         
