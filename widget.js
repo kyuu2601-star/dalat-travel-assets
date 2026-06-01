@@ -2,6 +2,19 @@
     // 1. INJECT CSS (Nhan sắc của Bot)
     const style = document.createElement('style');
     style.innerHTML = `
+        #chat-widget-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(2, 6, 23, 0.75) !important; /* Tạo nền tối mờ 75% */
+            backdrop-filter: blur(5px) !important;       /* Làm nhòe App gốc phía sau */
+            -webkit-backdrop-filter: blur(5px) !important;
+            z-index: 19999 !important;                   /* Nằm dưới window chat nhưng đè lên App */
+            display: none;
+        }
+        
         #chat-widget-button {
             position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px;
             background-color: #f59e0b; border-radius: 50%; display: flex;
@@ -83,6 +96,7 @@
     btn.onclick = () => {
         const isHidden = win.style.display === 'none' || win.style.display === '';
         win.style.display = isHidden ? 'flex' : 'none';
+        // Thêm dòng kiểm tra hiển thị overlay song song với cửa sổ chat (win)
         if (overlay) overlay.style.display = isHidden ? 'block' : 'none';
         if (isHidden) setTimeout(() => document.getElementById('userInput').focus(), 300);
     };
