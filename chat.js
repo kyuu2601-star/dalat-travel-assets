@@ -60,7 +60,7 @@ async function handleChat() {
         console.error(err);
         const loadingElement = document.getElementById(loadingId);
         if (loadingElement) {
-            loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen! Thử lại nha.";
+            loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen! + err.message";
         }
     }
 }
