@@ -1,0 +1,94 @@
+let knowledgeBase = "";
+const CHAT_STORAGE_KEY = 'dalatos_chat_history';
+const EXPIRY_TIME = 24 * 60 * 60 * 1000; // 24 giờ tính bằng miliseconds
+
+window.onload = async () => {
+    // 1. Nạp dữ liệu CSV
+    try {
+        const res = await fetch(CONFIG.CSV_URL);
+        knowledgeBase = await res.text();
+        console.log("✅ Đã nạp dữ liệu cẩm nang");
+    } catch (e) {
+        console.error("❌ Lỗi nạp dữ liệu!");
+    }
+    // 2. Phục hồi lịch sử chat
+    loadChatHistory();
+};
+
+async function handleChat() {
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+    if (!text || !knowledgeBase) return;
+
+    addMessage('user', text);
+    saveMessage('user', text);
+    input.value = '';
+
+    const loadingId = 'loading-' + Date.now();
+    addMessage('ai', `
+        <div class="typing" id="${loadingId}">
+            <span>Thổ địa đang tính...</span>
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+    `);
+
+    try {
+        const response = await fetch(CONFIG.WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // ✅ Gọi đúng function, knowledgeBase inject vào trong prompt
+            body: JSON.stringify({ message: CONFIG.SYSTEM_PROMPT(knowledgeBase) + "\n\nKhách: " + text })
+        });
+
+        const data = await response.json();
+        const aiMsg = data.candidates[0].content.parts[0].text;
+        const loadingElement = document.getElementById(loadingId);
+        if (loadingElement) {
+            loadingElement.closest('.msg').innerHTML = marked.parse(aiMsg);
+            saveMessage('ai', aiMsg);
+        }
+    } catch (err) {
+        console.error(err);
+        const loadingElement = document.getElementById(loadingId);
+        if (loadingElement) loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen!";
+    }
+}
+
+function addMessage(role, content) {
+    const chatBox = document.getElementById('chat-box');
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = (role === 'ai' && !content.includes('typing')) ? marked.parse(content) : content;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// --- LOGIC LƯU TRỮ ---
+function saveMessage(role, content) {
+    let history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY)) || { timestamp: Date.now(), messages: [] };
+
+    // Nếu quá 24h thì reset
+    if (Date.now() - history.timestamp > EXPIRY_TIME) {
+        history = { timestamp: Date.now(), messages: [] };
+    }
+    history.messages.push({ role, content });
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
+}
+
+function loadChatHistory() {
+    const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY));
+    if (!history) {
+        addMessage('ai', "Chào fen! Tui là Thổ Địa đây. Fen muốn tìm quán gì hay lên lịch trình đi đâu không?");
+        return;
+    }
+    // Kiểm tra hết hạn 24h
+    if (Date.now() - history.timestamp > EXPIRY_TIME) {
+        localStorage.removeItem(CHAT_STORAGE_KEY);
+        addMessage('ai', "Chào fen! Tui là Thổ Địa đây. Fen muốn tìm quán gì hay lên lịch trình đi đâu không?");
+        return;
+    }
+    // Hiển thị lại các tin nhắn cũ
+    history.messages.forEach(msg => {
+        addMessage(msg.role, msg.content);
+    });
+}
