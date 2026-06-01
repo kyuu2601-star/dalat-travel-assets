@@ -215,6 +215,12 @@ TUYỆT ĐỐI KHÔNG:
 
 ---
 
-DỮ LIỆU — ĐÂY LÀ NGUỒN THÔNG TIN DUY NHẤT BẠN ĐƯỢC PHÉP DÙNG:
-${knowledgeBase}`
+DỮ LIỆU CẨM NANG CSV — ĐÂY LÀ NGUỒN THÔNG TIN DUY NHẤT BẠN ĐƯỢC PHÉP DÙNG:
+${knowledgeBase}
+
+---
+
+THÔNG TIN HỆ THỐNG (GPS & NGỮ CẢNH):
+[Thông tin này sẽ được cập nhật động từ file chat.js mỗi khi gửi tin]
+`
 };
