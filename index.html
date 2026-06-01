@@ -321,6 +321,11 @@
             if (savedState !== null) {
                 document.getElementById('vibrateToggle').checked = savedState === 'true';
             }
+
+            // --- 2. KÍCH HOẠT THỔ ĐỊA BOT ---
+            if (typeof initBot === "function") {
+                initBot();
+            }
         };
 
         function saveVibrateState() {
