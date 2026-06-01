@@ -33,14 +33,16 @@ async function handleChat() {
     `);
 
     try {
-        // 🎯 LẤY GPS AN TOÀN TỪ WINDOW (Ưu tiên hít tọa độ từ App Radar của index.html)
+        // 🎯 LẤY GPS AN TOÀN (Ép buộc phải có số thực tế mới gửi lên Google)
         let gpsInfo = "";
         const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
 
-        if (currentPos && currentPos.lat && currentPos.lon) {
+        // Phải check kỹ xem có đúng là CHỨA SỐ (Number) không, tránh gửi chữ "undefined" lên Google
+        if (currentPos && currentPos.lat && currentPos.lon && !isNaN(currentPos.lat) && !isNaN(currentPos.lon)) {
             gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${currentPos.lat}, Longitude ${currentPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
         } else {
-            gpsInfo = `\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở đâu nếu cần tính khoảng cách.`;
+            // Nếu chưa có tọa độ chuẩn, gửi chuỗi thuần chữ này, tuyệt đối không kẹp biến undefined vào
+            gpsInfo = `\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở khu nào ở Đà Lạt nếu cần tính khoảng cách.`;
         }
 
         const response = await fetch(CONFIG.WORKER_URL, {
