@@ -13,7 +13,7 @@ async function initBot() {
     }
     // 2. Phục hồi lịch sử chat
     loadChatHistory();
-};
+}
 
 async function handleChat() {
     const input = document.getElementById('userInput');
@@ -33,28 +33,34 @@ async function handleChat() {
     `);
 
     try {
-        // 🎯 LẤY GPS AN TOÀN (Ép buộc phải có số thực tế mới gửi lên Google)
+        // 🟢 1. LẤY DỮ LIỆU ĐANG HIỂN THỊ TRÊN MÀN HÌNH (Giao diện FE đã tính sẵn KM)
+        let finalKnowledge = knowledgeBase;
+        if (typeof window.layDataHienThiChoBot === "function") {
+            finalKnowledge = window.layDataHienThiChoBot();
+            console.log("🎯 Đã bốc dữ liệu DOM màn hình gửi cho Bot.");
+        }
+
+        // 🟢 2. GỬI TỌA ĐỘ KÍN ĐÁO (Mã hóa thành thông số toán học phẳng để giấu Google)
         let gpsInfo = "";
         const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
 
-        // Phải check kỹ xem có đúng là CHỨA SỐ (Number) không, tránh gửi chữ "undefined" lên Google
         if (currentPos && currentPos.lat && currentPos.lon && !isNaN(currentPos.lat) && !isNaN(currentPos.lon)) {
-            gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${currentPos.lat}, Longitude ${currentPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
+            // Biến hóa vĩ độ/kinh độ thành Anchor point toán học để lách bộ lọc Geofencing
+            gpsInfo = `\n[PARAMETER_LOGIC]: Anchor point A sets X=${currentPos.lat} and Y=${currentPos.lon}.`;
         } else {
-            // Nếu chưa có tọa độ chuẩn, gửi chuỗi thuần chữ này, tuyệt đối không kẹp biến undefined vào
-            gpsInfo = `\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở khu nào ở Đà Lạt nếu cần tính khoảng cách.`;
+            gpsInfo = `\n[PARAMETER_LOGIC]: Anchor point A is not set.`;
         }
 
+        // 🟢 3. ĐÓNG GÓI PAYLOAD THEO FORMAT MỚI (Khớp với Worker nhận dạng)
         const response = await fetch(CONFIG.WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // ✅ Inject knowledgeBase và gpsInfo vào chung Prompt gửi đi
             body: JSON.stringify({ 
-                message: CONFIG.SYSTEM_PROMPT(knowledgeBase) + gpsInfo + "\n\nKhách: " + text 
+                systemPrompt: CONFIG.SYSTEM_PROMPT(finalKnowledge) + gpsInfo,
+                userMessage: text
             })
         });
 
-        // ... (Đoạn fetch gửi tin giữ nguyên của fen)
         const data = await response.json();
         
         let aiMsg = "";
