@@ -331,6 +331,8 @@
         navigator.geolocation.watchPosition(pos => {
             const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
 
+            window.userPos = newPos;
+
             if (!isSystemLive) {
                 const ls = document.getElementById('loading-screen');
                 if (ls) {
