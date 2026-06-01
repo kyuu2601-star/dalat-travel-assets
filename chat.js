@@ -33,10 +33,12 @@ async function handleChat() {
     `);
 
     try {
-        // 🎯 LẤY GPS AN TOÀN (Không gây lỗi nếu thiếu userPos)
+        // 🎯 LẤY GPS AN TOÀN TỪ WINDOW (Ưu tiên hít tọa độ từ App Radar của index.html)
         let gpsInfo = "";
-        if (typeof userPos !== "undefined" && userPos !== null && userPos.lat && userPos.lon) {
-            gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${userPos.lat}, Longitude ${userPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
+        const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
+
+        if (currentPos && currentPos.lat && currentPos.lon) {
+            gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${currentPos.lat}, Longitude ${currentPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
         } else {
             gpsInfo = `\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở đâu nếu cần tính khoảng cách.`;
         }
@@ -50,8 +52,19 @@ async function handleChat() {
             })
         });
 
+        // ... (Đoạn fetch gửi tin giữ nguyên của fen)
         const data = await response.json();
-        const aiMsg = data.candidates[0].content.parts[0].text;
+        
+        let aiMsg = "";
+        // 🛠️ BẪY LỖI AN TOÀN: Check cấu trúc trả về xem nằm ở đâu để lấy ra chuỗi text
+        if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+            aiMsg = data.candidates[0].content.parts[0].text;
+        } else if (data && data.text) {
+            aiMsg = data.text;
+        } else {
+            // Nếu Google trả về object lỗi gì đó, in thẳng ra màn hình chat để đọc luôn thay vì văng crash
+            aiMsg = "⚠️ Thiết lập lỗi cấu trúc dữ liệu: " + JSON.stringify(data);
+        }
         
         const loadingElement = document.getElementById(loadingId);
         if (loadingElement) {
