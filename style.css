@@ -68,34 +68,41 @@
 #chat-box::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.2); border-radius: 10px; }
 
 .widget-input-area { 
-    padding: 15px; 
+    padding: 12px; /* Giảm từ 15px xuống 12px cho gọn */
     display: flex; 
-    gap: 10px; 
+    align-items: center;
+    gap: 8px; 
     background: #0f172a; 
     border-top: 1px solid rgba(255,255,255,0.05); 
+    box-sizing: border-box;
+    width: 100%;
 }
 
-#userInput { 
+input#userInput { 
     flex: 1; 
-    padding: 12px 18px; 
+    min-width: 0; /* 🌟 QUAN TRỌNG: Ngăn ô nhập liệu phình to ép chết nút gửi */
+    padding: 10px 14px; 
     background: #1e293b; 
     border: 1px solid rgba(255,255,255,0.1); 
-    border-radius: 15px; 
+    border-radius: 12px; 
     color: white; 
-    outline: none;
+    outline: none; 
     font-size: 14px;
 }
 
-#send-btn { 
+.send-btn { 
     background: #f59e0b; 
-    color: #020617; 
     border: none; 
-    padding: 0 20px; 
-    border-radius: 15px; 
-    font-weight: 800; 
-    cursor: pointer;
-    text-transform: uppercase;
-    font-size: 12px;
+    width: 40px !important;   /* Thu nhỏ từ 44px xuống 40px */
+    height: 40px !important;  /* Khóa cứng chiều cao bằng chiều rộng */
+    border-radius: 12px; 
+    color: #020617; 
+    cursor: pointer; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;           /* 🌟 QUAN TRỌNG: Tuyệt đối không cho flexbox bóp méo nút */
+    padding: 0;
 }
 
 /* --- STYLE TIN NHẮN --- */
