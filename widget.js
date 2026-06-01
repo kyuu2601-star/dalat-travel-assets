@@ -16,7 +16,7 @@
         }
         
         #chat-widget-button {
-            position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px;
+            position: fixed; bottom: 30px; right: 30px; width: 50px; height: 50px;
             background-color: #f59e0b; border-radius: 50%; display: flex;
             justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
             cursor: pointer; z-index: 20000; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
