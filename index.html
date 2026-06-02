@@ -16,9 +16,12 @@
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
 
         /* Khi body có class này, màn hình nền đứng im re, không vuốt, không tương tác được */
-        body.chat-open {
-            overflow: hidden !important;
-            touch-action: none !important;
+        /* Khóa tổng lực từ html đến body */
+        html.chat-open, body.chat-open {
+        overflow: hidden !important;
+        touch-action: none !important;
+        height: 100% !important;
+        }
         }
         /* --- TÍCH HỢP LOADING SCREEN (GIỮ NGUYÊN STYLE GỐC BÊN DƯỚI) --- */
         #loading-screen { 
