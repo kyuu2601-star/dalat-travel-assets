@@ -139,6 +139,11 @@
     }
 
     btn.onclick = () => {
+                // 🟢 CHECK: Chỉ cho phép mở chat SAU KHI loading xong (isSystemLive = true)
+        if (typeof window.isSystemLive === 'undefined' || !window.isSystemLive) {
+            return; // Khóa tương tác lúc loading screen còn hiển thị
+        }
+
         const isHidden = win.style.display === 'none' || win.style.display === '';
         win.style.display = isHidden ? 'flex' : 'none';
         if (overlay) overlay.style.display = isHidden ? 'block' : 'none';
