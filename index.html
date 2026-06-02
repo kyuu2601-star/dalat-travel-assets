@@ -25,6 +25,8 @@
             transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             padding: 60px 0 15px 0; /* Neo chữ Loading cách cạnh dưới 15px */
+            background-attachment: fixed;  /* 🟢 Thêm dòng này */
+            background-color: #020617;      /* 🟢 Fallback color nếu ảnh load lâu */
         }
 
         @keyframes slide-scenery { from { background-position: 0 0; } to { background-position: -3000px 0; } }
