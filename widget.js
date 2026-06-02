@@ -1,6 +1,29 @@
 (function() {
-    // 1. INJECT CSS (Nhan sắc của Bot)
-    const style = document.createElement('style');
+    // ⏳ CHỜ HẾT LOADING TRƯỚC KHI INJECT WIDGET
+    function initChatWidget() {
+        // 1. INJECT CSS (Nhan sắc của Bot)
+        const style = document.createElement('style');
+        // ... tất cả code CSS, HTML, logic ở bên trong hàm này
+    }
+
+    // ⏳ ĐỢI LOADING XONG MỚI RENDER WIDGET
+    if (!document.getElementById('loading-screen')) {
+        // Loading screen đã bị remove rồi, render ngay
+        initChatWidget();
+    } else {
+        // Loading screen còn, chờ cho đến khi nó disappear
+        const observer = new MutationObserver(() => {
+            if (!document.getElementById('loading-screen')) {
+                observer.disconnect();
+                initChatWidget();
+            }
+        });
+        observer.observe(document.body, { childList: true });
+        
+        // Safety: Chờ tối đa 5s thì render luôn
+        setTimeout(initChatWidget, 5000);
+    }
+})();
     style.innerHTML = `
         #chat-widget-overlay {
             position: fixed;
