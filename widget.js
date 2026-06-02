@@ -124,58 +124,58 @@
     `;
     document.body.appendChild(widgetContainer);
 
-    // Khi mở chat lên, thêm class này vào body để khóa UI nền
-    document.body.classList.add('chat-open');
-
-    // Tự động kéo xuống đáy sau khi khung chat đã mở hẳn
-    setTimeout(() => {
-    // 1. Kiểm tra chính xác xem ID cái hộp chứa tin nhắn của fen có đúng là 'chat-box' không
-    const chatBox = document.getElementById('chat-box');
-    
-    if (chatBox) {
-        // Tìm phần tử tin nhắn cuối cùng đang có trong hộp chat
-        const lastMsg = chatBox.querySelector('.msg:last-child');
-        if (lastMsg) {
-            // Ép trình duyệt phải cuộn lút cán xuống tin nhắn này
-            lastMsg.scrollIntoView({ block: 'end' });
-            console.log("🎯 Đã ép cuộn xuống tin nhắn cuối!");
-        } else {
-            // Nếu không tìm thấy :last-child, dùng hạ sách cuộn kịch sàn
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-    } else {
-        console.log("❌ Không tìm thấy Element có ID là 'chat-box', fen check lại ID xem đúng chưa nha!");
-    }
-    }, 300); // Tăng lên 300ms để hiệu ứng CSS mở hộp chat chạy xong xuôi đã
-
-    // Khi đóng chat, xóa class này đi để user tương tác lại bình thường
-    document.body.classList.remove('chat-open');
-
-    // 3. LOGIC ĐÓNG MỞ
+   // 3. LOGIC ĐÓNG MỞ VÀ XỬ LÝ SỰ KIỆN TƯƠNG TÁC
     const btn = document.getElementById('chat-widget-button');
     const win = document.getElementById('chat-widget-window');
     const close = document.getElementById('close-widget');
     const overlay = document.getElementById('chat-widget-overlay');
 
+    // Hàm cuộn xuống tin nhắn cuối cùng một cách an toàn
+    function cuonXuongDayChat() {
+        const chatBox = document.getElementById('chat-box');
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }
+
     btn.onclick = () => {
         const isHidden = win.style.display === 'none' || win.style.display === '';
         win.style.display = isHidden ? 'flex' : 'none';
-        // Thêm dòng kiểm tra hiển thị overlay song song với cửa sổ chat (win)
         if (overlay) overlay.style.display = isHidden ? 'block' : 'none';
-        if (isHidden) setTimeout(() => document.getElementById('userInput').focus(), 300);
+        
+        if (isHidden) {
+            // 🟢 KHI MỞ CHAT: Khóa tương tác nền UI phía sau
+            document.documentElement.classList.add('chat-open');
+            document.body.classList.add('chat-open');
+            
+            // Đợi hiệu ứng css trượt mở window xong (300ms) thì kéo cuộn kịch sàn và focus input
+            setTimeout(() => {
+                cuonXuongDayChat();
+                document.getElementById('userInput').focus();
+            }, 300);
+        } else {
+            // 🔴 KHI ĐÓNG CHAT: Trả lại quyền cuộn nền bình thường
+            document.documentElement.classList.remove('chat-open');
+            document.body.classList.remove('chat-open');
+        }
     };
 
     close.onclick = (e) => {
         e.stopPropagation();
         win.style.display = 'none';
         if (overlay) overlay.style.display = 'none';
+        // 🔴 Mở khóa nền khi đóng bằng dấu x
+        document.documentElement.classList.remove('chat-open');
+        document.body.classList.remove('chat-open');
     };
 
-    // Bấm vào overlay cũng tự động đóng widget
     if (overlay) {
         overlay.onclick = () => {
             win.style.display = 'none';
             overlay.style.display = 'none';
+            // 🔴 Mở khóa nền khi đóng bằng cách click ra ngoài overlay
+            document.documentElement.classList.remove('chat-open');
+            document.body.classList.remove('chat-open');
         };
     }
 
