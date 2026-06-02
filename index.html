@@ -353,6 +353,7 @@
                     setTimeout(() => ls.remove(), 1000);
                 }
                 isSystemLive = true;
+                window.isSystemLive = true;  // 🟢 Thêm dòng này để widget.js có thể check được
             }
 
             if (!lastPos || Math.abs(newPos.lat - lastPos.lat) > 0.0001 || Math.abs(newPos.lon - lastPos.lon) > 0.0001) {
