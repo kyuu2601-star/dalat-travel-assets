@@ -129,11 +129,24 @@
 
     // Tự động kéo xuống đáy sau khi khung chat đã mở hẳn
     setTimeout(() => {
+    // 1. Kiểm tra chính xác xem ID cái hộp chứa tin nhắn của fen có đúng là 'chat-box' không
     const chatBox = document.getElementById('chat-box');
+    
     if (chatBox) {
-        chatBox.scrollTop = chatBox.scrollHeight;
+        // Tìm phần tử tin nhắn cuối cùng đang có trong hộp chat
+        const lastMsg = chatBox.querySelector('.msg:last-child');
+        if (lastMsg) {
+            // Ép trình duyệt phải cuộn lút cán xuống tin nhắn này
+            lastMsg.scrollIntoView({ block: 'end' });
+            console.log("🎯 Đã ép cuộn xuống tin nhắn cuối!");
+        } else {
+            // Nếu không tìm thấy :last-child, dùng hạ sách cuộn kịch sàn
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    } else {
+        console.log("❌ Không tìm thấy Element có ID là 'chat-box', fen check lại ID xem đúng chưa nha!");
     }
-    }, 150); // Chờ 150ms cho giao diện dựng xong rồi cuộn
+    }, 300); // Tăng lên 300ms để hiệu ứng CSS mở hộp chat chạy xong xuôi đã
 
     // Khi đóng chat, xóa class này đi để user tương tác lại bình thường
     document.body.classList.remove('chat-open');
