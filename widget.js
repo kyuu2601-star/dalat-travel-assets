@@ -3,28 +3,7 @@
     function initChatWidget() {
         // 1. INJECT CSS (Nhan sắc của Bot)
         const style = document.createElement('style');
-        // ... tất cả code CSS, HTML, logic ở bên trong hàm này
-    }
-
-    // ⏳ ĐỢI LOADING XONG MỚI RENDER WIDGET
-    if (!document.getElementById('loading-screen')) {
-        // Loading screen đã bị remove rồi, render ngay
-        initChatWidget();
-    } else {
-        // Loading screen còn, chờ cho đến khi nó disappear
-        const observer = new MutationObserver(() => {
-            if (!document.getElementById('loading-screen')) {
-                observer.disconnect();
-                initChatWidget();
-            }
-        });
-        observer.observe(document.body, { childList: true });
-        
-        // Safety: Chờ tối đa 5s thì render luôn
-        setTimeout(initChatWidget, 5000);
-    }
-})();
-    style.innerHTML = `
+        style.innerHTML = `
         #chat-widget-overlay {
             position: fixed;
             top: 0;
@@ -116,11 +95,11 @@
         .dot { width: 5px; height: 5px; background: #f59e0b; border-radius: 50%; animation: bounce 1.4s infinite; }
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
     `;
-    document.head.appendChild(style);
+        document.head.appendChild(style);
 
-    // 2. INJECT HTML (Khung xương của Bot)
-    const widgetContainer = document.createElement('div');
-    widgetContainer.innerHTML = `
+        // 2. INJECT HTML (Khung xương của Bot)
+        const widgetContainer = document.createElement('div');
+        widgetContainer.innerHTML = `
         <div id="chat-widget-overlay"></div>
 
         <div id="chat-widget-button">
@@ -145,74 +124,93 @@
             </div>
         </div>
     `;
-    document.body.appendChild(widgetContainer);
+        document.body.appendChild(widgetContainer);
 
-   // 3. LOGIC ĐÓNG MỞ VÀ XỬ LÝ SỰ KIỆN TƯƠNG TÁC
-    const btn = document.getElementById('chat-widget-button');
-    const win = document.getElementById('chat-widget-window');
-    const close = document.getElementById('close-widget');
-    const overlay = document.getElementById('chat-widget-overlay');
+        // 3. LOGIC ĐÓNG MỞ VÀ XỬ LÝ SỰ KIỆN TƯƠNG TÁC
+        const btn = document.getElementById('chat-widget-button');
+        const win = document.getElementById('chat-widget-window');
+        const close = document.getElementById('close-widget');
+        const overlay = document.getElementById('chat-widget-overlay');
 
-    // Hàm cuộn xuống tin nhắn cuối cùng một cách an toàn
-    function cuonXuongDayChat() {
-        const chatBox = document.getElementById('chat-box');
-        if (chatBox) {
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-    }
-
-    btn.onclick = () => {
-                // 🟢 CHECK: Chỉ cho phép mở chat SAU KHI loading xong (isSystemLive = true)
-        if (typeof window.isSystemLive === 'undefined' || !window.isSystemLive) {
-            return; // Khóa tương tác lúc loading screen còn hiển thị
+        // Hàm cuộn xuống tin nhắn cuối cùng một cách an toàn
+        function cuonXuongDayChat() {
+            const chatBox = document.getElementById('chat-box');
+            if (chatBox) {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
         }
 
-        const isHidden = win.style.display === 'none' || win.style.display === '';
-        win.style.display = isHidden ? 'flex' : 'none';
-        if (overlay) overlay.style.display = isHidden ? 'block' : 'none';
-        
-        if (isHidden) {
-            // 🟢 KHI MỞ CHAT: Khóa tương tác nền UI phía sau
-            document.documentElement.classList.add('chat-open');
-            document.body.classList.add('chat-open');
+        btn.onclick = () => {
+                    // 🟢 CHECK: Chỉ cho phép mở chat SAU KHI loading xong (isSystemLive = true)
+            if (typeof window.isSystemLive === 'undefined' || !window.isSystemLive) {
+                return; // Khóa tương tác lúc loading screen còn hiển thị
+            }
+
+            const isHidden = win.style.display === 'none' || win.style.display === '';
+            win.style.display = isHidden ? 'flex' : 'none';
+            if (overlay) overlay.style.display = isHidden ? 'block' : 'none';
             
-            // Đợi hiệu ứng css trượt mở window xong (300ms) thì kéo cuộn kịch sàn và focus input
-            setTimeout(() => {
-                cuonXuongDayChat();
-                document.getElementById('userInput').focus();
-            }, 300);
-        } else {
-            // 🔴 KHI ĐÓNG CHAT: Trả lại quyền cuộn nền bình thường
-            document.documentElement.classList.remove('chat-open');
-            document.body.classList.remove('chat-open');
-        }
-    };
+            if (isHidden) {
+                // 🟢 KHI MỞ CHAT: Khóa tương tác nền UI phía sau
+                document.documentElement.classList.add('chat-open');
+                document.body.classList.add('chat-open');
+                
+                // Đợi hiệu ứng css trượt mở window xong (300ms) thì kéo cuộn kịch sàn và focus input
+                setTimeout(() => {
+                    cuonXuongDayChat();
+                    document.getElementById('userInput').focus();
+                }, 300);
+            } else {
+                // 🔴 KHI ĐÓNG CHAT: Trả lại quyền cuộn nền bình thường
+                document.documentElement.classList.remove('chat-open');
+                document.body.classList.remove('chat-open');
+            }
+        };
 
-    close.onclick = (e) => {
-        e.stopPropagation();
-        win.style.display = 'none';
-        if (overlay) overlay.style.display = 'none';
-        // 🔴 Mở khóa nền khi đóng bằng dấu x
-        document.documentElement.classList.remove('chat-open');
-        document.body.classList.remove('chat-open');
-    };
-
-    if (overlay) {
-        overlay.onclick = () => {
+        close.onclick = (e) => {
+            e.stopPropagation();
             win.style.display = 'none';
-            overlay.style.display = 'none';
-            // 🔴 Mở khóa nền khi đóng bằng cách click ra ngoài overlay
+            if (overlay) overlay.style.display = 'none';
+            // 🔴 Mở khóa nền khi đóng bằng dấu x
             document.documentElement.classList.remove('chat-open');
             document.body.classList.remove('chat-open');
         };
+
+        if (overlay) {
+            overlay.onclick = () => {
+                win.style.display = 'none';
+                overlay.style.display = 'none';
+                // 🔴 Mở khóa nền khi đóng bằng cách click ra ngoài overlay
+                document.documentElement.classList.remove('chat-open');
+                document.body.classList.remove('chat-open');
+            };
+        }
+
+        // 4. GÁN SỰ KIỆN ENTER CHO INPUT
+        document.getElementById('userInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleChat();
+        });
+
+        // 5. GÁN SỰ KIỆN CLICK CHO NÚT GỬI
+        document.getElementById('send-btn').onclick = () => handleChat();
+
+    } // ← KẾT THÚC initChatWidget()
+
+    // ⏳ ĐỢI LOADING XONG MỚI RENDER WIDGET
+    if (!document.getElementById('loading-screen')) {
+        // Loading screen đã bị remove rồi, render ngay
+        initChatWidget();
+    } else {
+        // Loading screen còn, chờ cho đến khi nó disappear
+        const observer = new MutationObserver(() => {
+            if (!document.getElementById('loading-screen')) {
+                observer.disconnect();
+                initChatWidget();
+            }
+        });
+        observer.observe(document.body, { childList: true });
+        
+        // Safety: Chờ tối đa 5s thì render luôn
+        setTimeout(initChatWidget, 5000);
     }
-
-    // 4. GÁN SỰ KIỆN ENTER CHO INPUT
-    document.getElementById('userInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleChat();
-    });
-
-    // 5. GÁN SỰ KIỆN CLICK CHO NÚT GỬI
-    document.getElementById('send-btn').onclick = () => handleChat();
-
 })();
