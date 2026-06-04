@@ -192,7 +192,9 @@ const DALAT_KEYWORDS = {
         "đi đâu trước đi đâu sau", "di dau truoc di dau sau", "ngược đường", "nguoc duong", 
         "tiện đường", "tien duong", "thời gian biểu", "thoi gian bieu", "lt", 
         "đi Langbiang với trẻ con có mệt không", "di Langbiang voi tre con co met khong", 
-        "đi hồ tuyền lâm bao lâu", "di ho tuyen lam bao lau", "đi một ngày có đủ không", "di mot ngay co du khong"
+        "đi hồ tuyền lâm bao lâu", "di ho tuyen lam bao lau", "đi một ngày có đủ không", "di mot ngay co du khong",
+        "lich trinh", "lịch trình", "lên lịch", "len lich", "sắp xếp", "sap xep", "sap xep dia diem", "sấp xếp địa điểm",
+        "chọn chỗ", "chọn chỗ", "nên đi đâu", "nen đi đau"
     ],
 
     // 🛑 8. Module: CANH_BAO (Phá bẫy review ảo, né chợ đêm, chống lừa đảo dâu tây và đặc sản)
