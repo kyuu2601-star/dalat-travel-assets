@@ -1,28 +1,230 @@
-// keywords.js
+// keywords.js - Bản HOÀN CHỈNH 100% (Đầy đủ mọi case từ Bố, Mẹ, Tài xế, Gen Z và Trẻ con)
 const DALAT_KEYWORDS = {
-    // 🎯 Nhóm 1: Tính Khoảng Cách & Chiến Lược Tìm Kiếm
-    TIM_KIEM: [
-        "tìm", "kiếm", "quán", "chỗ nào", "địa điểm", "gần đây", "quanh đây", "gần nhất", 
-        "khoảng cách", "km", "xa không", "bao xa", "đề xuất", "gợi ý", "recomment", "recommend", 
-        "view đẹp", "chill", "ngon", "đông người", "đi 2 người", "nhóm đông"
+    // 🍔 1. Module: CSV_AN_UONG (Món ăn, khẩu vị, ăn đêm, budget, đặc sản, ăn tiện đường)
+    CSV_AN_UONG: [
+        "ăn gì ngon", "an gi ngon", "ăn xế", "an xe", "ăn khuya", "an khuya", "mở khuya", "mo khuya", 
+        "bữa sáng", "bua sang", "buổi sáng", "buoi sang", "buổi tối", "buoi toi", "ăn gì ngon nhất", "an gi ngon nhat", 
+        "bánh canh", "banh canh", "nước ngọt thanh", "nuoc ngot thanh", "không cay", "khong cay", 
+        "bánh mì xíu mại", "banh mi xiu mai", "xiu mai", "lẩu gà lá é", "lau ga la e", "lau ga", "la e", 
+        "không phải đợi lâu", "khong phai doi lau", "lẩu bò ba toa", "lau bo ba toa", "cơm gia đình", "com gia dinh", 
+        "cơm niêu", "com nieu", "vị miền nam", "vi mien nam", "nấu vị miền nam", "nau vi mien nam", 
+        "cháo ngon", "chao ngon", "cháo trẻ con", "chao tre con", "gà rán", "ga ran", "gà nướng cơm lam", "ga nuong com lam", 
+        "pizza", "mì ý", "mi y", "món việt", "mon viet", "món tây", "mon tay", "buffet rau", "bánh tráng nướng", "banh trang nuong", 
+        "btn", "bún bò", "bun bo", "chè nóng", "che nong", "kem bơ", "kem bo", "xiên que", "xien que", 
+        "đói bụng", "doi bung", "bún bò vị miền nam", "trái cây cắt sẵn", "trai cay cat san", 
+        "ăn kem có sao không", "an kem co sao khong", "bị lạnh bụng", "bi lanh bung", "ít ngọt", "it ngot", 
+        "không quá ngọt", "khong qua ngot", "tiểu đường", "tieu duong", "ăn sáng tiện đậu xe", "an sang tien dau xe",
+        "dừng ăn giữa đường", "dung an giua duong", "tiệm kem", "tiem kem", "vừa ăn vừa ngắm thông",
+        "nhất định phải ăn", "nhat dinh phai an", "ăn ngon", "an ngon", "local ăn", "local an", "quán nướng", "quan nuong",
+        "giá ổn", "gia on", "ăn tối vibe đẹp", "an toi vibe dep", "ngon vừa sống ảo", "ngon vua song ao", "buffet nướng", "buffet nuong",
+        "đáng tiền", "dang tien", "đói đêm", "doi dem", "đồ ăn vặt", "do an vat", "bánh ngon thật", "banh ngon that",
+        "chuẩn bài", "chuan bai", "ăn sáng local", "an sang local", "sữa đậu nành", "sua dau nanh", "tiệm bánh ngọt", "tiem banh ngot",
+        "mì cay", "mi cay", "ngon rẻ", "ngon re", "portion nhiều", "portion nhieu", "giá mềm", "gia mem", "hợp trời lạnh", "hop troi lanh",
+        "ngồi chill lâu", "ngoi chill lau", "ít khách du lịch", "it khach du lich", "dân local hay ăn", "dan local hay an",
+        "lẩu bò", "lau bo", "đáng thử", "dang thu", "mở 24/24", "mo 24/24", "đồ nóng nóng", "do nong nong", "trà bánh", "tra banh",
+        "đồ ăn lên hình", "do an len hinh", "budget sv", "budget sv", "ổn áp", "on ap", "nướng ngoài trời", "nuong ngoai troi",
+        "ăn sáng view thông", "an sang view thong", "nước ngon thật", "nuoc ngon that", "hidden gem ăn uống", "hidden gem an uong",
+        "ăn xong ai cũng khen", "an xong ai cung khen", "đồ homemade", "do homemade", "bánh mì xíu mại chuẩn bài", "banh mi xiu mai chuan bai",
+        "ăn 2 người", "an 2 nguoi", "dưới 300k", "duoi 300k", "hải sản", "hai san", "vừa ăn vừa ngắm đèn", "vua an vua ngam den",
+        "trà atiso", "tra atiso", "bánh ướt lòng gà", "banh uot long ga", "sạch sẽ mà giá mềm", "sach se ma gia mem",
+        "đáng xếp hàng", "dang xep hang", "nhiều món local", "nhieu mon local", "đồ cay cay", "do cay cay", "ăn tám xuyên đêm", "an tam xuyen dem",
+        "mứt ngon", "mut ngon", "dâu lắc", "dau lac", "chill kiểu camping", "chill kieu camping", "ăn ngon gần", "an ngon gan",
+        "healthy", "buffet rau local", "cafe rang xay", "bình bình dân mà ngon", "binh binh dan ma ngon", "ăn gì sáng sớm", "an gi sang som",
+        "ghé dc ko", "ghe dc ko", "hợp đi ăn với ny", "hop di an voi ny", "tụ tập nhóm bạn", "tu tap nhom ban", "đồ ăn kiểu hàn", "do an kieu han",
+        "giao tối khuya", "giao toi khuya", "cacao nóng ngon", "cacao nong ngon", "trà trái cây", "tra trai cay", "đồ ăn ra nhanh", "do an ra nhanh",
+        "bánh croissant", "banh croissant", "muốn quay lại", "muon quay lai", "nhìn sang mà giá", "nhin sang ma gia", "nhạc chill chill", "nhac chill chill",
+        "ăn lúc mưa", "an luc mua", "gần chợ đêm mà ngon", "gan cho dem ma ngon", "sữa chua phô mai", "sua chua pho mai",
+        "ngồi làm việc", "ngoi lam viec", "học bài ko", "hoc bai ko", "mở khuya yên tĩnh", "mo khuya yen tinh", "no nê dưới 100k", "no ne duoi 100k",
+        "đồ bắc ngon", "do bac ngon", "chè nóng ngon", "che nong ngon", "cay tê kiểu thái", "cay te kieu thai", "socola handmade", "socola handmade",
+        "ăn trưa nhanh gọn", "an trua nhanh gon", "đúng quán mới ngon", "dung quan moi ngon", "dẫn phụ huynh đi ăn", "dan phu huynh di an",
+        "chill kiểu đl xưa", "chill kieu dl xua", "bánh su kem", "banh su kem", "giảm cân", "giam can", "vừa ăn vừa nghe acoustic", "vua an vu nghe acoustic",
+        "đồ nóng ngon lúc 2 3h sáng", "do nong ngon luc 2 3h sang", "cf mèo chó", "cf meo cho", "gần trung tâm mà dễ tìm", "gan trung tam ma de tim",
+        "vừa ăn vừa săn mây", "vua an vua san may", "bánh churros", "banh churros", "bắp rang bơ", "bap rang bo"
     ],
 
-    // 🎯 Nhóm 2: Hướng Dẫn Lên Lịch Trình
+    // 🏢 2. Module: CSV_TIM_KIEM (Điểm vui chơi, farm thú, sống ảo, hoạt động trẻ em, workshop, trò chơi)
+    CSV_TIM_KIEM: [
+        "quán ăn nào", "quan an nao", "chỗ ăn nào", "cho an nao", "chỗ chơi", "cho choi", "điểm chơi", "diem choi", 
+        "quán cafe cho trẻ con", "quan cafe cho tre con", "chạy chơi", "chay choi", "farm", "vườn dâu", "vuon dau", 
+        "tự hái", "tu hai", "khu vui chơi trong nhà", "khu vui choi trong nha", "đi cáp treo", "di cap treo", 
+        "máng trượt", "mang truot", "sở thú", "so thu", "farm cún", "farm cun", "cho thú ăn", "cho thu an", 
+        "langbiang", "ngắm hoa", "ngam hoa", "hướng dương", "huong duong", "lavender", "picnic", "tô tượng", "to tuong", 
+        "làm đồ handmade", "lam do handmade", "workshop", "puppy farm", "thông đẹp", "thong dep", "ga đà lạt", "ga da lat", 
+        "tàu hỏa", "tau hoa", "trại mát", "trai mat", "hồ tuyền lâm", "ho tuyen lam", "dạo mát", "dao mat", 
+        "ngắm thông", "ngam thong", "chợ đà lạt", "cho da lat", "chợ đêm", "cho dem", "đêm ở đà lạt", "dem o da lat", 
+        "studio", "chụp hình gia đình", "chup hinh gia dinh", "sống ảo", "song ao", "chỗ nào buổi tối đẹp", "cho nao buoi toi dep", 
+        "quán nổi tiếng", "quan noi tieng", "đồi chè", "doi che", "vòng xoay", "vong xoay", "cây xăng", "cay xang", 
+        "trạm dừng", "tram dung", "trạm dừng chân", "tram dung chan", "sân bay", "san bay", "liên khương", "lien khuong",
+        "chụp hình xịn", "chup hinh xin", "style hàn", "style han", "chill chill", "sang nhất", "sang nhat", "view thông", "view thong",
+        "vintage", "chụp tối", "chup toi", "ít người", "it nguoi", "giống bali", "giong bali", "rooftop", "ngắm hoàng hôn", "ngam hoang hon",
+        "săn mây", "san may", "outfit trắng", "outfit trang", "tone gỗ", "tone go", "chụp ban đêm", "chup ban dem", "nhiều hoa", "nhieu hoa",
+        "chụp couple", "chup couple", "decor xịn", "decor xin", "vintage hong kong", "hot tiktok", "lên reel", "len reel", "nàng thơ", "nang tho",
+        "váy dài", "vay dai", "nhiều kính", "nhieu kinh", "decor ko phèn", "decor ko phen", "tiệm bánh xinh", "tiem banh xinh",
+        "ngắm mưa", "ngam mua", "mở khuya vibe buồn", "mo khuya vibe buon", "hot nhất", "hot nhat", "như ở nước ngoài", "nhu o nuoc ngoai",
+        "ngắm đèn thành phố", "ngam den thanh pho", "đồ dark", "do dark", "tiệm đồ secondhand", "tiem do secondhand", "nhiều cây thông", "nhieu cay thong",
+        "hồ nào chụp chill", "ho nao chup chill", "thuê đồ chụp", "thue do chup", "makeup nhẹ", "makeup nhe", "studio tự chụp", "studio tu chup",
+        "style y2k", "kiểu nhật", "kieu nhat", "chụp ảnh film", "chup anh film", "ánh sáng chiều", "anh sang chieu", "hidden gem", "xe cổ", "xe co",
+        "decor đỏ", "decor do", "kiểu âu", "kieu au", "mùa lạnh", "mua lanh", "tiệm hoa xinh", "tiem hoa xinh", "áo len", "ao len",
+        "chụp ảnh gương", "chup anh guong", "view tàu lửa", "view tau lua", "quay vlog", "thanh xuân", "thanh xuan", "phim hàn", "phim han",
+        "all black", "bán phụ kiện", "ban phu kien", "tone trắng", "tone trang", "ngồi chill 1 mình", "ngoi chill 1 minh", "ảnh cưới", "anh cuoi",
+        "fairy", "giữa rừng thông", "giua rung thong", "ngắm bình minh", "ngam binh minh", "nhiều cửa kính", "nhieu cua kinh", "chụp với ny", "chup voi ny",
+        "hanbok", "hoodie", "thuê máy film", "thue may film", "retro xịn", "retro xin", "vibe camping", "nhạc indie", "nhac indie",
+        "viết journal", "viet journal", "nhiều mèo", "nhieu meo", "ban công ngắm đồi", "ban cong ngam doi", "decor noel", "decor noel",
+        "váy vintage", "vay vintage", "giống nhật bản", "giong nhat ban", "transition", "đèn vàng", "den vang", "đồ uống ngon", "do uong ngon",
+        "ngắm toàn cảnh", "ngam toan canh", "sporty", "học bài kiểu hàn", "hoc bai kieu han", "trời sương mù", "troi suong mu", "abandoned",
+        "hoa dã quỳ", "hoa da quy", "photobooth", "acoustic", "clean girl", "đà lạt hồi xưa", "da lat hoi xua", "với cún mèo", "voi cun meo",
+        "view thung lũng", "view thung lung", "nến thơm", "nen thom", "healing", "nhiều sách", "nhieu sach", "điện ảnh", "dien anh", "chưa quá viral", "chua qua viral",
+        "chợ đêm nào đáng đi", "cho dem nao dang di",
+        "nhiều thú cho con chơi", "nhieu thu cho con choi", "capybara", "ôm cún mèo", "om cun meo", "trò chơi", "tro choi",
+        "tàu lửa mini", "tau lua mini", "chơi cả ngày", "choi ca ngay", "thỏ nhiều nhiều", "tho nhieu nhieu", "cho thú ăn", "cho thu an",
+        "ngựa cho cưỡi", "ngua cho cuoi", "khủng long", "khung long", "cảm giác mạnh", "cam giac manh", "cầu trượt bự", "cau truot bu",
+        "công viên vui", "cong vien vui", "xe điện chạy vòng vòng", "xe dien chay vong vong", "hồ cá cho ăn", "ho ca cho an",
+        "nhà banh", "nha banh", "diễn xiếc", "dien xiec", "alpaca", "chơi nước", "choi nuoc", "tàu lượn", "tau luon",
+        "game arcade", "đèn đẹp", "den dep", "bắn súng đồ chơi", "ban sung do choi", "robot", "mê cung", "me cung",
+        "tự làm bánh", "tu lam banh", "workshop slime", "gắp thú", "gap thu", "lâu đài", "lau dai", "hóa trang công chúa", "hoa trang cong chua",
+        "xe đụng", "xe dung", "vuốt hồng cắn", "vuot hong can", "vịt cho con đuổi", "vit cho con duoi", "nhạc vui vui", "nhac vui vui",
+        "pháo bong bóng", "phao bong bong", "nhà ma", "nha ma", "cầu kính", "cau kinh", "zipline", "trampoline",
+        "workshop làm gốm", "workshop lam gom", "cosplay", "xe kart", "mini zoo", "chạy nhảy thoải mái", "chay nhay thoai mai",
+        "kẹo bông siêu to", "keo bong sieu to", "mascot", "show thú", "show thu", "chơi cát", "choi cat", "thiên nga đạp vịt", "thien nga dap vit",
+        "bán đồ chơi nhiều", "ban do choi nhieu", "karaoke cho con hét", "karaoke cho con het", "kính thiên văn coi sao", "kinh thien van coi sao",
+        "game bắn zombie", "game ban zombie", "đèn neon ngầu", "den neon ngau", "cây thông noel quanh năm", "cay thong noel quanh nam",
+        "workshop vẽ tranh", "workshop ve tranh", "magic show", "trèo dây", "treo day", "đường trượt phao", "duong truot phao",
+        "bắt cá", "bat ca", "xe jeep chở đi chơi", "xe jeep cho di choi", "suối cho nghịch nước", "suoi cho nghich nuoc",
+        "phòng tuyết", "phong tuyet", "sân chơi trong nhà", "san choi trong nha", "bắn cung", "ban cung", "máy bay mô hình", "may bay mo hinh",
+        "vườn hoa siêu bự", "vuon hoa sieu bu", "ếch rắn kỳ nhông", "ech ran ky nhong", "weird weird", "đua xe điều khiển", "dua xe dieu khien",
+        "xích đu siêu cao", "xich du sieu cao", "gấu bông siêu bự", "gau bong sieu bu", "pháo giấy", "phao giay", "kính vạn hoa", "kinh van hoa",
+        "đường hầm ánh sáng", "duong ham anh sang", "giải cứu mật thư", "giai cuu mat thu", "cắm trại nướng marshmallow", "cam trai nuong marshmallow",
+        "show ca nhạc vui", "show ca nhac vui", "hoạt hình chiếu ngoài trời", "hoat hinh chieu ngoai troi", "workshop làm socola", "workshop lam socola",
+        "khủng long phun khói", "khung long phun khoi", "đạp xe vòng vòng", "dap xe vong vong", "mini golf", "nhà cây", "nha cay",
+        "trò chơi vr", "tro choi vr", "đường hầm băng", "duong ham bang", "chú hề nặn bóng bay", "chu he nan bong bay",
+        "show bong bóng xà phòng", "show bong bong xa phong", "đèn lồng đẹp", "den long dep", "vượt chướng ngại vật", "vuot chuong ngai vat",
+        "nhạc nước", "nhac nuoc", "công viên khủng long", "cong vien khung long", "hồ câu cá", "ho cau ca", "săn kho báu", "san kho bau",
+        "thực tế ảo đánh quái", "thuc te ao danh quai", "thú baby mới sinh", "thu baby moi sinh", "biểu diễn ảo thuật", "bieu dien ao thuat",
+        "phòng lego nhiều mảnh", "phong lego nhieu manh", "xe lửa chạy xuyên rừng", "xe lua chay xuyen rung", "đèn laser đầy trời", "den laser day troi",
+        "ngủ lều chơi tới tối", "ngu leu choi toi toi"
+    ],
+
+    // 🚗 3. Module: DI_CHUYEN (Bãi xe, đậu đỗ, cạ gầm, loại xe lớn nhỏ, hầm xe, bảo vệ)
+    DI_CHUYEN: [
+        "bãi đậu ô tô", "bai dau o to", "bãi xe", "bai xe", "đậu qua đêm", "dau qua dem", 
+        "cách quán bao xa", "cach quan bao xa", "bãi xe tới điểm tham quan", "bai xe toi diem tham quan", 
+        "đi bộ bao xa", "di bo bao xa", "sedan đi nổi không", "sedan di noi khong", "xe thấp gầm", "xe thap gam", 
+        "cạ gầm", "ca gam", "cạ không", "ca khong", "gửi xe ngoài", "gui xe ngoai", "đi bộ vào", "di bo vao", 
+        "ô tô vào tận nơi", "o to vao tan noi", "ô tô quay đầu", "o to quay dau", "quay đầu dễ không", "quay dau de khong", 
+        "bảo vệ coi xe", "bao ve coi xe", "camera", "tính phí bao nhiêu", "tinh phi bao nhieu", "phí giữ xe", "phi giu xe", 
+        "mái che", "mai che", "xe 16 chỗ", "xe 16 cho", "xe đông lúc mấy giờ", "xe dong luc may gio", 
+        "đặt chỗ đậu xe trước", "dat cho dau xe truoc", "hầm gửi xe", "ham gui xe", "nhà vệ sinh gần bãi xe", "nha ve sinh gan bai xe", 
+        "khuất tầm nhìn", "khuat tam nhin", "rửa xe", "rua xe", "cấm đậu xe", "cam dau xe", 
+        "vừa ăn vừa nhìn thấy xe", "vua an vua nhin thay xe", "xếp hàng đậu", "xep hang dau", "xe 7 chỗ", "sedan ik dc ko", 
+        "oto ko", "đậu free", "tính phí v", "oto vô tận nơi", "gửi ngoài r đi bộ", "đi bộ xa ko", "bảo vệ coi xe qua đêm", 
+        "xe 16 chỗ vô dc ko", "suv vô thoải mái chứ", "xe thấp gầm né dc ko", "có chỗ quay đầu xe ko", "đậu xe xong đi bộ bao xa", 
+        "cf nào đậu oto sát quán", "homestay nào oto vô tận cửa", "villa nào đỡ dốc nhất", "bãi xe có mái che ko", 
+        "bãi xe cách điểm chơi xa ko", "book chỗ đậu trước", "camera hay bảo vệ giữ xe ko", "xe hybrid", "bai xe gan wc ko", 
+        "đậu oto ngay trước quán", "vừa ăn vừa canh dc xe ko", "khó kiếm chỗ đậu", "bãi xe đóng cửa mấy h", 
+        "đậu qua đêm có an toàn ko", "gọi trước hỏi chỗ đậu ko", "chỗ nào đậu oto xong khỏi đi bộ nhiều", 
+        "homestay nào khỏi leo dốc ko", "xe 4 người lớn 2 con nít", "xe nhỏ ik dc hết", "family friendly mà oto vô dễ"
+    ],
+
+    // 📞 4. Module: LIEN_HE_QUAN (Tiện ích hạ tầng tại chỗ, liên hệ hotline xác nhận live)
+    LIEN_HE_QUAN: [
+        "ghế em bé", "ghe em be", "toilet sạch", "toilet sach", "vệ sinh sạch", "ve sinh sach", 
+        "đặt quán trước", "dat quan truoc", "phục vụ nhanh", "phuc vu nhanh", "đói là quạo", "doi la quao", 
+        "có chỗ đậu xe ô tô lớn", "co cho dau xe o to lon", "không phải đợi lâu", "khong phai doi lau", 
+        "không phải xếp hàng dài", "khong phai xep hang dai", "có cần đặt quán trước", "co can dat quan truoc", 
+        "bật máy sưởi", "bat may suoi", "máy sưởi", "may suoi", "bồn tắm", "bon tam", 
+        "khách sạn có bồn tắm", "khach san co bon tam", "chăn riêng", "chan rieng", "đem theo chăn riêng", "dem theo chan rieng", 
+        "family room", "chỗ cho tài xế nghỉ", "cho cho tai xe nghi", "đặt vé trước", "dat ve truoc", "khỏi đứng chờ", "khoi dung cho",
+        "nhận giữ xe tới khuya ko", "bãi xe đóng cửa mấy giờ"
+        // --- Cập nhật riêng cho case Khách sạn / Homestay / Resort ---
+        "khách sạn", "khach san", "ks", "homestay", "resort", "villa", "đặt phòng", "dat phong", "book phòng", "book phong",
+        "checkin", "checkout", "check in", "check out", "né giờ checkin", "ne gio checkin", "giờ check in", "gio check in",
+        "hỏi lễ tân", "hoi le tan", "gọi hotline", "goi hotline", "phòng gia đình", "phong gia dinh", "xin thêm chăn", "xin them chan",
+        "gối thêm", "goi them", "nước nóng lạnh", "nuoc nong lanh", "cách âm tốt", "cach am tot", "có ăn sáng kèm ko", "co an sang kem ko",
+        "hồ bơi nước ấm", "ho boi nuoc am", "nhận phòng sớm", "nhan phong som", "trả phòng muộn", "tra phong muon", "phụ thu", "phu thu",
+        "gần trung tâm dễ đậu xe ko", "gần chợ đêm có ồn", "khu chợ đêm có ồn không", "ngủ không được", "ngu khong duoc",
+        "homestay phù hợp gia đình", "homestay phu hop gia dinh", "gọi trước hỏi chỗ đậu ko", "bãi xe đóng cửa mấy h"
+    ],
+
+    // 🥶 5. Module: THOI_TIET (Nhiệt độ ngày đêm, quần áo giữ ấm, kịch bản ngày mưa)
+    THOI_TIET: [
+        "mặc nhiêu lớp", "mac nhieu lop", "tối có lạnh nhiều", "toi co lanh nhieu", "lạnh quá", "lanh qua", 
+        "chuẩn bị gì tháng mưa", "chuan bi gi thang mua", "mang dù hay áo mưa", "mang du hay ao mua", 
+        "có mưa không", "co mua khong", "thời tiết đà lạt", "thoi tiet da lat", "chiều mưa đi đâu", "chieu mua di dau", 
+        "hay mưa giờ nào", "hay mua gio nao", "đà lạt tháng này hay mưa", "da lat thang nay hay mua", 
+        "thuê áo ấm", "thue ao am", "mua luôn tiện hơn", "mua luon tien hon", "tiệm giặt sấy nhanh", "tiem giat say nhanh", "giặt ủi", "giat ui",
+        "chơi lúc trời mưa", "choi luc troi mua"
+    ],
+
+    // 🚗 6. Module: AN_TOAN (Địa hình đèo dốc, tay lái yếu, sương mù, sạt lở, chống say xe)
+    AN_TOAN: [
+        "đường lên khó đi", "duong len kho di", "yếu tay lái", "yeu tay lai", "tay lái yếu", "tay lai yeu", 
+        "đường đèo", "duong deo", "dốc gắt", "doc gat", "sương mù", "suong mu", "đường vắng", "duong vang", 
+        "thuê xe hơi", "thue xe hoi", "ghế trẻ em", "ghe tre em", "taxi đàng hoàng", "taxi dang hoang", 
+        "đi xe máy chở 2 bé nguy hiểm không", "di xe may cho 2 be nguy hiem khong", "trạm nghỉ", "tram nghi", 
+        "dừng ăn giữa đường", "dung an giua duong", "sài gòn lên", "sai gon len", "đường nào buổi tối sương mù", "duong nao buoi toi suong mu", 
+        "đi bộ được ít", "di bo duoc it", "mệt không", "met khong", "say xe", "thuốc chống say", "thuoc chong say", 
+        "đem thuốc", "dem thuoc", "chạy tới mất bao lâu", "chay toi mat bao lau", "chạy mất bao lâu", "chay mat bao lau", 
+        "đường hẹp", "duong hep", "né xe ngược chiều", "ne xe nguoc chieu", "bê tông hết chưa", "be tong het chua", 
+        "đèn đường", "den duong", "khúc cua gắt", "khuc cua gat", "xuong dốc dài", "xuong doc dai", 
+        "sương mù nhiều", "suong mu nhieu", "đường đang sửa", "duong dang sua", "sạt lở", "sat lo", 
+        "đường đèo nguy hiểm", "duong deo nguy hien", "đường trơn", "duong tron", "tối về chạy an toàn", "toi ve chay an toan", 
+        "chạy một chiều", "chay mot chieu", "chạy hai chiều", "chay hai chieu", "google map chỉ đúng", "google map chi dung", 
+        "xe điện", "xe dien", "xe đầy tải", "xe day tai", "xe số mạnh", "xe so manh", "xe nhỏ", "xe nho", 
+        "fog buổi chiều", "fog buoi chieu", "mới lái đèo", "moi lai deo", "nhường đường khó", "nhuong duong kho", 
+        "mimosa", "prenn", "xe tải lớn", "xe tai lon", "kinh nghiệm đổ đèo", "kinh nghiem do deo", 
+        "chưa quen cung này", "chua quen cung nay", "mất thắng", "mat thang", "biển báo rõ", "bien bao ro", 
+        "cua hơn", "cua hon", "thắng tốt", "thang tot", "5h chiều", "5h chieu", "dốc gắt ko", "xe 7 chỗ leo nổi ko", 
+        "hẹp ko xe tránh nhau dc ko", "tối chạy vô có đèn đường ko", "trời mưa ik ổn ko", "trơn lắm", "xe mới lái đèo ik nổi ko", 
+        "cua gắt nhiều ko", "map chỉ chuẩn ko", "dễ lạc", "người lớn tuổi ik dc ko", "trẻ con ik bộ nổi ko", 
+        "đường bê tông hay đường đất v", "ổ gà nhiều ko", "ban đêm nguy hiểm ko", "sương mù nhiều ko", "sửa đường ko", 
+        "chạy 1 chiều hay 2 chiều", "đèo nào dễ lái hơn", "ng ít ik dl", "thắng ngon mới ik dc ko", "cung này ổn ko", 
+        "hồ tuyền lâm tối có đáng ngại ko", "sạt lở ko", "mất thắng ko", "xe đầy tải leo nổi ko", "thuê tài xế local ko", 
+        "khuất tầm nhìn ko", "sóng yếu ko", "trại mát về trung tâm dễ ik ko", "view đẹp mà oto vô nhẹ nhàng", "fog nặng ko", 
+        "mùa mưa bằng sedan ko", "đồi chè có lầy ko", "thuê ở sân bay leo nổi ko", "hao pin dữ ko", "xe tải nhiều ko", 
+        "trẻ con nghỉ giữa đường", "tài mới ik cung này dc ko", "leo dốc liên tục ko", "nóng thắng ko", 
+        "ban ngày dễ chạy hơn tối nhiều ko", "tuyến nào né dc đèo ko", "xe bus chạy nhiều ko", "can xe mạnh ko", "lười lắm"
+    ],
+
+    // 📝 7. Module: LICH_TRINH (Định hướng tuyến đường, phân phối thời gian vừa sức cho gia đình)
     LICH_TRINH: [
-        "lịch trình", "route", "sắp xếp", "kế hoạch", "đi đâu trước", "lịch đi", "tour", 
-        "gợi ý lịch", "sắp lịch", "tuyến đường", "sáng đi đâu", "chiều đi đâu"
+        "lịch trình nhẹ nhàng", "lich trinh nhe nhang", "3 ngày 2 đêm", "3 ngay 2 dem", "3n2d", 
+        "một ngày tối đa mấy điểm", "mot ngay toi da may diem", "không bị mệt", "khong bi met", 
+        "đi đâu trước đi đâu sau", "di dau truoc di dau sau", "ngược đường", "nguoc duong", 
+        "tiện đường", "tien duong", "thời gian biểu", "thoi gian bieu", "lt", 
+        "đi Langbiang với trẻ con có mệt không", "di Langbiang voi tre con co met khong", 
+        "đi hồ tuyền lâm bao lâu", "di ho tuyen lam bao lau", "đi một ngày có đủ không", "di mot ngay co du khong"
     ],
 
-    // 🎯 Nhóm 3: Cảnh Báo Đường Xá & Di Chuyển
-    DU_CHUYEN_AN_TOAN: [
-        "đường", "hẻm", "dốc", "khó đi", "khoai", "xe máy", "ô tô", "tay ga", "xe số", 
-        "thuê xe", "bằng lái", "đèo", "tà nung", "prenn", "mimosa", "bảo lộc", 
-        "nguy hiểm", "sương mù", "tai nạn", "té xe", "trơn", "khuya", "đêm", "phanh"
+    // 🛑 8. Module: CANH_BAO (Phá bẫy review ảo, né chợ đêm, chống lừa đảo dâu tây và đặc sản)
+    CANH_BAO: [
+        "tiktok có ngon không", "tiktok co ngon khong", "chỉ đẹp chụp hình", "chi dep chup hinh", 
+        "không đáng đi", "khong dang di", "review quá trời", "review qua troi", "mạng review", "mang review", 
+        "chặt chém", "chat chem", "bị hét giá", "bi het gia", "dâu không bị thuốc", "dau khong bi thuoc", 
+        "mua hồng treo gió ở chợ đêm", "mua hong treo gio o cho dem", "tour không bắt shopping", "tour khong bat shopping", 
+        "tự đi hay mua tour", "tu di hay mua tour", "đà lạt còn yên bình không", "da lat con yen binh khong", 
+        "điểm nào không đáng đi", "diem nao khong dang di", "nhà có trẻ con thì nên tránh quán nào", "nha co tre con thi nen tranh quan nao", 
+        "đi chợ đêm nên ăn gì trước", "di cho dem nen an gi truoc", "farm nào chủ yếu người lớn chụp hình", "farm nao chu yeu nguoi lon chup hinh", 
+        "khu yên tĩnh", "khu yen tinh", "khu chợ đêm có ồn không", "khu cho dem co on khong", "ngủ không được", "ngu khong duoc", 
+        "ở gần chợ đêm có ồn", "o gan cho dem co on", "homestay phù hợp gia đình", "homestay phu hop gia dinh", 
+        "nên ở khu chợ đêm hay khu yên tĩnh", "nen o khu cho dem hay khu yen tinh", "đáng tiền", "dang tien", 
+        "tt", "toptop", "top top", "hợp gia đình ik chill ko", "vừa chill vừa ít đông ko", "sáng đẹp hay chiều đẹp hơn v"
     ],
 
-    // 🎯 Nhóm 4: Thời Tiết & Ngày Nghỉ Quán
-    THOI_TIET_NGAY_NGHI: [
-        "mưa", "nắng", "lạnh", "thời tiết", "nhiệt độ", "mặc gì", "áo khoác", "áo mưa", 
-        "dự báo", "ấm", "đồ len", "đóng cửa", "lịch nghỉ", "nghỉ ngày nào", "mở cửa", "mấy giờ"
+    // ⏱️ 9. Module: GIAO_THONG (Canh thời gian tránh kẹt xe vòng xoay, giờ check-in, xem app camera)
+    GIAO_THONG: [
+        "cuối tuần kẹt xe", "cuoi tuan ket xe", "đà lạt cuối tuần kẹt xe nhiều hong", "da lat cuoi tuan ket xe nhieu hong", 
+        "tuyến đường tránh đông", "tuyen duong tranh dong", "mở cửa từ mấy giờ", "mo cua tu may gio", "đóng cửa", "dong cua", 
+        "mở sớm 5-6h sáng", "mo som 5-6h sang", "né giờ check-in", "ne gio check-in", "giờ check in", "gio check in", 
+        "xếp hàng", "xep hang", "đứng chờ ngoài đường", "dung cho ngoai duong", "camera giao thông", "camera giao thong", 
+        "app xem camera", "app xem camera", "kẹt xe dữ ko", "né trung tâm cho đỡ đông ko", "chạy từ trung tâm qua đây bao lâu", 
+        "xe đông nhất tầm mấy h để né", "ik sáng sớm cho đỡ kẹt ko", "cấm ô tô giờ nào ko", "dễ kẹt cứng ko", 
+        "đường vòng nào dễ chạy hơn ko", "từ sân bay chạy lên mất bao lâu", "né giờ checkin ks ko", "đông nhưng đậu xe dễ v", 
+        "app xem tình trạng kẹt xe", "né trung tâm cuối tuần ko", "canh giờ xuất phát ko", "chợ đêm xa ko", "thuê ks gần trung tâm cho dễ đậu xe"
+    ],
+
+    // 🏥 10. Module ĐẶC BIỆT: Y_TE (Sơ cứu y tế nhanh, hiệu thuốc đêm gần trung tâm, bệnh nhi)
+    Y_TE: [
+        "sốt nhẹ", "sot nhe", "đưa đi đâu", "dua di dau", "bệnh viện tốt cho trẻ con", "benh vien tot cho tre con", 
+        "tiệm thuốc nào mở khuya", "tiem thuoc nao mo khuya", "bệnh viện", "benh vien", "tiệm thuốc", "tiem thuoc"
     ]
 };
