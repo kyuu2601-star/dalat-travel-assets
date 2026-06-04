@@ -216,8 +216,8 @@ const DALAT_KEYWORDS = {
     GIAO_THONG: [
         "cuối tuần kẹt xe", "cuoi tuan ket xe", "đà lạt cuối tuần kẹt xe nhiều hong", "da lat cuoi tuan ket xe nhieu hong", 
         "tuyến đường tránh đông", "tuyen duong tranh dong", "mở cửa từ mấy giờ", "mo cua tu may gio", "đóng cửa", "dong cua", 
-        "mở sớm 5-6h sáng", "mo som 5-6h sang", "né giờ check-in", "ne gio check-in", "giờ check in", "gio check in", 
-        "xếp hàng", "xep hang", "đứng chờ ngoài đường", "dung cho ngoai duong", "camera giao thông", "camera giao thong", 
+        "mở sớm 5-6h sáng", "mo som 5-6h sang", "né giờ check-in", "ne gio check-in",
+        "đứng chờ ngoài đường", "dung cho ngoai duong", "camera giao thông", "camera giao thong", 
         "app xem camera", "app xem camera", "kẹt xe dữ ko", "né trung tâm cho đỡ đông ko", "chạy từ trung tâm qua đây bao lâu", 
         "xe đông nhất tầm mấy h để né", "ik sáng sớm cho đỡ kẹt ko", "cấm ô tô giờ nào ko", "dễ kẹt cứng ko", 
         "đường vòng nào dễ chạy hơn ko", "từ sân bay chạy lên mất bao lâu", "né giờ checkin ks ko", "đông nhưng đậu xe dễ v", 
