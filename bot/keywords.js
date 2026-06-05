@@ -1,4 +1,4 @@
-// keywords.js - Bản HOÀN CHỈNH 100% (Đầy đủ mọi case từ Bố, Mẹ, Tài xế, Gen Z và Trẻ con)
+// keywords.js - Bản HOÀN CHỈNH TỐI ĐA 100% (Bao phủ Keyword, Keyphrase, Teencode, Viết tắt, Không dấu)
 const DALAT_KEYWORDS = {
     // 🍔 1. Module: CSV_AN_UONG (Món ăn, khẩu vị, ăn đêm, budget, đặc sản, ăn tiện đường)
     CSV_AN_UONG: [
@@ -39,7 +39,16 @@ const DALAT_KEYWORDS = {
         "ăn trưa nhanh gọn", "an trua nhanh gon", "đúng quán mới ngon", "dung quan moi ngon", "dẫn phụ huynh đi ăn", "dan phu huynh di an",
         "chill kiểu đl xưa", "chill kieu dl xua", "bánh su kem", "banh su kem", "giảm cân", "giam can", "vừa ăn vừa nghe acoustic", "vua an vu nghe acoustic",
         "đồ nóng ngon lúc 2 3h sáng", "do nong ngon luc 2 3h sang", "cf mèo chó", "cf meo cho", "gần trung tâm mà dễ tìm", "gan trung tam ma de tim",
-        "vừa ăn vừa săn mây", "vua an vua san may", "bánh churros", "banh churros", "bắp rang bơ", "bap rang bo"
+        "vừa ăn vừa săn mây", "vua an vua san may", "bánh churros", "banh churros", "bắp rang bơ", "bap rang bo",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE ĂN UỐNG ---
+        "ăn j", "an j", "tiệm ăn", "tiem an", "quán ăn", "quan an", "món ăn", "mon an", "lẩu gà", "lau ga", "lgle", "lá é", "la e", 
+        "lẩu bò", "lau bo", "lbbt", "ba toa", "xíu mại", "xiu mai", "bmxm", "bánh mì", "banh mi", "bánh canh", "banh canh", 
+        "bún bò", "bun bo", "bb", "bánh ướt", "banh uot", "bulgogi", "tokbokki", "nướng", "nuong", "bbq", "đồ nướng", "do nuong", 
+        "ăn khuya", "an khuya", "ăn đêm", "an dem", "đói", "doi", "đói bụng", "doi bung", "đói j", "doi j", "thèm ăn", "them an", 
+        "quán nướng", "quan nuong", "cơm niêu", "com nieu", "cơm gđ", "com gd", "kem bơ", "kem bo", "sữa đậu", "sua dau", 
+        "atiso", "hải sản", "hai san", "hs", "ốc", "oc", "ăn vặt", "an vat", "av", "cafe", "cf", "cà phê", "ca phe", 
+        "tiệm cf", "tiem cf", "quán cf", "quan cf", "trà sữa", "tra sua", "ts", "ngon rẻ", "ngon re", "ngon re ko", "ngon ko", 
+        "ăn sáng", "an sang", "ăn trưa", "an trua", "ăn tối", "an toi", "chỗ ăn", "cho an"
     ],
 
     // 🏢 2. Module: CSV_TIM_KIEM (Điểm vui chơi, farm thú, sống ảo, hoạt động trẻ em, workshop, trò chơi)
@@ -62,7 +71,7 @@ const DALAT_KEYWORDS = {
         "váy dài", "vay dai", "nhiều kính", "nhieu kinh", "decor ko phèn", "decor ko phen", "tiệm bánh xinh", "tiem banh xinh",
         "ngắm mưa", "ngam mua", "mở khuya vibe buồn", "mo khuya vibe buon", "hot nhất", "hot nhat", "như ở nước ngoài", "nhu o nuoc ngoai",
         "ngắm đèn thành phố", "ngam den thanh pho", "đồ dark", "do dark", "tiệm đồ secondhand", "tiem do secondhand", "nhiều cây thông", "nhieu cay thong",
-        "hồ nào chụp chill", "ho nao chup chill", "thuê đồ chụp", "thue do chup", "makeup nhẹ", "makeup nhe", "studio tự chụp", "studio tu chup",
+        "hồ nào chụp chill", "ho nao chụp chill", "thuê đồ chụp", "thue do chup", "makeup nhẹ", "makeup nhe", "studio tự chụp", "studio tu chup",
         "style y2k", "kiểu nhật", "kieu nhat", "chụp ảnh film", "chup anh film", "ánh sáng chiều", "anh sang chieu", "hidden gem", "xe cổ", "xe co",
         "decor đỏ", "decor do", "kiểu âu", "kieu au", "mùa lạnh", "mua lanh", "tiệm hoa xinh", "tiem hoa xinh", "áo len", "ao len",
         "chụp ảnh gương", "chup anh guong", "view tàu lửa", "view tau lua", "quay vlog", "thanh xuân", "thanh xuan", "phim hàn", "phim han",
@@ -101,7 +110,15 @@ const DALAT_KEYWORDS = {
         "nhạc nước", "nhac nuoc", "công viên khủng long", "cong vien khung long", "hồ câu cá", "ho cau ca", "săn kho báu", "san kho bau",
         "thực tế ảo đánh quái", "thuc te ao danh quai", "thú baby mới sinh", "thu baby moi sinh", "biểu diễn ảo thuật", "bieu dien ao thuat",
         "phòng lego nhiều mảnh", "phong lego nhieu manh", "xe lửa chạy xuyên rừng", "xe lua chay xuyen rung", "đèn laser đầy trời", "den laser day troi",
-        "ngủ lều chơi tới tối", "ngu leu choi toi toi"
+        "ngủ lều chơi tới tối", "ngu leu choi toi toi",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE ĐỊA ĐIỂM CHƠI ---
+        "đi đâu", "di dau", "chỗ chơi", "cho choi", "điểm chơi", "diem choi", "đi chơi", "di choi", "đi j", "di j", "chơi j", "choi j",
+        "sống ảo", "song ao", "sa", "chụp hình", "chup hinh", "chup anh", "chụp ảnh", "chup hinh", "chup hình", "checkin", "check in", "ci", 
+        "tham quan", "địa điểm", "dia diem", "đđ", "dd", "vui chơi", "vui choi", "giải trí", "giai tri", "gt", 
+        "puppy", "farm", "thú", "thu", "thú cún", "thu cun", "máng trượt", "mang truot", "cáp treo", "cap treo", 
+        "hồ tuyền lâm", "ho tuyen lam", "htl", "tuyền lâm", "tuyen lam", "langbiang", "lbiang", "đồi chè", "doi che", 
+        "hoàng hôn", "hoang hon", "hh", "săn mây", "san may", "sm", "bình minh", "binh minh", "bm", 
+        "chợ đà lạt", "cho da lat", "chợ đêm", "cho dem", "cd", "cđ", "workshop", "ws"
     ],
 
     // 🚗 3. Module: DI_CHUYEN (Bãi xe, đậu đỗ, cạ gầm, loại xe lớn nhỏ, hầm xe, bảo vệ)
@@ -122,7 +139,13 @@ const DALAT_KEYWORDS = {
         "bãi xe cách điểm chơi xa ko", "book chỗ đậu trước", "camera hay bảo vệ giữ xe ko", "xe hybrid", "bai xe gan wc ko", 
         "đậu oto ngay trước quán", "vừa ăn vừa canh dc xe ko", "khó kiếm chỗ đậu", "bãi xe đóng cửa mấy h", 
         "đậu qua đêm có an toàn ko", "gọi trước hỏi chỗ đậu ko", "chỗ nào đậu oto xong khỏi đi bộ nhiều", 
-        "homestay nào khỏi leo dốc ko", "xe 4 người lớn 2 con nít", "xe nhỏ ik dc hết", "family friendly mà oto vô dễ"
+        "homestay nào khỏi leo dốc ko", "xe 4 người lớn 2 con nít", "xe nhỏ ik dc hết", "family friendly mà oto vô dễ",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE BÃI XE ---
+        "bãi đậu", "bai dau", "bãi xe", "bai xe", "bx", "đậu xe", "dau xe", "gửi xe", "gui xe", "đỗ xe", "do xe", 
+        "đậu oto", "dau oto", "gửi oto", "gui oto", "đậu ô tô", "dau o to", "chỗ đậu", "cho dau", "chỗ đỗ", "cho do", 
+        "chỗ gửi", "cho gui", "phí giữ", "phi giu", "phí gửi", "phi gui", "vé xe", "ve xe", "bảo vệ", "bao ve", "bv", 
+        "cạ gầm", "ca gam", "cg", "thấp gầm", "thap gam", "sedan", "suv", "16 chỗ", "16 cho", "7 chỗ", "7 cho", 
+        "quay đầu", "quay dau", "qd", "vào tận nơi", "vao tan noi", "vào tận cửa", "vao tan cua", "đi bộ xa", "di bo xa"
     ],
 
     // 📞 4. Module: LIEN_HE_QUAN (Tiện ích hạ tầng tại chỗ, liên hệ hotline xác nhận live)
@@ -141,7 +164,13 @@ const DALAT_KEYWORDS = {
         "gối thêm", "goi them", "nước nóng lạnh", "nuoc nong lanh", "cách âm tốt", "cach am tot", "có ăn sáng kèm ko", "co an sang kem ko",
         "hồ bơi nước ấm", "ho boi nuoc am", "nhận phòng sớm", "nhan phong som", "trả phòng muộn", "tra phong muon", "phụ thu", "phu thu",
         "gần trung tâm dễ đậu xe ko", "gần chợ đêm có ồn", "khu chợ đêm có ồn không", "ngủ không được", "ngu khong duoc",
-        "homestay phù hợp gia đình", "homestay phu hop gia dinh", "gọi trước hỏi chỗ đậu ko", "bãi xe đóng cửa mấy h"
+        "homestay phù hợp gia đình", "homestay phu hop gia dinh", "gọi trước hỏi chỗ đậu ko", "bãi xe đóng cửa mấy h",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE LIÊN HỆ / LƯU TRÚ ---
+        "book phòng", "book phong", "đặt phòng", "dat phong", "dp", "đặt bàn", "dat ban", "db", "đặt trước", "dat truoc", "dt", 
+        "khách sạn", "khach san", "ks", "homestay", "hmstay", "hst", "resort", "villa", "vla", "lễ tân", "le tan", "lt", 
+        "hotline", "hl", "sđt", "sdt", "số điện thoại", "so dien thoai", "gọi cho", "goi cho", "liên hệ", "lien he", "lh", 
+        "checkin", "check in", "ci", "checkout", "check out", "co", "nhận phòng", "nhan phong", "trả phòng", "tra phong", 
+        "phòng gđ", "phong gd", "nước nóng", "nuoc nong", "cách âm", "cach am", "phụ thu", "phu thu", "pt", "ghế em bé", "ghe em be"
     ],
 
     // 🥶 5. Module: THOI_TIET (Nhiệt độ ngày đêm, quần áo giữ ấm, kịch bản ngày mưa)
@@ -151,7 +180,12 @@ const DALAT_KEYWORDS = {
         "có mưa không", "co mua khong", "thời tiết đà lạt", "thoi tiet da lat", "chiều mưa đi đâu", "chieu mua di dau", 
         "hay mưa giờ nào", "hay mua gio nao", "đà lạt tháng này hay mưa", "da lat thang nay hay mua", 
         "thuê áo ấm", "thue ao am", "mua luôn tiện hơn", "mua luon tien hon", "tiệm giặt sấy nhanh", "tiem giat say nhanh", "giặt ủi", "giat ui",
-        "chơi lúc trời mưa", "choi luc troi mua"
+        "chơi lúc trời mưa", "choi luc troi mua",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE THỜI TIẾT ---
+        "thời tiết", "thoi tiet", "tt", "mưa", "mua", "trời mưa", "troi mua", "mưa ko", "mua ko", "mưa hong", "mua hong", 
+        "dự báo", "du bao", "lạnh", "lanh", "lạnh ko", "lanh ko", "lạnh buốt", "lanh buot", "nhiệt độ", "nhiet do", "độ c", "do c", 
+        "mặc đồ", "mac do", "mặc j", "mac j", "chuẩn bị đồ", "chuan bi do", "mang ô", "mang o", "mang dù", "mang du", 
+        "áo mưa", "ao mua", "am", "áo gió", "ao gio", "áo len", "ao len", "giặt sấy", "giat say", "gs", "giặt đồ", "giat do"
     ],
 
     // 🚗 6. Module: AN_TOAN (Địa hình đèo dốc, tay lái yếu, sương mù, sạt lở, chống say xe)
@@ -166,7 +200,7 @@ const DALAT_KEYWORDS = {
         "đường hẹp", "duong hep", "né xe ngược chiều", "ne xe nguoc chieu", "bê tông hết chưa", "be tong het chua", 
         "đèn đường", "den duong", "khúc cua gắt", "khuc cua gat", "xuong dốc dài", "xuong doc dai", 
         "sương mù nhiều", "suong mu nhieu", "đường đang sửa", "duong dang sua", "sạt lở", "sat lo", 
-        "đường đèo nguy hiểm", "duong deo nguy hien", "đường trơn", "duong tron", "tối về chạy an toàn", "toi ve chay an toan", 
+        "đường trơn", "duong tron", "tối về chạy an toàn", "toi ve chay an toan", 
         "chạy một chiều", "chay mot chieu", "chạy hai chiều", "chay hai chieu", "google map chỉ đúng", "google map chi dung", 
         "xe điện", "xe dien", "xe đầy tải", "xe day tai", "xe số mạnh", "xe so manh", "xe nhỏ", "xe nho", 
         "fog buổi chiều", "fog buoi chieu", "mới lái đèo", "moi lai deo", "nhường đường khó", "nhuong duong kho", 
@@ -181,7 +215,14 @@ const DALAT_KEYWORDS = {
         "khuất tầm nhìn ko", "sóng yếu ko", "trại mát về trung tâm dễ ik ko", "view đẹp mà oto vô nhẹ nhàng", "fog nặng ko", 
         "mùa mưa bằng sedan ko", "đồi chè có lầy ko", "thuê ở sân bay leo nổi ko", "hao pin dữ ko", "xe tải nhiều ko", 
         "trẻ con nghỉ giữa đường", "tài mới ik cung này dc ko", "leo dốc liên tục ko", "nóng thắng ko", 
-        "ban ngày dễ chạy hơn tối nhiều ko", "tuyến nào né dc đèo ko", "xe bus chạy nhiều ko", "can xe mạnh ko", "lười lắm"
+        "ban ngày dễ chạy hơn tối nhiều ko", "tuyến nào né dc đèo ko", "xe bus chạy nhiều ko", "can xe mạnh ko", "lười lắm",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE AN TOÀN LÁI XE ---
+        "đường đèo", "duong deo", "đèo", "deo", "prenn", "mimosa", "bảo lộc", "bao loc", "ngoạn mục", "ngoan muc", 
+        "tay lái yếu", "tay lai yeu", "tài mới", "tai moi", "mới lái", "moi lai", "dốc gắt", "doc gat", "độ dốc", "do doc", 
+        "sương mù", "suong mu", "fog", "sương", "suong", "khuất tầm nhìn", "khuat tam nhin", "khúc cua", "khuc cua", 
+        "mất thắng", "mat thang", "cháy bố", "chay bo", "nóng thắng", "nong thang", "đổ đèo", "do deo", "xuống dốc", "xuong doc", 
+        "sạt lở", "sat lo", "sạt", "sat", "đường trơn", "duong tron", "ổ gà", "o ga", "đèn đường", "den duong", 
+        "say xe", "chống say", "chong say", "thuốc say", "thuoc say", "nguy hiểm", "nguy hiem", "nguy hiem ko"
     ],
 
     // 📝 7. Module: LICH_TRINH (Định hướng tuyến đường, phân phối thời gian vừa sức cho gia đình)
@@ -193,7 +234,12 @@ const DALAT_KEYWORDS = {
         "đi Langbiang với trẻ con có mệt không", "di Langbiang voi tre con co met khong", 
         "đi hồ tuyền lâm bao lâu", "di ho tuyen lam bao lau", "đi một ngày có đủ không", "di mot ngay co du khong",
         "lich trinh", "lịch trình", "lên lịch", "len lich", "sắp xếp", "sap xep", "sap xep dia diem", "sấp xếp địa điểm",
-        "chọn chỗ", "chọn chỗ", "nên đi đâu", "nen đi đau"
+        "chọn chỗ", "chọn chỗ", "nên đi đâu", "nen đi đau",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE LỊCH TRÌNH ---
+        "lịch trình", "lich trinh", "lt", "lên lt", "len lt", "route", "tuyến đường", "tuyen duong", 
+        "lên lịch", "len lich", "sắp xếp", "sap xep", "đi đâu trước", "di dau truoc", "đi đâu sau", "di dau sau", 
+        "ngược đường", "nguoc duong", "tiện đường", "tien duong", "gần nhau", "gan nhau", "cùng đường", "cung duong", 
+        "tiện đường ko", "3n2d", "2n1d", "4n3d", "lịch trình đi", "lich trinh di", "kế hoạch", "ke hoach"
     ],
 
     // 🛑 8. Module: CANH_BAO (Phá bẫy review ảo, né chợ đêm, chống lừa đảo dâu tây và đặc sản)
@@ -208,7 +254,12 @@ const DALAT_KEYWORDS = {
         "khu yên tĩnh", "khu yen tinh", "khu chợ đêm có ồn không", "khu cho dem co on khong", "ngủ không được", "ngu khong duoc", 
         "ở gần chợ đêm có ồn", "o gan cho dem co on", "homestay phù hợp gia đình", "homestay phu hop gia dinh", 
         "nên ở khu chợ đêm hay khu yên tĩnh", "nen o khu cho dem hay khu yen tinh", "đáng tiền", "dang tien", 
-        "tt", "toptop", "top top", "hợp gia đình ik chill ko", "vừa chill vừa ít đông ko", "sáng đẹp hay chiều đẹp hơn v"
+        "tt", "toptop", "top top", "hợp gia đình ik chill ko", "vừa chill vừa ít đông ko", "sáng đẹp hay chiều đẹp hơn v",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE CẢNH BÁO ---
+        "tiktok", "toptop", "top top", "tt", "seeding", "review ảo", "review ao", "lừa đảo", "lua dao", "bẫy", "bay", 
+        "chặt chém", "chat chem", "hét giá", "het gia", "cò mồi", "co moi", "xe ôm dụ", "xe om du", "vườn dâu lừa", "vuon dau lua", 
+        "dâu tây giá rẻ", "dau tay gia re", "hồng treo gió", "hong treo gio", "chợ đêm ăn", "cho dem an", "bị chém", "bi chem", 
+        "né quán", "ne quan", "tránh quán", "tranh quan", "phốt", "phot", "bóc phốt", "boc phot", "luộc đồ", "luoc do"
     ],
 
     // ⏱️ 9. Module: GIAO_THONG (Canh thời gian tránh kẹt xe vòng xoay, giờ check-in, xem app camera)
@@ -220,12 +271,22 @@ const DALAT_KEYWORDS = {
         "app xem camera", "app xem camera", "kẹt xe dữ ko", "né trung tâm cho đỡ đông ko", "chạy từ trung tâm qua đây bao lâu", 
         "xe đông nhất tầm mấy h để né", "ik sáng sớm cho đỡ kẹt ko", "cấm ô tô giờ nào ko", "dễ kẹt cứng ko", 
         "đường vòng nào dễ chạy hơn ko", "từ sân bay chạy lên mất bao lâu", "né giờ checkin ks ko", "đông nhưng đậu xe dễ v", 
-        "app xem tình trạng kẹt xe", "né trung tâm cuối tuần ko", "canh giờ xuất phát ko", "chợ đêm xa ko", "thuê ks gần trung tâm cho dễ đậu xe"
+        "app xem tình trạng kẹt xe", "né trung tâm cuối tuần ko", "canh giờ xuất phát ko", "chợ đêm xa ko", "thuê ks gần trung tâm cho dễ đậu xe",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE GIAO THÔNG ---
+        "kẹt xe", "ket xe", "kx", "kẹt đường", "ket duong", "kd", "đông xe", "dong xe", "kẹt cứng", "ket cung", 
+        "cuối tuần", "cuoi tuan", "ct", "giờ cao điểm", "gio cao diem", "gcd", "tránh đông", "tranh dong", "đường tránh", "duong tranh", 
+        "camera giao thông", "camera giao thong", "cam gt", "cam giao thong", "app camera", "app cam", "mở cửa lúc", "mo cua luc", 
+        "mấy giờ đóng", "may gio dong", "giờ chạy", "gio chay", "cấm ô tô", "cam o to", "cấm tải", "cam tai"
     ],
 
     // 🏥 10. Module ĐẶC BIỆT: Y_TE (Sơ cứu y tế nhanh, hiệu thuốc đêm gần trung tâm, bệnh nhi)
     Y_TE: [
         "sốt nhẹ", "sot nhe", "đưa đi đâu", "dua di dau", "bệnh viện tốt cho trẻ con", "benh vien tot cho tre con", 
-        "tiệm thuốc nào mở khuya", "tiem thuoc nao mo khuya", "bệnh viện", "benh vien", "tiệm thuốc", "tiem thuoc"
+        "tiệm thuốc nào mở khuya", "tiem thuoc nao mo khuya", "bệnh viện", "benh vien", "tiệm thuốc", "tiem thuoc",
+        // --- 🟢 BỔ SUNG THÊM CASE BĂM NHỎ / TEENCODE / VIẾT TẮT MODULE Y TẾ khẩn cấp ---
+        "sốt", "sot", "sốt cao", "sot cao", "đau bụng", "dau bung", "ngộ độc", "ngo doc", "tiêu chảy", "tieu chay", 
+        "nôn mửa", "non mua", "ói", "oi", "bệnh viện", "benh vien", "bv", "phòng khám", "phong kham", "pk", 
+        "tiệm thuốc", "tiem thuoc", "nhà thuốc", "nha thuoc", "mua thuốc", "mua thuoc", "hiệu thuốc", "hieu thuoc", 
+        "mở đêm", "mo dem", "mở khuya", "mo khuya", "24/24", "24h", "khẩn cấp", "khan cap", "cấp cứu", "cap cuu"
     ]
 };
