@@ -30,7 +30,7 @@ const CONFIG = {
                     promptGroupName = "DU_CHUYEN"; // Tự động bọc lót nếu file prompt của fen đang để tên cũ là DU_CHUYEN
                 }
 
-                console.log(`[Hàm Cha Cấu Hình]: Phát hiện từ khóa thuộc chuyên mục [${groupName}] -> Đã tiêm tri thức hỗ trợ [${promptGroupName}].`);
+                console.log(`🧩 [Hàm Cha Cấu Hình]: Phát hiện từ khóa thuộc chuyên mục [${groupName}] -> Đã tiêm tri thức hỗ trợ [${promptGroupName}].`);
                 
                 // Hốt nội dung Chuyên Mục đó ném vào mảng
                 if (DALAT_PROMPTS[promptGroupName]) {
