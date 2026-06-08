@@ -9,8 +9,8 @@
             width: 100vw;
             height: 100vh;
             background: rgba(2, 6, 23, 0.75) !important; /* Tạo nền tối mờ 75% */
-            backdrop-filter: blur(5px) !important;       /* Làm nhòe App gốc phía sau */
             -webkit-backdrop-filter: blur(5px) !important;
+            backdrop-filter: blur(5px) !important;       /* Làm nhòe App gốc phía sau */
             z-index: 19999 !important;                   /* Nằm dưới window chat nhưng đè lên App */
             display: none;
         }
@@ -145,7 +145,7 @@
             </div>
             <div id="chat-box"></div>
             <div class="widget-input-area">
-                <input type="text" id="userInput" placeholder="Hỏi đường, quán xá...">
+                <input type="text" id="userInput" placeholder="Hỏi đường, quán xá..." aria-label="Nhập câu hỏi cho Thổ Địa">
                 <button class="mic-btn" id="mic-btn">
                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
