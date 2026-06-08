@@ -67,7 +67,7 @@
             width: 40px !important;
             height: 40px !important;
             border-radius: 12px;
-            color: #94a3b8;
+            color: #0284c7;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -102,6 +102,14 @@
             padding: 0;              /* Xóa padding chữ cũ */
         }
 
+        .mic-btn:disabled, .send-btn:disabled {
+            background: #0f172a !important;   /* Chuyển hẳn sang nền đen tối */
+            color: #475569 !important;        /* Làm mờ icon bên trong sang màu xám đen */
+            border: 1px solid rgba(255,255,255,0.05) !important;
+            cursor: not-allowed !important;   /* Biến con trỏ chuột thành hình vòng tròn gạch chéo cấm bấm */
+            opacity: 0.6;                     /* Làm đục nhẹ để tạo cảm giác nút đã chết lâm sàng */
+        }
+        
         /* Style tin nhắn */
         .msg { padding: 12px 16px; border-radius: 18px; font-size: 14px; max-width: 85%; line-height: 1.5; color: #cbd5e1; }
         .user { align-self: flex-end; background: #334155; color: white; border-bottom-right-radius: 4px; }
