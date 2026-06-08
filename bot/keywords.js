@@ -118,7 +118,13 @@ const DALAT_KEYWORDS = {
         "puppy", "farm", "thú", "thu", "thú cún", "thu cun", "máng trượt", "mang truot", "cáp treo", "cap treo", 
         "hồ tuyền lâm", "ho tuyen lam", "htl", "tuyền lâm", "tuyen lam", "langbiang", "lbiang", "đồi chè", "doi che", 
         "hoàng hôn", "hoang hon", "hh", "săn mây", "san may", "sm", "bình minh", "binh minh", "bm", 
-        "chợ đà lạt", "cho da lat", "chợ đêm", "cho dem", "cd", "cđ", "workshop", "ws"
+        "chợ đà lạt", "cho da lat", "chợ đêm", "cho dem", "cd", "cđ", "workshop", "ws",
+        // --- 🟢 BỔ SUNG THÊM CASE ĐỊA ĐIỂM TIỆN LỢI ---
+        "cây xăng", "cay xang", "trạm xăng", "tram xang", "đổ xăng", "do xang", "mua xăng", "mua xang", "hết xăng", "het xang", "petrolimex", "pvoil", "xăng", "xang",
+        "siêu thị", "sieu thi", "mall", "go đà lạt", "go da lat", "go!", "winmart", "k-market", "mini mart", "tạp hóa", "tap hoa", "tiệm tạp hóa", "tiem tap hoa", "bách hóa xanh", "bach hoa xanh", "bách hóa", "bach hoa", "langfarm", "mua đồ", "mua do",
+        "atm", "ngân hàng", "ngan hang", "rút tiền", "rut tien", "bidv", "agribank", "vietcombank", "vietinbank", "sacombank", "techcombank",
+        "bến xe", "ben xe", "bến xe liên tỉnh", "ben xe lien tinh", "trạm xe buýt", "tram xe buyt", "xe buýt", "xe buyt", "gửi xe", "gui xe", "bãi xe", "bai xe",
+        "quà lưu niệm", "qua luu niem", "quà tặng", "qua tang", "lưu niệm", "luu niem", "gift shop", "mua quà", "mua qua", "đặc sản", "dac san", "mứt đà lạt", "mut da lat", "dâu tây", "dau tay", "vườn dâu", "vuon dau"
     ],
 
     // 🚗 3. Module: DI_CHUYEN (Bãi xe, đậu đỗ, cạ gầm, loại xe lớn nhỏ, hầm xe, bảo vệ)
@@ -287,6 +293,7 @@ const DALAT_KEYWORDS = {
         "sốt", "sot", "sốt cao", "sot cao", "đau bụng", "dau bung", "ngộ độc", "ngo doc", "tiêu chảy", "tieu chay", 
         "nôn mửa", "non mua", "ói", "oi", "bệnh viện", "benh vien", "bv", "phòng khám", "phong kham", "pk", 
         "tiệm thuốc", "tiem thuoc", "nhà thuốc", "nha thuoc", "mua thuốc", "mua thuoc", "hiệu thuốc", "hieu thuoc", 
-        "mở đêm", "mo dem", "mở khuya", "mo khuya", "24/24", "24h", "khẩn cấp", "khan cap", "cấp cứu", "cap cuu"
+        "mở đêm", "mo dem", "mở khuya", "mo khuya", "24/24", "24h", "khẩn cấp", "khan cap", "cấp cứu", "cap cuu",
+        "nhà thuốc", "hiệu thuốc", "pharmacy", "bệnh viện", "phòng khám", "bác sĩ", "nha khoa"
     ]
 };
