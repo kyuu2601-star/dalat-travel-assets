@@ -23,8 +23,8 @@ async function handleChat() {
     const sendBtn = document.getElementById('send-btn');   // Tìm nút gửi
     const voiceBtn = document.getElementById('mic-btn'); // Tìm nút ghi âm
 
-    if (sendBtn) sendBtn.disabled = true;
-    if (voiceBtn) voiceBtn.disabled = true;
+    if (send-btn) send-btn.disabled = true;
+    if (mic-btn) mic-btn.disabled = true;
     if (input) input.disabled = true;                     // Khóa luôn ô nhập chữ cho chắc
     
     addMessage('user', text);
