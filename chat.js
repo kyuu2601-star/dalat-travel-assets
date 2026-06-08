@@ -20,6 +20,13 @@ async function handleChat() {
     const text = input.value.trim();
     if (!text || !knowledgeBase) return;
 
+    const sendBtn = document.getElementById('sendBtn');   // Tìm nút gửi
+    const voiceBtn = document.getElementById('voiceBtn'); // Tìm nút ghi âm
+
+    if (sendBtn) sendBtn.disabled = true;
+    if (voiceBtn) voiceBtn.disabled = true;
+    if (input) input.disabled = true;                     // Khóa luôn ô nhập chữ cho chắc
+    
     addMessage('user', text);
     saveMessage('user', text);
     input.value = '';
@@ -116,6 +123,17 @@ async function handleChat() {
             loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen! Thử lại nha.";
         }
     }
+
+    const sendBtn = document.getElementById('sendBtn');
+    const voiceBtn = document.getElementById('voiceBtn');
+
+    if (sendBtn) sendBtn.disabled = false;
+    if (voiceBtn) voiceBtn.disabled = false;
+    if (input) {
+        input.disabled = false;
+        input.focus(); // Tự động click chuột lại vào ô nhập cho fen gõ tiếp
+    }
+    
 }
 
 function addMessage(role, content) {
