@@ -16,16 +16,19 @@ async function initBot() {
 }
 
 async function handleChat() {
+    // 🟢 ĐƯA CÁC BIẾN UI LÊN ĐẦU HÀM ĐỂ QUẢN LÝ TẬP TRUNG
     const input = document.getElementById('userInput');
+    const sendBtn = document.getElementById('send-btn');
+    const voiceBtn = document.getElementById('mic-btn');
+
+    if (!input) return;
     const text = input.value.trim();
     if (!text || !knowledgeBase) return;
 
-    const sendBtn = document.getElementById('send-btn');   // Tìm nút gửi
-    const voiceBtn = document.getElementById('mic-btn'); // Tìm nút ghi âm
-
+    // 🎯 CHẶN SPAM: Khóa toàn bộ các nút ngay lập tức
     if (sendBtn) sendBtn.disabled = true;
     if (voiceBtn) voiceBtn.disabled = true;
-    if (input) input.disabled = true;                     // Khóa luôn ô nhập chữ cho chắc
+    input.disabled = true; 
     
     addMessage('user', text);
     saveMessage('user', text);
@@ -37,105 +40,106 @@ async function handleChat() {
     let data = null;
     let retries = 3; // Thử tối đa 3 lần nếu dính lỗi region Cloudflare
 
-    while (retries > 0) {
-        try {
-            // 🎯 1. LẤY TOẠ ĐỘ GPS AN TOÀN
-            let gpsInfo = "";
-            const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
+    // 🌟 DÙNG TRY-CATCH-FINALLY TỔNG ĐỂ ĐẢM BẢO LUÔN MỞ KHÓA NÚT KỂ CẢ KHI CÓ LỖI CHẾT MẠNG
+    try {
+        while (retries > 0) {
+            try {
+                // 🎯 1. LẤY TOẠ ĐỘ GPS AN TOÀN
+                let gpsInfo = "";
+                const currentPos = (typeof window.userPos !== "undefined") ? window.userPos : (typeof userPos !== "undefined" ? userPos : null);
 
-            if (currentPos && currentPos.lat && currentPos.lon && !isNaN(currentPos.lat) && !isNaN(currentPos.lon)) {
-                gpsInfo = "\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude " + currentPos.lat + ", Longitude " + currentPos.lon + ". Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.";
-            } else {
-                gpsInfo = "\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở khu nào ở Đà Lạt nếu cần tính khoảng cách.";
-            }
-
-            let finalKnowledge = knowledgeBase;
-            if (typeof window.layDataHienThiChoBot === "function") {
-                finalKnowledge = window.layDataHienThiChoBot();
-            }
-
-            // 🎯 2. BỐC LỊCH SỬ CHAT VÀ GIỚI HẠN TỐI ĐA 6 TIN NHẮN ĐỂ TIẾT KIỆM VI TIỀN TOKEN
-            const localHistory = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY));
-            let chatHistoryArray = localHistory ? localHistory.messages : [];
-            
-            // Lọc hớt váng (Sliding Window): Chỉ gửi 6 câu gần nhất lên AI để xử lý mạch ngữ cảnh ngắn hạn
-            if (chatHistoryArray.length > 6) {
-                chatHistoryArray = chatHistoryArray.slice(-6);
-            }
-
-            // 🎯 3. GỬI REQUEST DATA LÊN WORKER BACKEND
-            const response = await fetch(CONFIG.WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    systemPrompt: CONFIG.SYSTEM_PROMPT(text, finalKnowledge) + gpsInfo,
-                    userMessage: text,
-                    chatHistory: chatHistoryArray // Mảng lịch sử tinh gọn bao gồm tối đa 6 tin nhắn
-                })
-            });
-
-            if (response.ok) {
-                data = await response.json();
-                
-                // Kiểm tra xem chuỗi JSON trả về từ Google có chứa từ khóa chặn location không
-                if (data && data.error && data.error.message && data.error.message.includes("location")) {
-                    console.log("⚠️ Trúng server Cloudflare HK lỗi vị trí, đang tự động gửi lại...");
-                    retries--;
-                    if (retries > 0) {
-                        await new Promise(res => setTimeout(res, 300)); // Chờ 0.3s lắc xúc xắc lại tuyến đường
-                        continue;
-                    }
+                if (currentPos && currentPos.lat && currentPos.lon && !isNaN(currentPos.lat) && !isNaN(currentPos.lon)) {
+                    gpsInfo = "\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude " + currentPos.lat + ", Longitude " + currentPos.lon + ". Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.";
                 } else {
-                    // Nhận data sạch thành công, thoát khỏi vòng lặp retry
-                    break;
+                    gpsInfo = "\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở khu nào ở Đà Lạt nếu cần tính khoảng cách.";
                 }
+
+                let finalKnowledge = knowledgeBase;
+                if (typeof window.layDataHienThiChoBot === "function") {
+                    finalKnowledge = window.layDataHienThiChoBot();
+                }
+
+                // 🎯 2. BỐC LỊCH SỬ CHAT VÀ GIỚI HẠN TỐI ĐA 6 TIN NHẮN ĐỂ TIẾT KIỆM VI TIỀN TOKEN
+                const localHistory = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY));
+                let chatHistoryArray = localHistory ? localHistory.messages : [];
+                
+                // Lọc hớt váng (Sliding Window): Chỉ gửi 6 câu gần nhất lên AI để xử lý mạch ngữ cảnh ngắn hạn
+                if (chatHistoryArray.length > 6) {
+                    chatHistoryArray = chatHistoryArray.slice(-6);
+                }
+
+                // 🎯 3. GỬI REQUEST DATA LÊN WORKER BACKEND
+                const response = await fetch(CONFIG.WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        systemPrompt: CONFIG.SYSTEM_PROMPT(text, finalKnowledge) + gpsInfo,
+                        userMessage: text,
+                        chatHistory: chatHistoryArray // Mảng lịch sử tinh gọn bao gồm tối đa 6 tin nhắn
+                    })
+                });
+
+                if (response.ok) {
+                    data = await response.json();
+                    
+                    // Kiểm tra xem chuỗi JSON trả về từ Google có chứa từ khóa chặn location không
+                    if (data && data.error && data.error.message && data.error.message.includes("location")) {
+                        console.log("⚠️ Trúng server Cloudflare HK lỗi vị trí, đang tự động gửi lại...");
+                        retries--;
+                        if (retries > 0) {
+                            await new Promise(res => setTimeout(res, 300)); // Chờ 0.3s lắc xúc xắc lại tuyến đường
+                            continue;
+                        }
+                    } else {
+                        // Nhận data sạch thành công, thoát khỏi vòng lặp retry
+                        break;
+                    }
+                }
+            } catch (err) {
+                console.error("Lỗi kết nối mạng, đang thử lại...", err);
+            }
+            
+            retries--;
+            if (retries > 0) {
+                await new Promise(res => setTimeout(res, 300));
+            }
+        }
+
+        try {
+            let aiMsg = "";
+            // 🛠️ BẪY LỖI CẤU TRÚC DỮ LIỆU AN TOÀN TRƯỚC KHI IN
+            if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+                aiMsg = data.candidates[0].content.parts[0].text;
+            } else if (data && data.text) {
+                aiMsg = data.text;
+            } else {
+                aiMsg = "⚠️ Thiết lập lỗi cấu trúc dữ liệu: " + JSON.stringify(data);
+            }
+            
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) {
+                loadingElement.closest('.msg').innerHTML = marked.parse(aiMsg);
+                saveMessage('ai', aiMsg);
             }
         } catch (err) {
-            console.error("Lỗi kết nối mạng, đang thử lại...", err);
+            console.error(err);
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) {
+                loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen! Thử lại nha.";
+            }
         }
+    } catch (globalErr) {
+        console.error("Lỗi tổng thống:", globalErr);
+    } finally {
+        // 🎯 KHỐI LỆNH GIẢI PHÓNG: Bất luận luồng xử lý chạy trơn tru hay sập mạng gãy gánh giữa chừng, LUÔN LUÔN nhả nút về trạng thái cũ tại đây.
+        if (sendBtn) sendBtn.disabled = false;
+        if (voiceBtn) voiceBtn.disabled = false;
         
-        retries--;
-        if (retries > 0) {
-            await new Promise(res => setTimeout(res, 300));
+        if (input) {
+            input.disabled = false;
+            input.focus(); 
         }
     }
-
-    try {
-        let aiMsg = "";
-        // 🛠️ BẪY LỖI CẤU TRÚC DỮ LIỆU AN TOÀN TRƯỚC KHI IN
-        if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-            aiMsg = data.candidates[0].content.parts[0].text;
-        } else if (data && data.text) {
-            aiMsg = data.text;
-        } else {
-            aiMsg = "⚠️ Thiết lập lỗi cấu trúc dữ liệu: " + JSON.stringify(data);
-        }
-        
-        const loadingElement = document.getElementById(loadingId);
-        if (loadingElement) {
-            loadingElement.closest('.msg').innerHTML = marked.parse(aiMsg);
-            saveMessage('ai', aiMsg);
-        }
-    } catch (err) {
-        console.error(err);
-        const loadingElement = document.getElementById(loadingId);
-        if (loadingElement) {
-            loadingElement.closest('.msg').innerText = "Lỗi kết nối rồi fen! Thử lại nha.";
-        }
-    }
-
-    const sendBtn = document.getElementById('send-btn'); // Lấy nhãn 'send-btn' gán vào biến sendBtn
-    const voiceBtn = document.getElementById('mic-btn');  // Lấy nhãn 'mic-btn' gán vào biến voiceBtn
-
-    // 🎯 Phải dùng tên biến (viết liền, chữ B viết hoa) để ra lệnh:
-    if (sendBtn) sendBtn.disabled = false;
-    if (voiceBtn) voiceBtn.disabled = false;
-    
-    if (input) {
-        input.disabled = false;
-        input.focus(); 
-    }
-    
 }
 
 function addMessage(role, content) {
