@@ -23,8 +23,8 @@ async function handleChat() {
     const sendBtn = document.getElementById('send-btn');   // Tìm nút gửi
     const voiceBtn = document.getElementById('mic-btn'); // Tìm nút ghi âm
 
-    if (send-btn) send-btn.disabled = true;
-    if (mic-btn) mic-btn.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+    if (voiceBtn) voiceBtn.disabled = true;
     if (input) input.disabled = true;                     // Khóa luôn ô nhập chữ cho chắc
     
     addMessage('user', text);
@@ -124,14 +124,16 @@ async function handleChat() {
         }
     }
 
-    const sendBtn = document.getElementById('sendBtn');
-    const voiceBtn = document.getElementById('voiceBtn');
+    const sendBtn = document.getElementById('send-btn'); // Lấy nhãn 'send-btn' gán vào biến sendBtn
+    const voiceBtn = document.getElementById('mic-btn');  // Lấy nhãn 'mic-btn' gán vào biến voiceBtn
 
-    if (sendBtn) send-btn.disabled = false;
-    if (voiceBtn) mic-btn.disabled = false;
+    // 🎯 Phải dùng tên biến (viết liền, chữ B viết hoa) để ra lệnh:
+    if (sendBtn) sendBtn.disabled = false;
+    if (voiceBtn) voiceBtn.disabled = false;
+    
     if (input) {
         input.disabled = false;
-        input.focus(); // Tự động click chuột lại vào ô nhập cho fen gõ tiếp
+        input.focus(); 
     }
     
 }
