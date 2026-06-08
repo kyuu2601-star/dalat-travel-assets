@@ -62,12 +62,12 @@
             outline: none; 
         }
                 .mic-btn {
-            background: #1e293b;
+            background: #47a3ff;
             border: 1px solid rgba(255,255,255,0.1);
             width: 40px !important;
             height: 40px !important;
             border-radius: 12px;
-            color: #0284c7;
+            color: #030591;
             cursor: pointer;
             display: flex;
             align-items: center;
