@@ -68,6 +68,10 @@ async function handleChat() {
                     chatHistoryArray = chatHistoryArray.slice(-6);
                 }
 
+                // Bốc bộ lọc vùng từ phần tử select trên giao diện HTML
+                const selectKhuVuc = document.getElementById('selectKhuVuc');
+                const currentKhuVucValue = selectKhuVuc ? selectKhuVuc.value : '';
+
                 // 🎯 3. GỬI REQUEST DATA LÊN WORKER BACKEND
                 const response = await fetch(CONFIG.WORKER_URL, {
                     method: 'POST',
@@ -75,7 +79,8 @@ async function handleChat() {
                     body: JSON.stringify({ 
                         systemPrompt: CONFIG.SYSTEM_PROMPT(text, finalKnowledge) + gpsInfo,
                         userMessage: text,
-                        chatHistory: chatHistoryArray // Mảng lịch sử tinh gọn bao gồm tối đa 6 tin nhắn
+                        chatHistory: chatHistoryArray, // Mảng lịch sử tinh gọn bao gồm tối đa 6 tin nhắn
+                        khuVuc: currentKhuVucValue    // 🌟 CHÈN THÊM FIELD NÀY: Chỉ điểm vị trí cluster động lên Worker
                     })
                 });
 
@@ -165,6 +170,7 @@ function saveMessage(role, content) {
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
 }
 
+// --- KHÔNG ĐỤNG CHẠM, GIỮ NGUYÊN HOÀN TOÀN CÁC PHẦN DƯỚI ---
 function loadChatHistory() {
     const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY));
     if (!history) {
