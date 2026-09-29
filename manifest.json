@@ -1,16 +1,18 @@
 {
-  "name": "Dalat Travel OS",
-  "short_name": "DalatOS",
-  "start_url": "index.html",
+  "name": "TravelOS",
+  "short_name": "TravelOS",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#020617",
-  "theme_color": "#ef4444",
+  "theme_color": "#020617",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/854/854866.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
