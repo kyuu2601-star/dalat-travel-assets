@@ -1,11 +1,9 @@
 const CONFIG = {
-    // D1: điền URL Worker API sau khi deploy (vd: https://travelos-data.xxx.workers.dev/api).
-    // Khi có URL, TravelOS sẽ tự ưu tiên D1. Nếu chưa có, app tạm fallback sang Sheet để bản live không bị gãy.
-    DATA_API_URL: "",
-    D1_ENABLED: false,
+    DATA_API_URL: "https://ai-test.kyuu2601.workers.dev/api",
+    D1_ENABLED: true,
 
-    // Transitional fallback only. Xóa sau khi D1 đã được deploy + migrate đủ data.
-    LEGACY_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTnXggiUJriOBPHz05pt01aIq_qaCDeQAcWpyYTG6zx1XI9WzfVDTbb8rPwYPf2w8uHxeDpx3Tznx53/pub?gid=615358788&single=true&output=csv",
+    // TravelOS đã chuyển sang D1. Frontend không còn dùng Google Sheet runtime.
+    LEGACY_CSV_URL: "",
 
     WORKER_URL: "https://ai-test.kyuu2601.workers.dev",
 
@@ -20,10 +18,13 @@ const CONFIG = {
 
             if (isMatched) {
                 hasMatched = true;
+
                 let promptGroupName = groupName;
+
                 if (groupName === "DI_CHUYEN" && !DALAT_PROMPTS.DI_CHUYEN) {
                     promptGroupName = "DU_CHUYEN";
                 }
+
                 if (DALAT_PROMPTS[promptGroupName]) {
                     activeParts.push(DALAT_PROMPTS[promptGroupName]);
                 }
@@ -34,7 +35,12 @@ const CONFIG = {
             activeParts.push(DALAT_PROMPTS.TONG_QUAT);
         }
 
-        activeParts.push(`\n--- DỮ LIỆU CẨM NANG BẮT BUỘC TRONG HỆ THỐNG ---\n${knowledgeBase}`);
+        if (knowledgeBase) {
+            activeParts.push(
+                `\n--- TRAVEL DATA STATUS ---\n${knowledgeBase}`
+            );
+        }
+
         return activeParts.join("\n\n");
     }
 };
