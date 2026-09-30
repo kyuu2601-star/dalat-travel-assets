@@ -4,8 +4,8 @@
     enabled: existing.enabled !== false,
     debug: Boolean(existing.debug),
     amap: {
-      jsKey: existing.amap?.jsKey || 'PASTE_AMAP_JS_KEY_HERE',
-      securityJsCode: existing.amap?.securityJsCode || 'PASTE_AMAP_SECURITY_JS_CODE_HERE',
+      jsKey: existing.amap?.jsKey || '79c0541a7d6a9a36e881123e4a3a2fe7',
+      securityJsCode: existing.amap?.securityJsCode || 'b523ede5ffa79742c101eac5a77b98b2',
       version: existing.amap?.version || '2.0'
     },
     ai: {
