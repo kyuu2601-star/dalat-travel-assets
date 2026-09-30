@@ -117,12 +117,13 @@
   const c = center ? toGcj(center) : null;
 
   return new AMap.Map(container, {
-    zoom: 16,
-    center: c ? [c.lng, c.lat] : undefined,
-    viewMode: '3D',
-    pitch: 0,
-    resizeEnable: true
-    });
+  zoom: 16,
+  center: c ? [c.lng, c.lat] : undefined,
+  viewMode: '3D',
+  pitch: 45,
+  rotation: 0,
+  resizeEnable: true
+  });
   }
 
   function routePath(route) {
