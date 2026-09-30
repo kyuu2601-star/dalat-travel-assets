@@ -7,6 +7,14 @@ let radarInterval = null;
 let currentIntervalTime = 0;
 let wakeLock = null;
 
+const GEO_CACHE_KEY = 'travelos_detected_location_v1';
+const GEO_CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
+const GEO_RECHECK_DISTANCE_KM = 25;
+let geoRequestInFlight = false;
+let detectedLocation = null;
+let lastGeocodedPos = null;
+let pendingDetectedLocation = null;
+
 const CATEGORIES = [
     { id: 'Ăn', color: '#ffb38a', text: '#5c2d14' },
     { id: 'Chơi', color: '#c5e8b7', text: '#2d4d1e' },
@@ -85,19 +93,22 @@ function playSmartWarning(distKm) {
     if (d > 1.0) lastAlertDistance = 999;
 }
 
-function getDistanceKm(targetLat, targetLng) {
-    if (!userPos) return Infinity;
-    const lat = Number(targetLat);
-    const lng = Number(targetLng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return Infinity;
+function distanceBetweenCoords(lat1, lon1, lat2, lon2) {
+    const values = [lat1, lon1, lat2, lon2].map(Number);
+    if (!values.every(Number.isFinite)) return Infinity;
 
     const R = 6371;
-    const lat1 = userPos.lat * Math.PI / 180;
-    const lat2 = lat * Math.PI / 180;
-    const dLat = (lat - userPos.lat) * Math.PI / 180;
-    const dLng = (lng - userPos.lon) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    const p1 = values[0] * Math.PI / 180;
+    const p2 = values[2] * Math.PI / 180;
+    const dLat = (values[2] - values[0]) * Math.PI / 180;
+    const dLon = (values[3] - values[1]) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getDistanceKm(targetLat, targetLng) {
+    if (!userPos) return Infinity;
+    return distanceBetweenCoords(userPos.lat, userPos.lon, targetLat, targetLng);
 }
 
 function formatDistance(distanceKm) {
@@ -105,6 +116,215 @@ function formatDistance(distanceKm) {
     if (distanceKm < 1) return `${Math.max(1, Math.round(distanceKm * 1000))} m`;
     if (distanceKm < 10) return `${distanceKm.toFixed(1)} km`;
     return `${Math.round(distanceKm)} km`;
+}
+
+function foldLocation(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+}
+
+function findDatasetValue(candidates, values) {
+    const list = values.filter(Boolean);
+    const candidateKeys = candidates.filter(Boolean).map(foldLocation).filter(Boolean);
+
+    for (const value of list) {
+        const key = foldLocation(value);
+        if (candidateKeys.includes(key)) return value;
+    }
+
+    for (const value of list) {
+        const key = foldLocation(value);
+        if (candidateKeys.some(candidate => candidate.length >= 4 && (key.includes(candidate) || candidate.includes(key)))) return value;
+    }
+
+    return '';
+}
+
+function buildCountryCandidates(data) {
+    const candidates = [data.countryName, data.countryCode];
+
+    if (data.countryCode === 'VN') candidates.push('Việt Nam', 'Vietnam', 'Viet Nam');
+    if (data.countryCode === 'CN') candidates.push('Trung Quốc', 'China', 'PRC');
+    if (data.countryCode === 'SG') candidates.push('Singapore');
+
+    return candidates.filter(Boolean);
+}
+
+function buildCityCandidates(data) {
+    const candidates = [data.city, data.locality, data.principalSubdivision, data.localityInfo?.administrative?.[2]?.name];
+    const joined = foldLocation(candidates.filter(Boolean).join(' '));
+
+    if (joined.includes('hochiminh') || joined.includes('saigon')) {
+        candidates.push('TP.HCM', 'TP HCM', 'Hồ Chí Minh', 'Thành phố Hồ Chí Minh', 'Ho Chi Minh City', 'Saigon');
+    }
+
+    if (joined.includes('dalat')) candidates.push('Đà Lạt', 'Da Lat');
+    if (joined.includes('danang')) candidates.push('Đà Nẵng', 'Da Nang');
+    if (joined.includes('vungtau')) candidates.push('Vũng Tàu', 'Vung Tau');
+    if (joined.includes('shanghai')) candidates.push('Thượng Hải', 'Shanghai');
+    if (joined.includes('chongqing')) candidates.push('Trùng Khánh', 'Chongqing');
+    if (joined.includes('fenghuang')) candidates.push('Phượng Hoàng', 'Fenghuang');
+
+    return candidates.filter(Boolean);
+}
+
+function updateGpsDisplay() {
+    const node = document.getElementById('gps-coords');
+    if (!node || !userPos) return;
+
+    const coords = `${userPos.lat.toFixed(5)}, ${userPos.lon.toFixed(5)}`;
+    const label = [detectedLocation?.matchedCity || detectedLocation?.city, detectedLocation?.matchedCountry || detectedLocation?.country]
+        .filter(Boolean)
+        .join(', ');
+
+    node.textContent = label ? `${label} · ${coords}` : coords;
+}
+
+function canonicalDetectedCountry(data) {
+    if (data.countryCode === 'VN') return 'Việt Nam';
+    if (data.countryCode === 'CN') return 'Trung Quốc';
+    if (data.countryCode === 'SG') return 'Singapore';
+    return data.country || '';
+}
+
+function canonicalDetectedCity(data) {
+    const joined = foldLocation(
+        [data.city, data.locality, data.principalSubdivision]
+            .filter(Boolean)
+            .join(' ')
+    );
+
+    if (joined.includes('hochiminh') || joined.includes('saigon')) return 'TP.HCM';
+    if (joined.includes('dalat')) return 'Đà Lạt';
+    if (joined.includes('danang')) return 'Đà Nẵng';
+    if (joined.includes('vungtau')) return 'Vũng Tàu';
+    if (joined.includes('shanghai')) return 'Thượng Hải';
+    if (joined.includes('chongqing')) return 'Trùng Khánh';
+    if (joined.includes('fenghuang')) return 'Phượng Hoàng';
+
+    return data.city || data.locality || data.principalSubdivision || '';
+}
+
+function applyDetectedLocation(data) {
+    detectedLocation = data;
+
+    const countrySelect = document.getElementById('selectCountry');
+    const citySelect = document.getElementById('selectCity');
+    const areaSelect = document.getElementById('selectArea');
+
+    if (!fullData.length || !countrySelect || !citySelect || !areaSelect) {
+        pendingDetectedLocation = data;
+        updateGpsDisplay();
+        return;
+    }
+
+    const dataCountries = uniqSorted(fullData.map(item => item.country));
+    const detectedCountry = findDatasetValue(buildCountryCandidates(data), dataCountries) || canonicalDetectedCountry(data);
+    const countries = uniqSorted([...dataCountries, detectedCountry]);
+    setSelectOptions(countrySelect, countries, 'Tất cả quốc gia');
+    countrySelect.value = detectedCountry || '';
+
+    const dataCities = uniqSorted(
+        fullData
+            .filter(item => !detectedCountry || item.country === detectedCountry)
+            .map(item => item.city)
+    );
+    const detectedCity = findDatasetValue(buildCityCandidates(data), dataCities) || canonicalDetectedCity(data);
+    const cities = uniqSorted([...dataCities, detectedCity]);
+    setSelectOptions(citySelect, cities, 'Tất cả thành phố');
+    citySelect.value = detectedCity || '';
+
+    const areas = uniqSorted(
+        fullData
+            .filter(item => (!detectedCountry || item.country === detectedCountry) && (!detectedCity || item.city === detectedCity))
+            .map(item => item.area)
+    );
+    setSelectOptions(areaSelect, areas, 'Tất cả khu vực');
+    areaSelect.value = '';
+
+    detectedLocation = {
+        ...data,
+        matchedCountry: detectedCountry || '',
+        matchedCity: detectedCity || ''
+    };
+    pendingDetectedLocation = null;
+
+    updateGpsDisplay();
+    applyFilters();
+}
+
+function readGeoCache(position) {
+    try {
+        const cached = JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || 'null');
+        if (!cached?.timestamp || Date.now() - cached.timestamp > GEO_CACHE_MAX_AGE) return null;
+
+        const distance = distanceBetweenCoords(position.lat, position.lon, cached.latitude, cached.longitude);
+        return distance <= GEO_RECHECK_DISTANCE_KM ? cached : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function saveGeoCache(position, data) {
+    try {
+        localStorage.setItem(GEO_CACHE_KEY, JSON.stringify({
+            ...data,
+            latitude: position.lat,
+            longitude: position.lon,
+            timestamp: Date.now()
+        }));
+    } catch (_) {}
+}
+
+async function maybeDetectGpsLocation(position) {
+    if (geoRequestInFlight) return;
+
+    if (lastGeocodedPos) {
+        const movedKm = distanceBetweenCoords(position.lat, position.lon, lastGeocodedPos.lat, lastGeocodedPos.lon);
+        if (movedKm < GEO_RECHECK_DISTANCE_KM) return;
+    }
+
+    const cached = readGeoCache(position);
+    if (cached) {
+        lastGeocodedPos = { lat: cached.latitude, lon: cached.longitude };
+        applyDetectedLocation(cached);
+        return;
+    }
+
+    geoRequestInFlight = true;
+
+    try {
+        const endpoint = new URL('https://api.bigdatacloud.net/data/reverse-geocode-client');
+        endpoint.searchParams.set('latitude', position.lat);
+        endpoint.searchParams.set('longitude', position.lon);
+        endpoint.searchParams.set('localityLanguage', 'vi');
+
+        const response = await fetch(endpoint.toString(), { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Reverse geocode HTTP ${response.status}`);
+
+        const raw = await response.json();
+        const data = {
+            country: raw.countryName || '',
+            countryCode: raw.countryCode || '',
+            city: raw.city || raw.locality || raw.principalSubdivision || '',
+            locality: raw.locality || '',
+            principalSubdivision: raw.principalSubdivision || '',
+            localityInfo: raw.localityInfo || null
+        };
+
+        lastGeocodedPos = { lat: position.lat, lon: position.lon };
+        saveGeoCache(position, data);
+        applyDetectedLocation(data);
+    } catch (error) {
+        console.warn('Không xác định được Country/City từ GPS:', error);
+    } finally {
+        geoRequestInFlight = false;
+    }
 }
 
 function checkRadarStatus() {
@@ -201,10 +421,12 @@ function getOpeningStatus(time1, time2) {
     for (const shift of shifts) {
         const parts = shift.split('-').map(p => p.trim());
         if (parts.length !== 2) continue;
+
         const parseTime = value => {
             const [h, m] = value.split(':').map(Number);
             return h * 60 + (m || 0);
         };
+
         const startMins = parseTime(parts[0]);
         const endMins = parseTime(parts[1]);
 
@@ -217,6 +439,7 @@ function getOpeningStatus(time1, time2) {
 
         if (startMins > currentMins && startMins - currentMins <= 60) return { status: 'Open in 1h', type: 'soon' };
     }
+
     return { status: 'Closed', type: 'closed' };
 }
 
@@ -230,17 +453,21 @@ function renderChips() {
 function toggleCate(id) {
     if (selectedCates.has(id)) selectedCates.delete(id);
     else selectedCates.add(id);
+
     document.getElementById(`chip-${id}`)?.classList.toggle('active', selectedCates.has(id));
     applyFilters();
 }
 
 function uniqSorted(values) {
-    return [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+    return [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'vi'));
 }
 
 function setSelectOptions(select, values, placeholder) {
     const current = select.value;
-    select.innerHTML = `<option value="">${placeholder}</option>` + values.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join('');
+    select.innerHTML = `<option value="">${placeholder}</option>` +
+        values.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join('');
+
     if (values.includes(current)) select.value = current;
 }
 
@@ -253,19 +480,33 @@ function renderLocationFilters() {
     setSelectOptions(countrySelect, countries, 'Tất cả quốc gia');
 
     const country = countrySelect.value;
-    const cities = uniqSorted(fullData.filter(item => !country || item.country === country).map(item => item.city));
+    const cities = uniqSorted(
+        fullData
+            .filter(item => !country || item.country === country)
+            .map(item => item.city)
+    );
     setSelectOptions(citySelect, cities, 'Tất cả thành phố');
 
     const city = citySelect.value;
-    const areas = uniqSorted(fullData.filter(item => (!country || item.country === country) && (!city || item.city === city)).map(item => item.area));
+    const areas = uniqSorted(
+        fullData
+            .filter(item => (!country || item.country === country) && (!city || item.city === city))
+            .map(item => item.area)
+    );
     setSelectOptions(areaSelect, areas, 'Tất cả khu vực');
 }
 
 function handleCountryChange() {
     const country = document.getElementById('selectCountry').value;
     const citySelect = document.getElementById('selectCity');
-    const cities = uniqSorted(fullData.filter(item => !country || item.country === country).map(item => item.city));
+    const cities = uniqSorted(
+        fullData
+            .filter(item => !country || item.country === country)
+            .map(item => item.city)
+    );
+
     setSelectOptions(citySelect, cities, 'Tất cả thành phố');
+    citySelect.value = '';
     handleCityChange();
 }
 
@@ -273,8 +514,14 @@ function handleCityChange() {
     const country = document.getElementById('selectCountry').value;
     const city = document.getElementById('selectCity').value;
     const areaSelect = document.getElementById('selectArea');
-    const areas = uniqSorted(fullData.filter(item => (!country || item.country === country) && (!city || item.city === city)).map(item => item.area));
+    const areas = uniqSorted(
+        fullData
+            .filter(item => (!country || item.country === country) && (!city || item.city === city))
+            .map(item => item.area)
+    );
+
     setSelectOptions(areaSelect, areas, 'Tất cả khu vực');
+    areaSelect.value = '';
     applyFilters();
 }
 
@@ -286,15 +533,31 @@ function applyFilters() {
 
     let filtered = fullData.filter(item => {
         if (!item.name) return false;
-        const haystack = [item.name, item.recommend, item.country, item.city, item.area, item.category].join(' ').toLowerCase();
-        const matchLocation = (!country || item.country === country) && (!city || item.city === city) && (!area || item.area === area);
-        const matchCategory = selectedCates.size === 0 || [...selectedCates].every(c => item.categories.includes(c));
+
+        const haystack = [item.name, item.recommend, item.country, item.city, item.area, item.category]
+            .join(' ')
+            .toLowerCase();
+
+        const matchLocation =
+            (!country || item.country === country) &&
+            (!city || item.city === city) &&
+            (!area || item.area === area);
+
+        const matchCategory =
+            selectedCates.size === 0 ||
+            [...selectedCates].every(c => item.categories.includes(c));
+
         return haystack.includes(query) && matchLocation && matchCategory;
     });
 
     if (userPos) {
-        filtered.sort((a, b) => getDistanceKm(a.latitude, a.longitude) - getDistanceKm(b.latitude, b.longitude));
+        filtered.sort(
+            (a, b) =>
+                getDistanceKm(a.latitude, a.longitude) -
+                getDistanceKm(b.latitude, b.longitude)
+        );
     }
+
     renderGrid(filtered);
 }
 
@@ -308,6 +571,7 @@ function renderRecommend(text) {
 
 function renderGrid(items) {
     const grid = document.getElementById('results-grid');
+
     grid.innerHTML = items.map((item, index) => {
         const distance = getDistanceKm(item.latitude, item.longitude);
         const status = getOpeningStatus(item.open_time_1, item.open_time_2);
@@ -350,15 +614,19 @@ function selectCard(element) {
 function toggleImage(index, url, event) {
     event?.stopPropagation();
     event?.preventDefault();
+
     if (!url) {
         alert('Chưa có ảnh ref!');
         return;
     }
+
     const overlay = document.getElementById(`overlay-${index}`);
     const button = document.getElementById(`btn-${index}`);
     const image = document.getElementById(`img-${index}`);
     const open = !overlay.classList.contains('open');
+
     if (open) image.src = url;
+
     overlay.classList.toggle('open', open);
     button.textContent = open ? 'Close' : 'Image';
     button.classList.toggle('close', open);
@@ -368,6 +636,21 @@ function openAddPlaceModal() {
     const modal = document.getElementById('add-place-modal');
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
+
+    const country = document.getElementById('selectCountry')?.value || detectedLocation?.matchedCountry || '';
+    const city = document.getElementById('selectCity')?.value || detectedLocation?.matchedCity || '';
+    const countryInput = document.getElementById('place-country');
+    const cityInput = document.getElementById('place-city');
+    const latInput = document.getElementById('place-lat');
+    const lngInput = document.getElementById('place-lng');
+
+    if (countryInput && !countryInput.value) countryInput.value = country;
+    if (cityInput && !cityInput.value) cityInput.value = city;
+
+    if (userPos) {
+        if (latInput && !latInput.value) latInput.value = userPos.lat.toFixed(6);
+        if (lngInput && !lngInput.value) lngInput.value = userPos.lon.toFixed(6);
+    }
 }
 
 function closeAddPlaceModal() {
@@ -378,24 +661,31 @@ function closeAddPlaceModal() {
 
 async function submitAddPlace(event) {
     event.preventDefault();
+
     const form = event.currentTarget;
     const status = document.getElementById('add-place-status');
     const submit = document.getElementById('add-place-submit');
     const data = Object.fromEntries(new FormData(form).entries());
-    ['latitude','longitude','warning_latitude','warning_longitude'].forEach(key => {
+
+    ['latitude', 'longitude'].forEach(key => {
         data[key] = data[key] === '' ? null : Number(data[key]);
     });
 
     submit.disabled = true;
     status.textContent = 'Saving...';
+
     try {
         await TravelData.createPlace(data);
         fullData = await TravelData.loadPlaces();
         window.fullData = fullData;
+
         renderLocationFilters();
+        if (detectedLocation) applyDetectedLocation(detectedLocation);
+
         renderChips();
         applyFilters();
         checkRadarStatus();
+
         form.reset();
         status.textContent = 'Saved to D1.';
         setTimeout(closeAddPlaceModal, 600);
@@ -407,7 +697,13 @@ async function submitAddPlace(event) {
 }
 
 function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
 }
 
 function escapeAttribute(value) {
@@ -415,44 +711,73 @@ function escapeAttribute(value) {
 }
 
 function escapeJsString(value) {
-    return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '').replace(/\n/g, '\\n');
+    return String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '')
+        .replace(/\n/g, '\\n');
 }
 
 async function requestWakeLock() {
     try {
-        if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+        }
     } catch (_) {}
 }
 
 function triggerHeavyWarning(title, message) {
     const toggle = document.getElementById('vibrateToggle');
     if (!toggle?.checked) return;
+
     if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(reg => {
-            reg.active?.postMessage({ type: 'SHOW_NOTIFICATION', payload: { title, body: message, silent: false } });
+            reg.active?.postMessage({
+                type: 'SHOW_NOTIFICATION',
+                payload: {
+                    title,
+                    body: message,
+                    silent: false
+                }
+            });
         });
     }
 }
 
 async function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') {
-        try { await Notification.requestPermission(); } catch (_) {}
+        try {
+            await Notification.requestPermission();
+        } catch (_) {}
     }
 }
 
 async function initTravelOS() {
     const savedState = localStorage.getItem('vibrateEnabled');
-    if (savedState !== null) document.getElementById('vibrateToggle').checked = savedState === 'true';
+
+    if (savedState !== null) {
+        document.getElementById('vibrateToggle').checked = savedState === 'true';
+    }
 
     document.getElementById('add-place-form').addEventListener('submit', submitAddPlace);
-    document.getElementById('add-place-button').classList.toggle('hidden', !(CONFIG.D1_ENABLED && CONFIG.DATA_API_URL));
+    document.getElementById('add-place-button').classList.toggle(
+        'hidden',
+        !(CONFIG.D1_ENABLED && CONFIG.DATA_API_URL)
+    );
 
     try {
         fullData = await TravelData.loadPlaces();
         window.fullData = fullData;
+
         renderChips();
         renderLocationFilters();
-        applyFilters();
+
+        if (pendingDetectedLocation || detectedLocation) {
+            applyDetectedLocation(pendingDetectedLocation || detectedLocation);
+        } else {
+            applyFilters();
+        }
+
         checkRadarStatus();
     } catch (error) {
         const banner = document.getElementById('data-source-banner');
@@ -465,6 +790,7 @@ async function initTravelOS() {
 
 window.addEventListener('travelos:data-source', event => {
     const banner = document.getElementById('data-source-banner');
+
     if (event.detail?.source === 'legacy') {
         banner.textContent = 'TravelOS đang dùng Sheet fallback. Sau khi deploy D1, bật D1_ENABLED trong config.js để chuyển hoàn toàn.';
         banner.classList.remove('hidden');
@@ -474,37 +800,56 @@ window.addEventListener('travelos:data-source', event => {
 });
 
 navigator.geolocation.watchPosition(pos => {
-    const newPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    const newPos = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude
+    };
+
     window.userPos = newPos;
 
     if (!isSystemLive) {
         const loading = document.getElementById('loading-screen');
+
         if (loading) {
             loading.classList.add('hide');
             setTimeout(() => loading.remove(), 1000);
         }
+
         isSystemLive = true;
         window.isSystemLive = true;
     }
 
-    if (!lastPos || Math.abs(newPos.lat - lastPos.lat) > 0.00001 || Math.abs(newPos.lon - lastPos.lon) > 0.00001) {
+    if (
+        !lastPos ||
+        Math.abs(newPos.lat - lastPos.lat) > 0.00001 ||
+        Math.abs(newPos.lon - lastPos.lon) > 0.00001
+    ) {
         lastPos = newPos;
         userPos = newPos;
-        document.getElementById('gps-coords').textContent = `${userPos.lat.toFixed(5)}, ${userPos.lon.toFixed(5)}`;
+
+        updateGpsDisplay();
         checkRadarStatus();
         applyFilters();
+        maybeDetectGpsLocation(newPos);
     }
 }, () => {
     const statusNode = document.getElementById('loading-status');
+
     if (statusNode) {
         statusNode.textContent = 'GPS ERROR: PLEASE ENABLE LOCATION';
         statusNode.classList.add('error');
     }
-}, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+}, {
+    enableHighAccuracy: true,
+    maximumAge: 3000,
+    timeout: 15000
+});
 
 document.addEventListener('click', () => requestWakeLock(), { once: true });
 document.addEventListener('click', requestNotificationPermission, { once: true });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 window.addEventListener('load', initTravelOS);
