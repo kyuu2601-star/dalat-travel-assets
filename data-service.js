@@ -16,6 +16,8 @@
 
         return {
             id: raw.id ?? null,
+            amap_poi_id: raw.amap_poi_id || raw.poi_id || '',
+            coordSystem: raw.coordSystem || raw.coordinate_system || 'wgs84',
 
             name: raw.name ?? raw.Tên ?? '',
 

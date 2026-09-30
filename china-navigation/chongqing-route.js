@@ -84,7 +84,7 @@
     if (c.building) parts.push(`${c.building} lối xuyên tòa nhà`);
     if (c.underpass) parts.push(`${c.underpass} hầm chui`);
     if (c.ramp) parts.push(`${c.ramp} đoạn dốc`);
-    return parts.join(' · ') || 'Không phát hiện đoạn địa hình đặc biệt trong dữ liệu route.';
+    return parts.join(' · ') || 'AMap chưa ghi nhận cầu thang/thang máy trên tuyến này; không đảm bảo toàn tuyến bằng phẳng.';
   }
 
   window.ChongqingRoute = { WALK_TYPES, KEYWORDS, SPECIAL_TYPES, classify, isSpecial, decorateStep, analyze, chooseEasier, summary };

@@ -56,11 +56,18 @@
       return (rawHref && map === rawHref) || (absoluteHref && map === absoluteHref) || (name && item.name === name);
     }) || null;
   }
+  function poiIdFromLink(link) {
+    try {
+      const url = new URL(link);
+      if (!/(^|\.)amap\.com$/i.test(url.hostname)) return '';
+      return url.pathname.match(/\/place\/([A-Za-z0-9]+)/)?.[1] || url.searchParams.get('poiid') || '';
+    } catch { return ''; }
+  }
   function placeDestination(place) {
     return {
       name: place.name || '', country: place.country || '', city: place.city || '', area: place.area || '',
-      lat: place.latitude, lng: place.longitude, coordSystem: 'wgs84', mapLink: place.map_link || '',
-      poiId: place.amap_poi_id || place.poi_id || ''
+      lat: place.latitude, lng: place.longitude, coordSystem: place.coordSystem || 'wgs84', mapLink: place.map_link || '',
+      poiId: place.amap_poi_id || place.poi_id || poiIdFromLink(place.map_link)
     };
   }
   async function openPlace(place) {

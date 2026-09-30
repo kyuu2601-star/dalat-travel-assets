@@ -4,7 +4,7 @@
   function cfg() { return window.CHINA_NAV_CONFIG || {}; }
   function log(...args) { if (cfg().debug) console.log('[AMapProvider]', ...args); }
   function pointValue(point) {
-    if (!point) return null;
+    if (!point || (point.lat ?? point.latitude) == null || (point.lng ?? point.lon ?? point.longitude) == null || (point.lat ?? point.latitude) === '' || (point.lng ?? point.lon ?? point.longitude) === '') return null;
     const lat = Number(point.lat ?? point.latitude);
     const lng = Number(point.lng ?? point.lon ?? point.longitude);
     return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng, coordSystem: point.coordSystem || 'wgs84' } : null;
@@ -122,6 +122,8 @@
   viewMode: '3D',
   pitch: 45,
   rotation: 0,
+  showBuildingBlock: true,
+  pitchEnable: true,
   resizeEnable: true
   });
   }
@@ -153,7 +155,7 @@
 
   async function resolveDestination(destination) {
     const direct = pointValue(destination);
-    if (direct) return { ...direct, name: destination.name || '', city: destination.city || '' };
+    if (direct) return { ...direct, poiId: destination.poiId || '', name: destination.name || '', city: destination.city || '' };
     const results = await searchPOI(destination.name || destination.keyword, destination.city || '');
     const best = results[0];
     return { lat: best.lat, lng: best.lng, coordSystem: 'gcj02', name: destination.name || best.name, city: destination.city || best.city, poiId: best.id };
