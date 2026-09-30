@@ -13,6 +13,7 @@ function renderMarkdownSafe(text) {
     const lines = html.split(/\r?\n/);
     const output = [];
     let inList = false;
+
     for (const line of lines) {
         const bullet = line.match(/^\s*[-*]\s+(.+)/);
         if (bullet) {
@@ -29,12 +30,40 @@ function renderMarkdownSafe(text) {
             output.push(line ? `<p>${line}</p>` : '<br>');
         }
     }
+
     if (inList) output.push('</ul>');
     return output.join('');
 }
 
 function escapeChatHtml(value) {
     return value.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+}
+
+function getMatchedModules(text) {
+    if (typeof DALAT_KEYWORDS === 'undefined' || !DALAT_KEYWORDS) return [];
+    const message = String(text || '').toLowerCase();
+
+    return Object.entries(DALAT_KEYWORDS)
+        .filter(([, keywords]) => Array.isArray(keywords) && keywords.some(keyword => message.includes(String(keyword).toLowerCase())))
+        .map(([moduleName]) => moduleName);
+}
+
+function getStructuredUserLocation() {
+    const country = document.getElementById('selectCountry')?.value || '';
+    const city = document.getElementById('selectCity')?.value || '';
+    const area = document.getElementById('selectArea')?.value || '';
+    const currentPos = window.userPos || null;
+    const lat = Number(currentPos?.lat);
+    const lon = Number(currentPos?.lon);
+
+    return {
+        country,
+        city,
+        area,
+        latitude: Number.isFinite(lat) ? lat : null,
+        longitude: Number.isFinite(lon) ? lon : null,
+        source: Number.isFinite(lat) && Number.isFinite(lon) ? 'gps' : 'selector'
+    };
 }
 
 async function initBot() {
@@ -72,21 +101,21 @@ async function handleChat() {
     try {
         while (retries > 0) {
             try {
-                let gpsInfo = "";
-                const currentPos = window.userPos || null;
-                if (currentPos?.lat && currentPos?.lon && !isNaN(currentPos.lat) && !isNaN(currentPos.lon)) {
-                    gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: Latitude ${currentPos.lat}, Longitude ${currentPos.lon}. Hãy dùng tọa độ này để tính khoảng cách và chỉ đường chính xác.`;
+                const userLocation = getStructuredUserLocation();
+                const matchedModules = getMatchedModules(text);
+                const selectedLocation = [userLocation.country, userLocation.city, userLocation.area].filter(Boolean).join(' / ');
+
+                let gpsInfo = '';
+                if (userLocation.latitude !== null && userLocation.longitude !== null) {
+                    const locationLabel = [userLocation.area, userLocation.city, userLocation.country].filter(Boolean).join(', ');
+                    gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: ${locationLabel || 'Chưa xác định tên khu vực'}. Latitude ${userLocation.latitude}, Longitude ${userLocation.longitude}. Đây là vị trí hiện tại, nhưng nếu câu hỏi nêu rõ một địa điểm khác thì phải ưu tiên địa điểm trong câu hỏi.`;
                 } else {
-                    gpsInfo = "\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế, hãy hỏi khách đang ở khu nào nếu cần tính khoảng cách.";
+                    gpsInfo = `\n[HỆ THỐNG]: Vị trí đang chọn là ${selectedLocation || 'chưa xác định'}. Nếu câu hỏi nêu rõ địa điểm khác thì phải ưu tiên địa điểm trong câu hỏi.`;
                 }
 
                 const localHistory = readHistory();
                 let chatHistoryArray = localHistory ? localHistory.messages : [];
                 if (chatHistoryArray.length > 6) chatHistoryArray = chatHistoryArray.slice(-6);
-
-                const city = document.getElementById('selectCity')?.value || '';
-                const area = document.getElementById('selectArea')?.value || '';
-                const selectedLocation = [city, area].filter(Boolean).join(' / ');
 
                 const response = await fetch(CONFIG.WORKER_URL, {
                     method: 'POST',
@@ -95,7 +124,9 @@ async function handleChat() {
                         systemPrompt: CONFIG.SYSTEM_PROMPT(text, knowledgeBase) + gpsInfo,
                         userMessage: text,
                         chatHistory: chatHistoryArray,
-                        khuVuc: selectedLocation
+                        khuVuc: selectedLocation,
+                        userLocation,
+                        matchedModules
                     })
                 });
 
@@ -114,11 +145,12 @@ async function handleChat() {
             } catch (error) {
                 console.error('Lỗi kết nối, đang thử lại...', error);
             }
+
             retries--;
             if (retries > 0) await new Promise(resolve => setTimeout(resolve, 300));
         }
 
-        let aiMsg = "";
+        let aiMsg = '';
         if (data?.candidates?.[0]?.content?.parts) aiMsg = data.candidates[0].content.parts[0].text;
         else if (data?.text) aiMsg = data.text;
         else aiMsg = `⚠️ Thiết lập lỗi cấu trúc dữ liệu: ${JSON.stringify(data)}`;
@@ -143,17 +175,21 @@ async function handleChat() {
 function addMessage(role, content, isHtml = false) {
     const chatBox = document.getElementById('chat-box');
     if (!chatBox) return;
+
     const div = document.createElement('div');
     div.className = `msg ${role}`;
+
     if (isHtml) div.innerHTML = content;
     else if (role === 'ai') div.innerHTML = renderMarkdownSafe(content);
     else div.textContent = content;
+
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 function readHistory() {
     let history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || 'null');
+
     if (!history) {
         const legacy = localStorage.getItem(LEGACY_CHAT_STORAGE_KEY);
         if (legacy) {
@@ -162,6 +198,7 @@ function readHistory() {
             localStorage.removeItem(LEGACY_CHAT_STORAGE_KEY);
         }
     }
+
     return history;
 }
 
@@ -174,10 +211,12 @@ function saveMessage(role, content) {
 
 function loadChatHistory() {
     const history = readHistory();
+
     if (!history || Date.now() - history.timestamp > EXPIRY_TIME) {
         localStorage.removeItem(CHAT_STORAGE_KEY);
         addMessage('ai', 'Chào fen! Tui là Thổ Địa đây. Fen muốn tìm quán gì hay lên lịch trình đi đâu không?');
         return;
     }
+
     history.messages.forEach(msg => addMessage(msg.role, msg.content));
 }
