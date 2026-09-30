@@ -239,6 +239,9 @@
       const fallback = source === 'amap-js-walking' && state.route2Error ? `<small>Route 2.0 lỗi nên đang dùng JS fallback.</small>` : '';
       $('#tn-special').innerHTML = `<strong>Chongqing Terrain</strong><span>${esc(text)}</span>${fallback}`;
     } else $('#tn-special').innerHTML = '';
+    if (state.rawRoute?.meta?.poiFallback) {
+      $('#tn-special').innerHTML += '<small>Đang dẫn tới tọa độ địa điểm. AMap chưa xác nhận lối vào hoặc đường lên tầng của quán.</small>';
+    }
   }
 
   async function planWalkingRoute(origin, destination) {

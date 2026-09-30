@@ -58,3 +58,29 @@ test('route choice updates geometry, stairs and pitch; late AI result cannot rep
   await new Promise(setImmediate);
   assert.equal(get('#tn-steps').innerHTML,before);
 });
+
+test('POI routing error retries coordinates once and retains Route 2.0; auth errors do not retry', async () => {
+  for (const code of ['20003','10001']) {
+    const calls=[];
+    const ctx=vm.createContext({window:{CONFIG:{MAP_WORKER_URL:'https://map.example'}},AbortController,setTimeout,clearTimeout,fetch:async(url,opts)=>{
+      calls.push(JSON.parse(opts.body));
+      return calls.length===1
+        ? {ok:false,status:502,json:async()=>({error:code==='20003'?'AMap Route 2.0: UNKNOWN_ERROR':'INVALID_USER_KEY',infocode:code})}
+        : {ok:true,json:async()=>({routes:[{steps:[{walkType:'20'}]}]})};
+    }});
+    load(ctx,'china-navigation/amap-route-service.js');
+    const run=()=>ctx.window.AMapRouteService.walkingRoute({lat:29,lng:106},{lat:29.1,lng:106.1,poiId:'B0HDPZK1VQ'});
+    if(code==='20003') {
+      const result=await run();
+      assert.equal(calls.length,2);
+      assert.equal(calls[0].destination.poiId,'B0HDPZK1VQ');
+      assert.equal(calls[1].destination.poiId,undefined);
+      assert.equal(calls[1].isIndoor,true);
+      assert.equal(result.source,'amap-route-v2');
+      assert.equal(result.meta.poiFallback,true);
+    } else {
+      await assert.rejects(run,/INVALID_USER_KEY/);
+      assert.equal(calls.length,1);
+    }
+  }
+});

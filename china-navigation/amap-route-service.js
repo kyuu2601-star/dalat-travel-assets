@@ -34,19 +34,28 @@
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(`${endpoint}/route/walking`, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          origin: { ...o, poiId: origin?.poiId || origin?.id || '' },
-          destination: { ...d, poiId: destination?.poiId || destination?.id || '' },
-          alternativeRoute: Number(options.alternativeRoute || 3),
-          isIndoor: options.isIndoor !== false
-        })
-      });
-
-      const data = await response.json().catch(() => ({}));
+      const payload = {
+        origin: { ...o, poiId: origin?.poiId || origin?.id || '' },
+        destination: { ...d, poiId: destination?.poiId || destination?.id || '' },
+        alternativeRoute: Number(options.alternativeRoute || 3),
+        isIndoor: options.isIndoor !== false
+      };
+      const requestRoute = async body => {
+        const response = await fetch(`${endpoint}/route/walking`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify(body)
+        });
+        return { response, data: await response.json().catch(() => ({})) };
+      };
+      let { response, data } = await requestRoute(payload);
+      let poiFallback = false;
+      if (!response.ok && (payload.origin.poiId || payload.destination.poiId) &&
+          (String(data.infocode) === '20003' || /UNKNOWN_ERROR/.test(data.error || ''))) {
+        ({ response, data } = await requestRoute({ ...payload, origin: o, destination: d }));
+        poiFallback = response.ok;
+      }
       if (!response.ok || !Array.isArray(data?.routes) || !data.routes.length) {
         throw new Error(data?.error || data?.message || `Route 2.0 HTTP ${response.status}`);
       }
@@ -54,6 +63,7 @@
       return {
         ...data,
         source: SOURCE,
+        meta: { ...data.meta, poiFallback },
         origin: data.origin || o,
         destination: data.destination || d
       };
