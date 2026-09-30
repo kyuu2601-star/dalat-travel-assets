@@ -68,7 +68,10 @@
     return new Promise((resolve, reject) => {
       walking.search([o.lng, o.lat], [d.lng, d.lat], (status, result) => {
         log('walking result', status, result);
-        if (status !== 'complete' || !result?.routes?.length) return reject(new Error(result?.info || 'AMap không tìm được tuyến đi bộ.'));
+        if (status !== 'complete' || !result?.routes?.length) {
+          const detail = [status, result?.info, result?.message].filter(Boolean).join(' · ');
+          return reject(new Error(detail ? `AMap Walking: ${detail}` : 'AMap không tìm được tuyến đi bộ.'));
+        }
         const routes = result.routes.map((route, routeIndex) => ({
           routeIndex,
           distance: Number(route.distance || 0),
@@ -112,7 +115,15 @@
   async function createMap(container, center) {
     const AMap = await ensureSdk();
     const c = center ? toGcj(center) : null;
-    return new AMap.Map(container, { zoom: 16, center: c ? [c.lng, c.lat] : undefined, viewMode: '3D', pitch: 0, resizeEnable: true });
+    return new AMap.Map(container, {
+      zoom: 16,
+      center: c ? [c.lng, c.lat] : undefined,
+      viewMode: '3D',
+      pitch: 0,
+      resizeEnable: true,
+      languageCode: 'vi',
+      logoLanguage: 'en'
+    });
   }
 
   function routePath(route) {
@@ -129,11 +140,11 @@
       map.add(line); parts.push(line);
     }
     if (origin) {
-      const marker = new AMap.Marker({ position: [origin.lng, origin.lat], anchor: 'bottom-center', label: { content: '<div class="tn-map-label">Start</div>', direction: 'top' } });
+      const marker = new AMap.Marker({ position: [origin.lng, origin.lat], anchor: 'bottom-center', label: { content: '<div class="tn-map-label">Bắt đầu</div>', direction: 'top' } });
       map.add(marker); parts.push(marker);
     }
     if (destination) {
-      const marker = new AMap.Marker({ position: [destination.lng, destination.lat], anchor: 'bottom-center', label: { content: '<div class="tn-map-label">Destination</div>', direction: 'top' } });
+      const marker = new AMap.Marker({ position: [destination.lng, destination.lat], anchor: 'bottom-center', label: { content: '<div class="tn-map-label">Điểm đến</div>', direction: 'top' } });
       map.add(marker); parts.push(marker);
     }
     if (parts.length) map.setFitView(parts, false, [60, 60, 60, 60]);

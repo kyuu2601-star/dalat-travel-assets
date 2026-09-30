@@ -15,9 +15,9 @@
     root.setAttribute('aria-hidden', 'true');
     root.innerHTML = `
       <div class="tn-shell">
-        <div class="tn-map-wrap"><div id="tn-map" class="tn-map"></div><div id="tn-map-status" class="tn-map-status">Preparing AMap...</div></div>
+        <div class="tn-map-wrap"><div id="tn-map" class="tn-map"></div><div id="tn-map-status" class="tn-map-status">Đang chuẩn bị AMap...</div></div>
         <aside class="tn-side">
-          <div class="tn-head"><div><div class="tn-eyebrow">TRAVELOS · CHINA NAV</div><h2 id="tn-title">Walking Route</h2><p id="tn-summary">--</p></div><button id="tn-close" class="tn-close" type="button">×</button></div>
+          <div class="tn-head"><div><div class="tn-eyebrow">TRAVELOS · CHINA NAV</div><h2 id="tn-title">Chỉ đường đi bộ</h2><p id="tn-summary">--</p></div><button id="tn-close" class="tn-close" type="button">×</button></div>
           <div id="tn-ai" class="tn-ai"><strong>AI Route Notes</strong><span>Đang chờ route...</span></div>
           <div id="tn-special" class="tn-special"></div>
           <div id="tn-steps" class="tn-steps"></div>
@@ -34,11 +34,11 @@
     root.classList.add('open');
     root.setAttribute('aria-hidden', 'false');
     document.body.classList.add('travel-nav-open');
-    $('#tn-title').textContent = destination?.name || 'Walking Route';
+    $('#tn-title').textContent = destination?.name || 'Chỉ đường đi bộ';
     $('#tn-summary').textContent = 'Đang tính đường bằng AMap...';
     $('#tn-steps').innerHTML = '<div class="tn-loading">Đang lấy route thật từ AMap...</div>';
     $('#tn-special').innerHTML = '';
-    $('#tn-ai').innerHTML = '<strong>AI Route Notes</strong><span>AI chỉ diễn giải route AMap, không tự tạo đường.</span>';
+    $('#tn-ai').innerHTML = '<strong>AI Route Notes</strong><span>AI chỉ dịch và diễn giải route AMap, không tự tạo đường.</span>';
   }
 
   function close() {
@@ -71,12 +71,62 @@
     return '↑';
   }
 
+  function hasCjk(text) { return /[\u3400-\u9fff]/.test(String(text || '')); }
+  function directionVi(value) {
+    const raw = String(value || '');
+    const map = [
+      ['东北','Đông Bắc'],['东南','Đông Nam'],['西北','Tây Bắc'],['西南','Tây Nam'],
+      ['东','Đông'],['西','Tây'],['南','Nam'],['北','Bắc']
+    ];
+    for (const [cn, vi] of map) if (raw.includes(cn)) return vi;
+    const low = raw.toLowerCase();
+    if (low.includes('northeast')) return 'Đông Bắc';
+    if (low.includes('southeast')) return 'Đông Nam';
+    if (low.includes('northwest')) return 'Tây Bắc';
+    if (low.includes('southwest')) return 'Tây Nam';
+    if (low.includes('east')) return 'Đông';
+    if (low.includes('west')) return 'Tây';
+    if (low.includes('south')) return 'Nam';
+    if (low.includes('north')) return 'Bắc';
+    return '';
+  }
+
+  function actionVi(step) {
+    const text = `${step.action || ''} ${step.assistantAction || ''} ${step.instruction || ''}`;
+    if (/左转|向左|left/i.test(text)) return 'sau đó rẽ trái';
+    if (/右转|向右|right/i.test(text)) return 'sau đó rẽ phải';
+    if (/掉头|u[- ]?turn/i.test(text)) return 'sau đó quay đầu';
+    if (/楼梯|台阶|stairs?/i.test(text)) return 'đi theo cầu thang';
+    if (/电梯|elevator|lift/i.test(text)) return 'đi thang máy';
+    if (/扶梯|escalator/i.test(text)) return 'đi thang cuốn';
+    if (/天桥|skybridge/i.test(text)) return 'đi qua cầu vượt / skybridge';
+    if (/地下通道|underpass/i.test(text)) return 'đi qua hầm chui';
+    if (/到达|arrive/i.test(text)) return 'đến điểm tiếp theo';
+    return '';
+  }
+
+  function fallbackInstruction(step) {
+    if (step.viInstruction) return step.viInstruction;
+    const dir = directionVi(step.orientation) || directionVi(step.instruction);
+    const road = !hasCjk(step.road) ? String(step.road || '').trim() : '';
+    const distance = Math.max(0, Math.round(Number(step.distance) || 0));
+    const action = actionVi(step);
+    const feature = step.feature || window.ChongqingRoute?.classify?.(step);
+
+    let base = road ? `Đi dọc ${road}` : 'Đi bộ';
+    if (dir) base += ` về hướng ${dir}`;
+    if (distance) base += ` ${distance} m`;
+    if (feature?.type && feature.type !== 'normal' && feature.label) base += ` qua ${feature.label.toLowerCase()}`;
+    if (action) base += `, ${action}`;
+    return `${base}.`;
+  }
+
   function renderSteps(route) {
     const container = $('#tn-steps');
     container.innerHTML = (route.steps || []).map((step, i) => {
       const feature = step.feature || window.ChongqingRoute?.classify?.(step) || {};
-      const instruction = step.instruction || [step.action, step.road].filter(Boolean).join(' ') || 'Tiếp tục theo tuyến AMap';
-      return `<article class="tn-step" data-step="${i}"><div class="tn-step-icon">${esc(stepIcon(step))}</div><div class="tn-step-body"><div class="tn-step-main">${esc(instruction)}</div><div class="tn-step-meta">${esc(fmtM(step.distance))}${feature.type && feature.type !== 'normal' ? ` · ${esc(feature.label)}` : ''}</div></div></article>`;
+      const instruction = fallbackInstruction(step);
+      return `<article class="tn-step ${state.currentStep === i ? 'active' : ''}" data-step="${i}"><div class="tn-step-icon">${esc(stepIcon(step))}</div><div class="tn-step-body"><div class="tn-step-main">${esc(instruction)}</div><div class="tn-step-meta">${esc(fmtM(step.distance))}${feature.type && feature.type !== 'normal' ? ` · ${esc(feature.label)}` : ''}</div></div></article>`;
     }).join('') || '<div class="tn-loading">AMap không trả step chi tiết.</div>';
   }
 
@@ -125,32 +175,80 @@
     if (near.index >= 0 && near.distance <= Number(cfg().route?.stepSnapMeters || 35)) setCurrentStep(near.index);
   }
 
-  async function aiNotes(route, destination) {
+  function parseJsonObject(text) {
+    let raw = String(text || '').trim();
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start < 0 || end <= start) throw new Error('AI không trả JSON hợp lệ.');
+    return JSON.parse(raw.slice(start, end + 1));
+  }
+
+  async function localizeRouteWithAI(route, destination) {
     const node = $('#tn-ai');
     const ai = cfg().ai || {};
     if (!ai.enabled || !ai.endpoint) {
-      node.innerHTML = '<strong>AI Route Notes</strong><span>AI note đang tắt. Route vẫn chạy trực tiếp bằng AMap.</span>';
+      node.innerHTML = '<strong>AI Route Notes</strong><span>AI đang tắt. Sidebar vẫn dùng bản dịch cơ bản tại máy.</span>';
       return;
     }
-    const compactSteps = (route.steps || []).map((s, i) => ({ i: i + 1, instruction: s.instruction, distance: s.distance, action: s.action, assistantAction: s.assistantAction, walkType: s.walkType, feature: s.feature?.label || '' }));
+
+    const compactSteps = (route.steps || []).map((s, i) => ({
+      i: i + 1,
+      instruction: s.instruction,
+      road: s.road,
+      orientation: s.orientation,
+      distance: s.distance,
+      action: s.action,
+      assistantAction: s.assistantAction,
+      walkType: s.walkType,
+      feature: s.feature?.label || ''
+    }));
+
+    node.innerHTML = '<strong>AI Route Notes</strong><span>Đang dịch từng bước sang tiếng Việt...</span>';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Number(ai.timeoutMs || 12000));
+
     try {
       const response = await fetch(ai.endpoint, {
-        method: 'POST', headers: { 'Content-Type':'application/json' }, signal: controller.signal,
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
-          systemPrompt: 'Bạn là TravelOS Route Explainer. Route AMap bên dưới là nguồn sự thật tuyệt đối. Chỉ giải thích ngắn gọn các step bằng tiếng Việt dễ đi, đặc biệt nhấn mạnh cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà. TUYỆT ĐỐI không thêm, bỏ, đổi thứ tự, tạo shortcut hoặc tự bịa đường. Nếu dữ liệu không đủ thì nói không đủ dữ liệu.',
+          systemPrompt: `Bạn là TravelOS Route Localizer. Dữ liệu AMap là nguồn sự thật tuyệt đối. Hãy dịch từng instruction sang tiếng Việt tự nhiên, dễ đi bộ theo. TUYỆT ĐỐI không thêm đường, không bỏ bước, không đổi thứ tự, không đổi khoảng cách, không tạo shortcut. Giữ nguyên tên riêng nếu không chắc cách dịch. Nếu step có feature như cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà thì phải nói rõ. Chỉ trả về JSON hợp lệ, không markdown, đúng schema: {"steps":[{"i":1,"vi":"..."}],"note":"..."}. Mảng steps phải có đúng số phần tử và đúng i như input. note chỉ được mô tả ngắn gọn các điểm đáng chú ý đã có trong route, không bịa thêm.`,
           userMessage: `Điểm đến: ${destination?.name || ''}\nAMap route JSON: ${JSON.stringify(compactSteps)}`,
-          chatHistory: [], matchedModules: [],
-          userLocation: { country: document.getElementById('selectCountry')?.value || '', city: document.getElementById('selectCity')?.value || '', area: document.getElementById('selectArea')?.value || '', latitude: window.userPos?.lat ?? null, longitude: window.userPos?.lon ?? null, source: 'gps' }
+          chatHistory: [],
+          matchedModules: [],
+          userLocation: {
+            country: document.getElementById('selectCountry')?.value || '',
+            city: document.getElementById('selectCity')?.value || '',
+            area: document.getElementById('selectArea')?.value || '',
+            latitude: window.userPos?.lat ?? null,
+            longitude: window.userPos?.lon ?? null,
+            source: 'gps'
+          }
         })
       });
+
       const data = await response.json().catch(() => ({}));
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || data?.text || '';
-      node.innerHTML = `<strong>AI Route Notes</strong><span>${esc(text || 'AI không có note bổ sung.').replace(/\n/g,'<br>')}</span>`;
+      const parsed = parseJsonObject(text);
+      const translated = Array.isArray(parsed.steps) ? parsed.steps : [];
+      const byIndex = new Map(translated.map(item => [Number(item.i), String(item.vi || '').trim()]));
+
+      (route.steps || []).forEach((step, i) => {
+        const vi = byIndex.get(i + 1);
+        if (vi) step.viInstruction = vi;
+      });
+
+      renderSteps(route);
+      const note = String(parsed.note || '').trim();
+      node.innerHTML = `<strong>AI Route Notes</strong><span>${esc(note || 'Đã dịch toàn bộ chỉ dẫn AMap sang tiếng Việt.').replace(/\n/g,'<br>')}</span>`;
     } catch (error) {
-      node.innerHTML = `<strong>AI Route Notes</strong><span>Không lấy được AI note. Route AMap vẫn dùng bình thường.</span>`;
-    } finally { clearTimeout(timer); }
+      console.warn('[TravelNavigation localization]', error);
+      node.innerHTML = '<strong>AI Route Notes</strong><span>AI dịch step không phản hồi. Sidebar đang dùng bản dịch cơ bản tại máy, route AMap vẫn giữ nguyên.</span>';
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function open(options = {}) {
@@ -166,13 +264,18 @@
       if (chongqing && window.ChongqingRoute) route = window.ChongqingRoute.chooseEasier(planned.routes) || window.ChongqingRoute.analyze(route);
       else if (window.ChongqingRoute) route = window.ChongqingRoute.analyze(route);
 
-      state.origin = planned.origin; state.destination = planned.destination; state.rawRoute = planned; state.route = route;
+      state.origin = planned.origin;
+      state.destination = planned.destination;
+      state.rawRoute = planned;
+      state.route = route;
       state.map = await window.AMapProvider.createMap('tn-map', planned.origin);
       window.AMapProvider.drawRoute(state.map, route, planned.origin, planned.destination);
       $('#tn-map-status').classList.add('hidden');
-      renderRouteMeta(route, chongqing); renderSteps(route); updateUserMarker();
+      renderRouteMeta(route, chongqing);
+      renderSteps(route);
+      updateUserMarker();
       state.gpsTimer = setInterval(updateUserMarker, Number(cfg().route?.gpsPollMs || 1500));
-      aiNotes(route, destination);
+      localizeRouteWithAI(route, destination);
     } catch (error) {
       $('#tn-map-status').textContent = error.message || 'Navigation error';
       $('#tn-map-status').classList.remove('hidden');
