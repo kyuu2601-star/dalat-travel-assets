@@ -1,4 +1,5 @@
 const AMAP_WALKING_URL = 'https://restapi.amap.com/v5/direction/walking';
+const REQUEST_BUDGET_MS = 9500;
 
 function allowedOrigin(request, env) {
   const origin = request.headers.get('Origin') || '';
@@ -83,6 +84,72 @@ function normalizePath(path, routeIndex) {
   };
 }
 
+function retryableAmapError(info) {
+  return String(info || '').toUpperCase() === 'UNKNOWN_ERROR';
+}
+
+function safeAttempt(profile, result = {}) {
+  return {
+    profile:profile.name,
+    indoor:profile.isIndoor,
+    alternativeRoute:profile.alternativeRoute,
+    httpStatus:result.httpStatus ?? null,
+    status:String(result.status ?? ''),
+    info:String(result.info || ''),
+    infocode:String(result.infocode || ''),
+    elapsedMs:Number(result.elapsedMs || 0)
+  };
+}
+
+function buildParams(env, origin, destination, profile) {
+  const params = new URLSearchParams({
+    key:env.AMAP_WEB_KEY,
+    origin:`${origin.lng.toFixed(6)},${origin.lat.toFixed(6)}`,
+    destination:`${destination.lng.toFixed(6)},${destination.lat.toFixed(6)}`,
+    alternative_route:String(profile.alternativeRoute),
+    show_fields:'navi,polyline,cost',
+    isindoor:profile.isIndoor ? '1' : '0',
+    output:'json'
+  });
+  if (origin.poiId) params.set('origin_id', origin.poiId);
+  if (destination.poiId) params.set('destination_id', destination.poiId);
+  return params;
+}
+
+async function callAmap(env, origin, destination, profile, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(500, timeoutMs));
+  const started = Date.now();
+  try {
+    const params = buildParams(env, origin, destination, profile);
+    const response = await fetch(`${AMAP_WALKING_URL}?${params.toString()}`, { signal:controller.signal });
+    const raw = await response.json().catch(() => null);
+    const elapsedMs = Date.now() - started;
+    if (!raw) return { ok:false, network:true, httpStatus:response.status, info:`AMap HTTP ${response.status}`, elapsedMs };
+    return {
+      ok:response.ok && String(raw.status) === '1',
+      httpStatus:response.status,
+      status:raw.status,
+      info:raw.info,
+      infocode:raw.infocode,
+      raw,
+      elapsedMs
+    };
+  } catch (error) {
+    const elapsedMs = Date.now() - started;
+    return {
+      ok:false,
+      network:true,
+      timeout:error?.name === 'AbortError',
+      info:error?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
+      message:error?.message || '',
+      elapsedMs
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function walkingRoute(request, env, originHeader) {
   if (!env.AMAP_WEB_KEY) return json({ error:'Worker chưa có secret AMAP_WEB_KEY.' }, 500, originHeader);
 
@@ -94,46 +161,68 @@ async function walkingRoute(request, env, originHeader) {
   const destination = finiteCoord(body?.destination);
   if (!origin || !destination) return json({ error:'origin/destination không hợp lệ.' }, 400, originHeader);
 
-  const params = new URLSearchParams({
-    key:env.AMAP_WEB_KEY,
-    origin:`${origin.lng.toFixed(6)},${origin.lat.toFixed(6)}`,
-    destination:`${destination.lng.toFixed(6)},${destination.lat.toFixed(6)}`,
-    alternative_route:String(clampInt(body?.alternativeRoute, 1, 3, 3)),
-    show_fields:'navi,polyline,cost',
-    isindoor:body?.isIndoor === false ? '0' : '1',
-    output:'json'
-  });
-  if (origin.poiId) params.set('origin_id', origin.poiId);
-  if (destination.poiId) params.set('destination_id', destination.poiId);
+  const requestedAlt = clampInt(body?.alternativeRoute, 1, 3, 3);
+  const wantIndoor = body?.isIndoor !== false;
+  const profiles = [];
+  if (wantIndoor) profiles.push({ name:'indoor-multi', isIndoor:true, alternativeRoute:requestedAlt });
+  profiles.push({ name:'outdoor-multi', isIndoor:false, alternativeRoute:requestedAlt });
+  if (requestedAlt !== 1) profiles.push({ name:'outdoor-single', isIndoor:false, alternativeRoute:1 });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
-  let response;
-  try {
-    response = await fetch(`${AMAP_WALKING_URL}?${params.toString()}`, { signal:controller.signal });
-  } catch (error) {
-    clearTimeout(timer);
-    return json({ error:error?.name === 'AbortError' ? 'AMap Route 2.0 timeout.' : 'Không gọi được AMap Route 2.0.' }, 502, originHeader);
+  const attempts = [];
+  const deadline = Date.now() + REQUEST_BUDGET_MS;
+  let last = null;
+
+  for (let i = 0; i < profiles.length; i++) {
+    const profile = profiles[i];
+    const remaining = deadline - Date.now();
+    if (remaining < 700) break;
+    const left = profiles.length - i;
+    const perAttempt = Math.min(4000, Math.max(1200, Math.floor(remaining / left)));
+    const result = await callAmap(env, origin, destination, profile, perAttempt);
+    last = result;
+    attempts.push(safeAttempt(profile, result));
+
+    if (result.ok) {
+      const paths = Array.isArray(result.raw?.route?.paths) ? result.raw.route.paths : [];
+      const routes = paths.map(normalizePath).filter(route => route.steps.length || route.distance > 0);
+      if (!routes.length) {
+        last = { ...result, ok:false, info:'EMPTY_ROUTE', infocode:result.infocode || '' };
+        attempts[attempts.length - 1].info = 'EMPTY_ROUTE';
+      } else {
+        return json({
+          source:'amap-route-v2',
+          origin:{ lat:origin.lat, lng:origin.lng },
+          destination:{ lat:destination.lat, lng:destination.lng },
+          routes,
+          meta:{
+            count:routes.length,
+            info:result.raw.info || 'OK',
+            infocode:result.raw.infocode || '',
+            profile:profile.name,
+            indoor:profile.isIndoor,
+            attempts
+          }
+        }, 200, originHeader);
+      }
+    }
+
+    const canRetry = result.network || retryableAmapError(result.info) || result.info === 'EMPTY_ROUTE';
+    if (!canRetry) break;
   }
-  clearTimeout(timer);
 
-  const raw = await response.json().catch(() => null);
-  if (!response.ok || !raw) return json({ error:`AMap HTTP ${response.status}` }, 502, originHeader);
-  if (String(raw.status) !== '1') {
-    return json({ error:`AMap Route 2.0: ${raw.info || 'unknown error'}`, infocode:raw.infocode || '' }, 502, originHeader);
-  }
-
-  const paths = Array.isArray(raw?.route?.paths) ? raw.route.paths : [];
-  const routes = paths.map(normalizePath).filter(route => route.steps.length || route.distance > 0);
-  if (!routes.length) return json({ error:'AMap Route 2.0 không trả tuyến đi bộ.' }, 404, originHeader);
-
+  const lastInfo = String(last?.info || 'unknown error');
+  const lastCode = String(last?.infocode || '');
   return json({
-    source:'amap-route-v2',
-    origin:{ lat:origin.lat, lng:origin.lng },
-    destination:{ lat:destination.lat, lng:destination.lng },
-    routes,
-    meta:{ count:routes.length, info:raw.info || 'OK', infocode:raw.infocode || '' }
-  }, 200, originHeader);
+    error:`AMap Route 2.0: ${lastInfo}`,
+    infocode:lastCode,
+    attempts,
+    diagnostic:{
+      origin:{ lat:origin.lat, lng:origin.lng },
+      destination:{ lat:destination.lat, lng:destination.lng },
+      requestedIndoor:wantIndoor,
+      requestedAlternativeRoute:requestedAlt
+    }
+  }, 502, originHeader);
 }
 
 export default {
@@ -147,7 +236,7 @@ export default {
 
     const url = new URL(request.url);
     if (request.method === 'GET' && url.pathname === '/health') {
-      return json({ ok:true, service:'travelos-map', route2:Boolean(env.AMAP_WEB_KEY) }, 200, origin);
+      return json({ ok:true, service:'travelos-map', route2:Boolean(env.AMAP_WEB_KEY), retryProfiles:true }, 200, origin);
     }
     if (request.method === 'POST' && url.pathname === '/route/walking') {
       return walkingRoute(request, env, origin);
