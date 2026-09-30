@@ -1,0 +1,7 @@
+name = "travelos-map"
+main = "src/index.js"
+compatibility_date = "2026-09-30"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://kyuu2601-star.github.io"
