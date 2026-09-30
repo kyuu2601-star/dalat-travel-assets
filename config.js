@@ -9,7 +9,7 @@ const CONFIG = {
 
     // AMap Route 2.0 Worker riêng. Sau khi deploy map-worker, paste URL Worker vào đây.
     // Ví dụ: "https://travelos-map.<account>.workers.dev"
-    MAP_WORKER_URL: "",
+    MAP_WORKER_URL: "https://travelos-map.kyuu2601.workers.dev/",
 
     SYSTEM_PROMPT: function(userMessage, knowledgeBase) {
         const messageLower = userMessage.toLowerCase();
