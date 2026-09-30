@@ -327,6 +327,11 @@ async function maybeDetectGpsLocation(position) {
     }
 }
 
+function canUseVibration() {
+    return 'vibrate' in navigator &&
+        (!navigator.userActivation || navigator.userActivation.hasBeenActive);
+}
+
 function checkRadarStatus() {
     if (!userPos || fullData.length === 0) return;
     const radarIcon = document.getElementById('radar-box');
@@ -360,7 +365,9 @@ function checkRadarStatus() {
             currentIntervalTime = intervalTime;
             radarInterval = setInterval(() => {
                 const toggle = document.getElementById('vibrateToggle');
-                if (toggle?.checked && 'vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+                if (toggle?.checked && canUseVibration()) {
+                    navigator.vibrate([200, 100, 200]);
+                }
             }, intervalTime);
         }
     } else {
@@ -369,7 +376,7 @@ function checkRadarStatus() {
             clearInterval(radarInterval);
             radarInterval = null;
         }
-        if ('vibrate' in navigator) navigator.vibrate(0);
+        if (canUseVibration()) navigator.vibrate(0);
         if (minDistance > 1) lastAlertDistance = 999;
     }
 }
