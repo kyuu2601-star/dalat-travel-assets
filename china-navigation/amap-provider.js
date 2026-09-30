@@ -113,16 +113,15 @@
   }
 
   async function createMap(container, center) {
-    const AMap = await ensureSdk();
-    const c = center ? toGcj(center) : null;
-    return new AMap.Map(container, {
-      zoom: 16,
-      center: c ? [c.lng, c.lat] : undefined,
-      viewMode: '3D',
-      pitch: 0,
-      resizeEnable: true,
-      languageCode: 'vi',
-      logoLanguage: 'en'
+  const AMap = await ensureSdk();
+  const c = center ? toGcj(center) : null;
+
+  return new AMap.Map(container, {
+    zoom: 16,
+    center: c ? [c.lng, c.lat] : undefined,
+    viewMode: '3D',
+    pitch: 0,
+    resizeEnable: true
     });
   }
 
