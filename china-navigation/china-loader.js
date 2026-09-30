@@ -15,12 +15,17 @@
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[data-china-nav="${src}"]`)) return resolve();
-      const s = document.createElement('script'); s.src = BASE + src; s.dataset.chinaNav = src; s.onload = resolve; s.onerror = () => reject(new Error(`Không load được ${src}`)); document.head.appendChild(s);
+      const s = document.createElement('script');
+      s.src = BASE + src; s.dataset.chinaNav = src; s.onload = resolve;
+      s.onerror = () => reject(new Error(`Không load được ${src}`));
+      document.head.appendChild(s);
     });
   }
   function loadCss() {
     if (document.querySelector('link[data-china-nav-css]')) return;
-    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = BASE + 'china-navigation.css'; link.dataset.chinaNavCss = '1'; document.head.appendChild(link);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet'; link.href = BASE + 'china-navigation.css'; link.dataset.chinaNavCss = '1';
+    document.head.appendChild(link);
   }
   async function ensureLoaded(city = '') {
     if (!loadingPromise) {
@@ -29,6 +34,7 @@
         await loadScript('china-config.js');
         await loadScript('gcj02.js');
         await loadScript('amap-provider.js');
+        await loadScript('amap-route-service.js');
         await loadScript('travel-navigation.js');
         active = true;
       })();
@@ -53,7 +59,8 @@
   function placeDestination(place) {
     return {
       name: place.name || '', country: place.country || '', city: place.city || '', area: place.area || '',
-      lat: place.latitude, lng: place.longitude, coordSystem: 'wgs84', mapLink: place.map_link || ''
+      lat: place.latitude, lng: place.longitude, coordSystem: 'wgs84', mapLink: place.map_link || '',
+      poiId: place.amap_poi_id || place.poi_id || ''
     };
   }
   async function openPlace(place) {
