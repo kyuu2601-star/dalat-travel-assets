@@ -7,6 +7,10 @@ const CONFIG = {
 
     WORKER_URL: "https://ai-test.kyuu2601.workers.dev",
 
+    // AMap Route 2.0 Worker riêng. Sau khi deploy map-worker, paste URL Worker vào đây.
+    // Ví dụ: "https://travelos-map.<account>.workers.dev"
+    MAP_WORKER_URL: "",
+
     SYSTEM_PROMPT: function(userMessage, knowledgeBase) {
         const messageLower = userMessage.toLowerCase();
         let activeParts = [DALAT_PROMPTS.BASE_XUONG_SONG];
