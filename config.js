@@ -48,3 +48,4 @@ const CONFIG = {
         return activeParts.join("\n\n");
     }
 };
+window.CONFIG = CONFIG;
