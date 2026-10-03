@@ -150,60 +150,6 @@
     cursor: pointer;
 }
 
-.pm-card-actions {
-    position: relative;
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    flex: 0 0 auto;
-}
-.pm-card-menu { position: relative; }
-.pm-menu-trigger {
-    width: 34px;
-    height: 34px;
-    display: grid;
-    place-items: center;
-    padding: 0 0 5px;
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 10px;
-    background: rgba(255,255,255,.04);
-    color: #94a3b8;
-    font-size: 16px;
-    font-weight: 900;
-    line-height: 1;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-}
-.pm-menu-trigger:hover { background: rgba(255,255,255,.08); color: white; }
-
-.pm-menu-popover {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 30;
-    display: none;
-    width: 116px;
-    padding: 5px;
-    border: 1px solid #334155;
-    border-radius: 10px;
-    background: #0b1220;
-    box-shadow: 0 12px 30px rgba(0,0,0,.48);
-}
-.pm-card-menu.open .pm-menu-popover { display: block; }
-.pm-edit-place {
-    width: 100%;
-    padding: 8px 9px;
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    color: #fbbf24;
-    font-size: 9px;
-    font-weight: 900;
-    text-align: left;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-.pm-edit-place:hover { background: rgba(245,158,11,.09); }
 
 @media (max-width: 680px) {
     .pm-tools { padding: 13px; }
@@ -212,5 +158,4 @@
     .pm-duplicate-warning { align-items: flex-start; }
     .pm-mode-bar { flex-direction: column; }
     .pm-cancel-edit { align-self: flex-end; }
-    .pm-menu-trigger { width: 32px; height: 32px; }
 }

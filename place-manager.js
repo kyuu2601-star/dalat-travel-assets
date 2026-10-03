@@ -7,7 +7,6 @@
     let duplicateBox = null;
     let baseOpenAddPlaceModal = window.openAddPlaceModal;
     let baseCloseAddPlaceModal = window.closeAddPlaceModal;
-    let baseRenderGrid = window.renderGrid;
 
     const formFields = [
         'name','category','country','city','area','latitude','longitude','map_link','recommend',
@@ -357,66 +356,6 @@
         }
     }
 
-    function closeMenus(except = null) {
-        document.querySelectorAll('.pm-card-menu.open').forEach(menu => {
-            if (menu !== except) menu.classList.remove('open');
-        });
-    }
-
-    function attachCardMenus(items) {
-        const cards = [...document.querySelectorAll('#results-grid .card-travel')];
-
-        cards.forEach((card, index) => {
-            const place = items[index];
-            if (!place?.id || card.querySelector('.pm-card-actions')) return;
-
-            const imageButton = card.querySelector('.image-button');
-            const metaRow = card.querySelector('.card-meta-row');
-            if (!imageButton || !metaRow) return;
-
-            const actions = document.createElement('div');
-            actions.className = 'pm-card-actions';
-
-            const menu = document.createElement('div');
-            menu.className = 'pm-card-menu';
-            menu.innerHTML = `
-                <button type="button" class="pm-menu-trigger" aria-label="Place actions" aria-expanded="false">•••</button>
-                <div class="pm-menu-popover">
-                    <button type="button" class="pm-edit-place">Edit Place</button>
-                </div>`;
-
-            imageButton.parentNode.removeChild(imageButton);
-            actions.appendChild(imageButton);
-            actions.appendChild(menu);
-            metaRow.appendChild(actions);
-
-            const trigger = menu.querySelector('.pm-menu-trigger');
-            trigger.addEventListener('click', event => {
-                event.preventDefault();
-                event.stopPropagation();
-                const open = !menu.classList.contains('open');
-                closeMenus(menu);
-                menu.classList.toggle('open', open);
-                trigger.setAttribute('aria-expanded', String(open));
-            });
-
-            menu.querySelector('.pm-edit-place').addEventListener('click', event => {
-                event.preventDefault();
-                event.stopPropagation();
-                closeMenus();
-                openPlaceEditor(place.id);
-            });
-        });
-    }
-
-    function installGridHook() {
-        if (typeof baseRenderGrid !== 'function') return;
-        window.renderGrid = function (items) {
-            baseRenderGrid(items);
-            attachCardMenus(items || []);
-        };
-    }
-
     function installManagerUi() {
         const form = document.getElementById('add-place-form');
         if (!form || document.getElementById('place-manager-tools')) return;
@@ -474,17 +413,12 @@
         baseCloseAddPlaceModal?.();
     };
 
-    installGridHook();
 
     document.addEventListener('click', event => {
-        if (!event.target.closest('.pm-card-menu')) closeMenus();
         if (searchResults?.classList.contains('open') && !event.target.closest('.pm-search-wrap')) {
             searchResults.classList.remove('open');
         }
     });
 
-    window.addEventListener('load', () => {
-        installManagerUi();
-        if (Array.isArray(window.fullData)) window.renderGrid === baseRenderGrid || window.applyFilters?.();
-    });
+    window.addEventListener('load', installManagerUi);
 })();
