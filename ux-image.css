@@ -1,0 +1,80 @@
+.card-travel {
+    -webkit-tap-highlight-color: transparent;
+    cursor: default;
+}
+
+.card-travel.active {
+    transform: none;
+    border-color: rgba(255,255,255,.05);
+    background: rgba(30,41,59,.34);
+}
+
+.image-button {
+    position: relative;
+    z-index: 20;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.image-overlay {
+    z-index: 10;
+}
+
+.image-overlay img {
+    cursor: zoom-in;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+html.image-fullscreen-open,
+body.image-fullscreen-open {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+    touch-action: none !important;
+}
+
+.image-fullscreen-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 120000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    background: rgba(0,0,0,.96);
+    cursor: zoom-out;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.image-fullscreen-viewer.open { display: flex; }
+.image-fullscreen-viewer img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .card-travel:hover {
+        transform: translateY(-4px);
+        border-color: rgba(16,185,129,.7);
+        background: rgba(30,41,59,.52);
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    .card-travel:hover,
+    .card-travel:active,
+    .card-travel.active {
+        transform: none;
+        border-color: rgba(255,255,255,.05);
+        background: rgba(30,41,59,.34);
+    }
+}
