@@ -151,13 +151,17 @@ async function handleChat() {
         }
 
         let aiMsg = '';
-        if (data?.candidates?.[0]?.content?.parts) aiMsg = data.candidates[0].content.parts[0].text;
+        if (data?.candidates?.[0]?.content?.parts) aiMsg = data.candidates[0].content.parts.map(part => part?.text || '').filter(Boolean).join('\n').trim();
         else if (data?.text) aiMsg = data.text;
         else aiMsg = `⚠️ Thiết lập lỗi cấu trúc dữ liệu: ${JSON.stringify(data)}`;
 
         const loadingElement = document.getElementById(loadingId);
-        if (loadingElement?.closest('.msg')) {
-            loadingElement.closest('.msg').innerHTML = renderMarkdownSafe(aiMsg);
+        const messageElement = loadingElement?.closest('.msg');
+        if (messageElement) {
+            messageElement.innerHTML = renderMarkdownSafe(aiMsg);
+            if (data?.travelos?.nearby && window.TravelNearby?.render) {
+                window.TravelNearby.render(data.travelos.nearby, messageElement);
+            }
             saveMessage('ai', aiMsg);
         }
     } catch (error) {
