@@ -1083,12 +1083,12 @@ Nguồn phạm vi tìm kiếm: ${searchSource}`,
     `--- LIVE SEARCH OVERRIDE - ƯU TIÊN CAO NHẤT ---
 - PLACE_INTEL đã ngừng sử dụng. Bỏ qua mọi chỉ thị cũ trong prompt có nhắc PLACE_INTEL, JSON crawl hoặc việc tự quét Google Maps.
 - PLACES là dữ liệu curated của TravelOS. Dùng PLACES cho quán ăn, điểm chơi và recommendation khi phù hợp.
-- search_nearby_places là nguồn DUY NHẤT được phép cung cấp các địa điểm live ngoài PLACES quanh GPS hiện tại.
+- search_nearby_places là nguồn DUY NHẤT được phép cung cấp các địa điểm live ngoài PLACES quanh GPS hiện tại. Worker tự chọn Google Places tại Việt Nam và AMap tại Trung Quốc.
 - Khi user cần nơi gần đây/gần nhất/xung quanh như nhà thuốc, bệnh viện, phòng khám, cửa hàng tiện lợi, tạp hóa, siêu thị, ATM, ngân hàng, cây xăng, công an, cứu hỏa hoặc tiện ích tương tự: gọi search_nearby_places.
 - Có thể gọi search_nearby_places cho nhu cầu nearby khác nếu user rõ ràng muốn tìm POI thật quanh vị trí hiện tại.
 - Không truyền hoặc tự nghĩ tọa độ cho tool. Worker tự gắn GPS thật.
 - Sau khi tool trả dữ liệu, CHỈ được nhắc tới POI có trong output. Không tự thêm tên cơ sở, địa chỉ, khoảng cách, giờ mở cửa, số điện thoại hoặc rating.
-- Không tự tạo Google Maps/AMap link cho kết quả live. TravelOS UI sẽ hiển thị mini map và nút điều hướng từ structured payload.
+- Không tự tạo link bản đồ cho kết quả live. TravelOS UI sẽ hiển thị Google Maps tại Việt Nam hoặc AMap tại Trung Quốc từ structured payload.
 - Tool trả rỗng hoặc lỗi thì nói thẳng chưa tìm được dữ liệu live đã kiểm chứng. Tuyệt đối không dùng trí nhớ của model để bù địa điểm.
 - Nếu không có GPS thật, nói user bật Location để dùng Nearby Search.
 - Các chỉ thị trong block này ghi đè mọi luật cũ mâu thuẫn trong prompt client.`,
@@ -1133,12 +1133,13 @@ function buildContents(history, userMessage) {
 const NEARBY_TOOLS = [{
   functionDeclarations:[{
     name:'search_nearby_places',
-    description:'Search verified live AMap POIs around the user current GPS. Use for nearby/nearest real-world places such as pharmacy, hospital, clinic, convenience store, grocery, supermarket, ATM, bank, gas station, police, fire station, or another explicit nearby POI need. Do not use for a different city than the current GPS.',
+    description:'Search verified live POIs around the user current GPS. TravelOS uses Google Places outside China and AMap inside China. Use for nearby/nearest real-world places such as pharmacy, hospital, clinic, convenience store, grocery, supermarket, ATM, bank, gas station, police, fire station, or another explicit nearby POI need. Do not use for a different city than the current GPS.',
     parameters:{
       type:'OBJECT',
       properties:{
-        keyword:{ type:'STRING', description:'Short place keyword suitable for AMap, for example pharmacy, hospital, convenience store, ATM, gas station, supermarket. Use local-language/common terms when useful.' },
-        types:{ type:'STRING', description:'Optional AMap POI type code(s), separated by |. Leave empty if uncertain; keyword is enough.' },
+        keyword:{ type:'STRING', description:'Short semantic place keyword, for example pharmacy, hospital, convenience store, ATM, gas station, supermarket. Use the user language or a common category name.' },
+        category:{ type:'STRING', description:'Optional canonical category such as pharmacy, hospital, clinic, convenience_store, grocery_store, supermarket, atm, bank, gas_station, police, fire_station, restaurant, or cafe.' },
+        types:{ type:'STRING', description:'Optional provider-specific type code. Usually leave empty unless already known.' },
         radius:{ type:'INTEGER', description:'Search radius in meters, normally 1000-5000. Maximum 50000.' },
         limit:{ type:'INTEGER', description:'Number of results requested, normally 3-8.' },
         language:{ type:'STRING', description:'Preferred language code, normally vi for Vietnam, zh for China, or en.' }
@@ -1188,6 +1189,7 @@ async function runNearbyTool(call, currentLocation, env) {
     center:{ lat, lng, coordSystem:'wgs84', country:currentLocation.country || '' },
     country:currentLocation.country || '',
     keyword:clean(args.keyword, 80),
+    category:clean(args.category, 80),
     types:clean(args.types, 300),
     radius:clamp(args.radius, 100, 50000, 3000),
     limit:clamp(args.limit, 1, 8, 6),
@@ -1200,11 +1202,11 @@ async function runNearbyTool(call, currentLocation, env) {
       method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body)
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return { ok:false, error:'AMAP_NEARBY_ERROR', message:clean(data?.error || `HTTP ${response.status}`, 1000), query:body };
+    if (!response.ok) return { ok:false, error:'LIVE_NEARBY_ERROR', message:clean(data?.error || `HTTP ${response.status}`, 1000), query:body };
     const pois = Array.isArray(data?.pois) ? data.pois.slice(0, body.limit) : [];
     return {
       ok:true,
-      source:data.source || 'amap-nearby',
+      source:data.source || 'live-nearby',
       provider:data.provider || '',
       query:data.query || body,
       center:data.center || body.center,
@@ -1230,7 +1232,7 @@ function mergeNearbyResults(results) {
   }
   pois.sort((a,b) => (Number(a.distance) || Infinity) - (Number(b.distance) || Infinity));
   return {
-    source:'amap-nearby',
+    source:good[0].source || 'live-nearby',
     provider:good[0].provider || '',
     query:good.map(x => x.query?.keyword).filter(Boolean).join(' / '),
     center:good[0].center,
