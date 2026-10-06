@@ -36,19 +36,133 @@
     const close = document.getElementById('close-widget');
     const overlay = document.getElementById('chat-widget-overlay');
 
+    // =========================================================
+    // VISUAL VIEWPORT ANCHOR
+    // Luôn neo chat vào góc phải dưới của phần màn hình đang nhìn thấy,
+    // kể cả browser zoom / pinch zoom / resize / mobile browser chrome.
+    // =========================================================
+    let viewportRaf = 0;
+
+    function getVisibleViewport() {
+        const vv = window.visualViewport;
+        if (vv) {
+            return {
+                left: Number(vv.offsetLeft) || 0,
+                top: Number(vv.offsetTop) || 0,
+                width: Math.max(1, Number(vv.width) || window.innerWidth || 1),
+                height: Math.max(1, Number(vv.height) || window.innerHeight || 1)
+            };
+        }
+
+        return {
+            left: 0,
+            top: 0,
+            width: Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1),
+            height: Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1)
+        };
+    }
+
+    function syncWidgetToVisibleViewport() {
+        viewportRaf = 0;
+
+        const viewport = getVisibleViewport();
+        const compact = viewport.width <= 680;
+        const edgeX = compact ? 16 : 24;
+        const edgeY = compact ? 16 : 24;
+        const buttonSize = 52;
+        const windowGap = compact ? 14 : 16;
+
+        // Chat button: góc phải dưới của visual viewport.
+        const buttonLeft = Math.max(
+            viewport.left,
+            viewport.left + viewport.width - edgeX - buttonSize
+        );
+        const buttonTop = Math.max(
+            viewport.top,
+            viewport.top + viewport.height - edgeY - buttonSize
+        );
+
+        btn.style.position = 'fixed';
+        btn.style.left = `${Math.round(buttonLeft)}px`;
+        btn.style.top = `${Math.round(buttonTop)}px`;
+        btn.style.right = 'auto';
+        btn.style.bottom = 'auto';
+
+        // Chat window: nằm phía trên button và luôn lọt trong visual viewport.
+        const availableWidth = Math.max(1, viewport.width - edgeX * 2);
+        const desiredWidth = Math.min(380, availableWidth);
+
+        const availableHeight = Math.max(
+            1,
+            viewport.height - edgeY * 2 - buttonSize - windowGap
+        );
+        const desiredHeight = Math.min(600, availableHeight);
+
+        const windowLeft = Math.max(
+            viewport.left,
+            viewport.left + viewport.width - edgeX - desiredWidth
+        );
+        const windowTop = Math.max(
+            viewport.top + edgeY,
+            viewport.top + viewport.height - edgeY - buttonSize - windowGap - desiredHeight
+        );
+
+        win.style.position = 'fixed';
+        win.style.left = `${Math.round(windowLeft)}px`;
+        win.style.top = `${Math.round(windowTop)}px`;
+        win.style.right = 'auto';
+        win.style.bottom = 'auto';
+        win.style.width = `${Math.round(desiredWidth)}px`;
+        win.style.height = `${Math.round(desiredHeight)}px`;
+        win.style.maxWidth = 'none';
+        win.style.maxHeight = 'none';
+
+        // Overlay chỉ phủ đúng phần màn hình đang nhìn thấy khi zoom/pan.
+        overlay.style.position = 'fixed';
+        overlay.style.left = `${Math.round(viewport.left)}px`;
+        overlay.style.top = `${Math.round(viewport.top)}px`;
+        overlay.style.right = 'auto';
+        overlay.style.bottom = 'auto';
+        overlay.style.width = `${Math.ceil(viewport.width)}px`;
+        overlay.style.height = `${Math.ceil(viewport.height)}px`;
+    }
+
+    function requestViewportSync() {
+        if (viewportRaf) return;
+        viewportRaf = requestAnimationFrame(syncWidgetToVisibleViewport);
+    }
+
+    syncWidgetToVisibleViewport();
+
+    window.addEventListener('resize', requestViewportSync, { passive: true });
+    window.addEventListener('scroll', requestViewportSync, { passive: true });
+    window.addEventListener('orientationchange', () => {
+        requestViewportSync();
+        setTimeout(requestViewportSync, 120);
+    }, { passive: true });
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', requestViewportSync, { passive: true });
+        window.visualViewport.addEventListener('scroll', requestViewportSync, { passive: true });
+    }
+
     function scrollBottom() {
         const chatBox = document.getElementById('chat-box');
         if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     function setOpen(open) {
+        requestViewportSync();
         win.classList.toggle('open', open);
         overlay.classList.toggle('open', open);
         win.setAttribute('aria-hidden', String(!open));
         document.documentElement.classList.toggle('chat-open', open);
         document.body.classList.toggle('chat-open', open);
+
         if (open) {
+            requestViewportSync();
             setTimeout(() => {
+                syncWidgetToVisibleViewport();
                 scrollBottom();
                 document.getElementById('userInput')?.focus();
             }, 250);
