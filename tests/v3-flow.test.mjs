@@ -59,6 +59,8 @@ test('AI v3 plans tools server-side and returns structured nearby evidence', asy
         const body=await request.json();
         assert.equal(body.name,'Pharmacity');
         assert.equal(body.category,'pharmacy');
+        assert.equal(body.center.lat,10.77);
+        assert.equal(body.center.lng,106.69);
         return new Response(JSON.stringify({ ok:true, source:'geoapify-places-v2', provider:'geoapify', center:body.center, pois:[{ id:'p1', name:'Nhà thuốc Pharmacity', address:'123 Test', lat:10.77, lng:106.69, distance:120, provider:'geoapify' }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
       }
     }
