@@ -33,6 +33,7 @@
         const map=await window.GoogleMapProvider.createMap(container,center,interactive);map.__travelosProvider='google';
         window.GoogleMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;
       }catch(error){
+        console.warn('[TravelNearby Google map fallback]',error);
         if(!window.GeoapifyMapProvider?.ensureSdk)throw error;
         container.replaceChildren();await window.GeoapifyMapProvider.ensureSdk();const map=await window.GeoapifyMapProvider.createMap(container,center,interactive);map.__travelosProvider='geoapify';
         window.GeoapifyMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;

@@ -39,12 +39,22 @@
     Object.assign(container.style,{position:'absolute',inset:'0',width:'100%',height:'100%'});
     const map=new maps.Map(container,{center:c,zoom:15,mapTypeControl:false,streetViewControl:Boolean(interactive),fullscreenControl:Boolean(interactive),zoomControl:Boolean(interactive),gestureHandling:interactive?'greedy':'none',keyboardShortcuts:Boolean(interactive),clickableIcons:false});
     await new Promise((resolve,reject)=>{
-      let settled=false;
-      const finish=callback=>value=>{if(settled)return;settled=true;clearTimeout(timeout);callback(value);};
-      const succeed=finish(resolve),fail=finish(reject);
-      const timeout=setTimeout(()=>fail(Object.assign(new Error('Google Maps không tải được tile; đang chuyển sang bản đồ dự phòng.'),{code:'GOOGLE_MAP_LOAD_TIMEOUT'})),5000);
-      maps.event.addListenerOnce(map,'tilesloaded',succeed);
-      window.addEventListener('travelos-google-map-auth-failed',()=>fail(Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'})),{once:true});
+      let settled=false,timeout=null;
+      const authError=()=>finish(reject)(Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'}));
+      const cleanup=()=>{
+        clearTimeout(timeout);
+        window.removeEventListener('travelos-google-map-auth-failed',authError);
+        idleListener?.remove?.();
+        tilesListener?.remove?.();
+      };
+      const finish=callback=>value=>{if(settled)return;settled=true;cleanup();callback(value);};
+      const succeed=finish(resolve);
+      const idleListener=maps.event.addListenerOnce(map,'idle',succeed);
+      const tilesListener=maps.event.addListenerOnce(map,'tilesloaded',succeed);
+      window.addEventListener('travelos-google-map-auth-failed',authError,{once:true});
+      // A missing tilesloaded event is not an authentication failure. Slow devices,
+      // hidden chat cards and browser privacy features can delay it considerably.
+      timeout=setTimeout(succeed,10000);
     });
     if(authFailed)throw Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'});
     objectStore.set(map,[]);
