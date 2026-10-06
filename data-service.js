@@ -69,7 +69,7 @@
 
     async function getKnowledgeBase() {
         await loadPlaces();
-        return 'TravelOS D1 curated PLACES is active. Live nearby POIs are queried from AMap by the Worker when needed.';
+        return 'TravelOS D1 curated PLACES is active. Live nearby POIs use Geoapify outside China and AMap inside China.';
     }
 
     function getAdminKey(forcePrompt = false) {

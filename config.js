@@ -6,9 +6,9 @@ const CONFIG = {
     WORKER_URL: "https://ai-test.kyuu2601.workers.dev",
     MAP_WORKER_URL: "https://travelos-map.kyuu2601.workers.dev/",
 
-    // Browser key only for rendering Google Maps in Vietnam.
-    // Restrict this key by HTTP referrer to your TravelOS domain in Google Cloud Console.
-    GOOGLE_MAPS_BROWSER_KEY: "",
+    // Browser key only for Geoapify map tiles outside China.
+    // Restrict this key by HTTP referrer/origin to your TravelOS domain in Geoapify MyProjects.
+    GEOAPIFY_BROWSER_KEY: "",
 
     SYSTEM_PROMPT: function(userMessage, knowledgeBase) {
         const messageLower = userMessage.toLowerCase();
