@@ -1325,6 +1325,24 @@ function mapWorkerUrl(env) {
   return clean(env.MAP_WORKER_URL || 'https://travelos-map.kyuu2601.workers.dev', 1000).replace(/\/+$/, '');
 }
 
+function hasMapWorkerServiceBinding(env) {
+  return Boolean(env?.MAP_WORKER && typeof env.MAP_WORKER.fetch === 'function');
+}
+
+async function fetchMapWorker(path, init, env) {
+  const normalizedPath = `/${String(path || '').replace(/^\/+/, '')}`;
+
+  // Preferred path: Cloudflare Service Binding from ai-test -> travelos-map.
+  // This avoids Worker-to-Worker public workers.dev routing issues.
+  if (hasMapWorkerServiceBinding(env)) {
+    const request = new Request(`https://travelos-map.internal${normalizedPath}`, init);
+    return env.MAP_WORKER.fetch(request);
+  }
+
+  // Fallback for local/dev or deployments that have not added the Service Binding yet.
+  return fetch(`${mapWorkerUrl(env)}${normalizedPath}`, init);
+}
+
 async function runNearbyTool(call, currentLocation, env) {
   const lat = Number(currentLocation?.latitude);
   const lng = Number(currentLocation?.longitude);
@@ -1346,11 +1364,11 @@ async function runNearbyTool(call, currentLocation, env) {
   if (!body.keyword && !body.types) return { ok:false, error:'EMPTY_QUERY', message:'Tool thiếu keyword/types.' };
 
   try {
-    const response = await fetch(`${mapWorkerUrl(env)}/poi/nearby`, {
+    const response = await fetchMapWorker('/poi/nearby', {
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
       body:JSON.stringify(body)
-    });
+    }, env);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
@@ -1358,6 +1376,7 @@ async function runNearbyTool(call, currentLocation, env) {
         error:'LIVE_NEARBY_ERROR',
         provider:clean(data?.provider, 40),
         message:clean(data?.error || `HTTP ${response.status}`, 1000),
+        upstream:hasMapWorkerServiceBinding(env) ? 'service-binding' : 'public-url',
         query:body
       };
     }
@@ -1372,7 +1391,13 @@ async function runNearbyTool(call, currentLocation, env) {
       output:pois
     };
   } catch (error) {
-    return { ok:false, error:'MAP_WORKER_UNAVAILABLE', message:clean(error?.message || 'Map Worker unavailable', 1000), query:body };
+    return {
+      ok:false,
+      error:'MAP_WORKER_UNAVAILABLE',
+      message:clean(error?.message || 'Map Worker unavailable', 1000),
+      upstream:hasMapWorkerServiceBinding(env) ? 'service-binding' : 'public-url',
+      query:body
+    };
   }
 }
 
@@ -1446,7 +1471,8 @@ function nearbyFailurePayload(toolResults, request, env, intentPlan = null) {
       nearbyError:{
         code:clean(first?.error || 'NO_VERIFIED_RESULTS', 80),
         provider:clean(first?.provider, 40),
-        message:clean(first?.message, 500)
+        message:clean(first?.message, 500),
+        upstream:clean(first?.upstream || (hasMapWorkerServiceBinding(env) ? 'service-binding' : 'public-url'), 40)
       },
       intent:intentPlan
     }
