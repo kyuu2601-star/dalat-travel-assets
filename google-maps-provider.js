@@ -32,9 +32,11 @@
   async function createMap(container,center,interactive=true){
     const maps=await ensureSdk(),c=validPoint(center);
     if(!container||!c)throw new Error('Google Map thiếu container/tọa độ.');
+    Object.assign(container.style,{position:'absolute',inset:'0',width:'100%',height:'100%'});
     const map=new maps.Map(container,{center:c,zoom:15,mapTypeControl:false,streetViewControl:Boolean(interactive),fullscreenControl:Boolean(interactive),zoomControl:Boolean(interactive),gestureHandling:interactive?'greedy':'none',keyboardShortcuts:Boolean(interactive),clickableIcons:false});
     objectStore.set(map,[]);
     if(interactive){const traffic=new maps.TrafficLayer();traffic.setMap(map);layerStore.set(map,[traffic]);}
+    requestAnimationFrame(()=>{maps.event.trigger(map,'resize');map.setCenter(c);});
     return map;
   }
   function marker(map,position,label,title,user=false,onClick){

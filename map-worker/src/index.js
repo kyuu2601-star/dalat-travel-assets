@@ -174,7 +174,8 @@ async function geoapifyWalkingRoute(body, env, originHeader, origin, destination
     const routes=(Array.isArray(raw?.features)?raw.features:[]).map(normalizeGeoapifyRoute).filter(r=>r.path.length||r.distance>0);
     if(!routes.length) return json({error:'Geoapify không trả tuyến đi bộ.',provider:'geoapify'},404,originHeader);
     const country=clean(body?.country||destination.country||origin.country,120);
-    return json({source:'geoapify-routing-v1',provider:'geoapify',origin:{lat:origin.lat,lng:origin.lng,coordSystem:'wgs84',country},destination:{lat:destination.lat,lng:destination.lng,coordSystem:'wgs84',country},routes,meta:{count:routes.length}},200,originHeader);
+    const fallbackFrom=clean(body?._fallbackFrom,80),fallbackReason=clean(body?._fallbackReason,500);
+    return json({source:'geoapify-routing-v1',provider:'geoapify',origin:{lat:origin.lat,lng:origin.lng,coordSystem:'wgs84',country},destination:{lat:destination.lat,lng:destination.lng,coordSystem:'wgs84',country},routes,meta:{count:routes.length,...(fallbackFrom?{fallbackFrom,fallbackReason}: {})}},200,originHeader);
   } catch(error) {
     return json({error:error?.name==='AbortError'?'Geoapify Routing timeout.':`Không gọi được Geoapify Routing: ${clean(error?.message,300)}`,provider:'geoapify'},502,originHeader);
   } finally { clearTimeout(timer); }
@@ -204,14 +205,15 @@ function normalizeGoogleRoute(route, routeIndex) {
   };
 }
 async function googleWalkingRoute(body, env, originHeader, origin, destination) {
-  if(!env.GOOGLE_MAPS_API_KEY) return geoapifyWalkingRoute(body,env,originHeader,origin,destination);
+  if(!env.GOOGLE_MAPS_API_KEY) return geoapifyWalkingRoute({...body,_fallbackFrom:'google_routes',_fallbackReason:'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED'},env,originHeader,origin,destination);
   const payload={
     origin:{location:{latLng:{latitude:origin.lat,longitude:origin.lng}}},
     destination:{location:{latLng:{latitude:destination.lat,longitude:destination.lng}}},
-    travelMode:'WALK',computeAlternativeRoutes:true,languageCode:clean(body?.language,10)||'vi-VN',units:'METRIC',
+    travelMode:'WALK',computeAlternativeRoutes:false,languageCode:clean(body?.language,10)||'vi-VN',units:'METRIC',
     polylineQuality:'HIGH_QUALITY',polylineEncoding:'ENCODED_POLYLINE'
   };
   const fields=['routes.duration','routes.distanceMeters','routes.polyline.encodedPolyline','routes.warnings','routes.legs.steps.distanceMeters','routes.legs.steps.duration','routes.legs.steps.polyline.encodedPolyline','routes.legs.steps.navigationInstruction'].join(',');
+  let googleError='Google Routes không trả tuyến đi bộ.';
   try{
     const result=await fetchJson(GOOGLE_ROUTES_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fields},body:JSON.stringify(payload)});
     const routes=(Array.isArray(result.data?.routes)?result.data.routes:[]).map(normalizeGoogleRoute).filter(route=>route.path.length||route.distance>0);
@@ -219,9 +221,10 @@ async function googleWalkingRoute(body, env, originHeader, origin, destination) 
       const country=clean(body?.country||destination.country||origin.country,120);
       return json({ok:true,source:'google-routes-v2',provider:'google_routes',origin:{lat:origin.lat,lng:origin.lng,coordSystem:'wgs84',country},destination:{lat:destination.lat,lng:destination.lng,coordSystem:'wgs84',country},routes,meta:{count:routes.length,walkingBeta:true}},200,originHeader);
     }
-  }catch{}
-  if(env.GEOAPIFY_API_KEY) return geoapifyWalkingRoute(body,env,originHeader,origin,destination);
-  return json({error:'Google Routes không trả tuyến đi bộ và Geoapify fallback chưa được cấu hình.',provider:'google_routes'},502,originHeader);
+    googleError=clean(result.data?.error?.message||`Google Routes HTTP ${result.status}`,500);
+  }catch(error){googleError=clean(error?.name==='AbortError'?'Google Routes timeout.':error?.message,500)||googleError;}
+  if(env.GEOAPIFY_API_KEY) return geoapifyWalkingRoute({...body,_fallbackFrom:'google_routes',_fallbackReason:googleError},env,originHeader,origin,destination);
+  return json({error:`${googleError} Geoapify fallback chưa được cấu hình.`,provider:'google_routes'},502,originHeader);
 }
 async function walkingRoute(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}

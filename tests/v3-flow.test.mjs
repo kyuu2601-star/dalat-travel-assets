@@ -69,8 +69,11 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
 test('Map Worker uses Google Routes for walking and returns drawable paths', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async url => {
+  globalThis.fetch = async (url,init={}) => {
     assert.equal(String(url),'https://routes.googleapis.com/directions/v2:computeRoutes');
+    const requestBody=JSON.parse(String(init.body||'{}'));
+    assert.equal(requestBody.travelMode,'WALK');
+    assert.equal(requestBody.computeAlternativeRoutes,false);
     return new Response(JSON.stringify({routes:[{
       distanceMeters:1200,duration:'900s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC_mqNvxq`@'},warnings:['Walking route beta'],
       legs:[{steps:[{distanceMeters:300,duration:'180s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Đi thẳng',maneuver:'STRAIGHT'}}]}]

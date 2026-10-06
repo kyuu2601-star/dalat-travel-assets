@@ -45,7 +45,7 @@
   }
   function destroyMap(map,provider,container){
     try{if(provider==='amap')map?.destroy?.();else if(provider==='google')window.GoogleMapProvider?.destroy?.(map);else window.GeoapifyMapProvider?.destroy?.(map);}catch{}
-    if(container)container.innerHTML='';
+    if(container&&provider!=='google')container.innerHTML='';
   }
   function poiRow(poi,index,compact=false){const distance=distanceText(poi.distance),address=poi.address||[poi.district,poi.city].filter(Boolean).join(', '),open=poi.openTime?`<span class="nearby-open">${esc(poi.openTime)}</span>`:'';return `<button type="button" class="nearby-poi-row${compact?' compact':''}" data-nearby-index="${index}"><span class="nearby-poi-index">${index+1}</span><span class="nearby-poi-copy"><strong>${esc(poi.name||'POI')}</strong><small>${esc(address||poi.type||'')}</small><span>${distance?esc(distance):''}${distance&&open?' · ':''}${open}</span></span><span class="nearby-route-arrow">›</span></button>`;}
   function render(payload,messageElement){
