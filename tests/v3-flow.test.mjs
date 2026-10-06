@@ -42,12 +42,13 @@ test('Map Worker keeps pharmacy category coverage and brand name', async () => {
 test('Map Worker uses Google Places as primary for a Pharmacity brand search', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch = globalThis.fetch;
+  const vietnamToday=new Date(Date.now()+420*60000).getUTCDay();
   let requestedUrl = '', requestedBody = null;
   globalThis.fetch = async (url, init={}) => {
     requestedUrl=String(url);requestedBody=JSON.parse(String(init.body||'{}'));
     return new Response(JSON.stringify({places:[
       {id:'far',displayName:{text:'Nhà thuốc Pharmacity B'},formattedAddress:'500 m',location:{latitude:10.774,longitude:106.69},rating:4.5,userRatingCount:20},
-      {id:'near',displayName:{text:'Nhà thuốc Pharmacity A'},formattedAddress:'100 m',location:{latitude:10.7705,longitude:106.69},rating:4.7,userRatingCount:50}
+      {id:'near',displayName:{text:'Nhà thuốc Pharmacity A'},formattedAddress:'100 m',location:{latitude:10.7705,longitude:106.69},rating:4.7,userRatingCount:50,utcOffsetMinutes:420,currentOpeningHours:{openNow:true,weekdayDescriptions:['Không được hiển thị cả tuần'],periods:[{open:{day:vietnamToday,hour:6,minute:0},close:{day:vietnamToday,hour:23,minute:30}}]}}
     ]}), {status:200,headers:{'Content-Type':'application/json'}});
   };
   try {
@@ -60,6 +61,7 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
     assert.equal(data.provider,'google_places');
     assert.equal(data.source,'google-places-text-v1');
     assert.equal(data.pois[0].id,'near');
+    assert.equal(data.pois[0].openTime,'Hôm nay: 06:00–23:30');
     assert.equal(requestedUrl,'https://places.googleapis.com/v1/places:searchText');
     assert.equal(requestedBody.textQuery,'Pharmacity');
     assert.equal(requestedBody.locationBias.circle.radius,3000);

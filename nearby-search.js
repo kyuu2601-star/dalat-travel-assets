@@ -3,6 +3,7 @@
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function validPoint(p){const lat=Number(p?.lat??p?.latitude),lng=Number(p?.lng??p?.lon??p?.longitude);return Number.isFinite(lat)&&Number.isFinite(lng)?{...p,lat,lng}:null;}
   function distanceText(v){const m=Number(v);if(!Number.isFinite(m)||m<0)return'';return m<1000?`${Math.max(1,Math.round(m))} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;}
+  function queryLabel(payload){const q=payload?.query;if(typeof q==='string')return q;return q?.name||q?.keyword||q?.googleType||'Nearby';}
   function providerOf(payload){const raw=String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase();return raw.includes('google')?'google':raw==='geoapify'?'geoapify':'amap';}
   function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Maps Live':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
   function currentCity(payload){return payload?.pois?.[0]?.city||document.getElementById('selectCity')?.value||'';}
@@ -28,8 +29,14 @@
     const provider=await ensureProvider(payload);
     if(provider==='google'){
       const center=validPoint(payload.center)||validPoint(payload.pois[0]);if(!center)throw new Error('Nearby map thiếu tọa độ.');
-      const map=await window.GoogleMapProvider.createMap(container,center,interactive);
-      window.GoogleMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;
+      try{
+        const map=await window.GoogleMapProvider.createMap(container,center,interactive);map.__travelosProvider='google';
+        window.GoogleMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;
+      }catch(error){
+        if(!window.GeoapifyMapProvider?.ensureSdk)throw error;
+        container.replaceChildren();await window.GeoapifyMapProvider.ensureSdk();const map=await window.GeoapifyMapProvider.createMap(container,center,interactive);map.__travelosProvider='geoapify';
+        window.GeoapifyMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;
+      }
     }
     if(provider==='geoapify'){
       const center=validPoint(payload.center)||validPoint(payload.pois[0]); if(!center)throw new Error('Nearby map thiếu tọa độ.');
@@ -44,13 +51,14 @@
     if(markers.length>1)map.setFitView(markers,false,interactive?[70,70,70,70]:[36,36,36,36]);return map;
   }
   function destroyMap(map,provider,container){
-    try{if(provider==='amap')map?.destroy?.();else if(provider==='google')window.GoogleMapProvider?.destroy?.(map);else window.GeoapifyMapProvider?.destroy?.(map);}catch{}
-    if(container&&provider!=='google')container.innerHTML='';
+    const effective=map?.__travelosProvider||provider;
+    try{if(effective==='amap')map?.destroy?.();else if(effective==='google')window.GoogleMapProvider?.destroy?.(map);else window.GeoapifyMapProvider?.destroy?.(map);}catch{}
+    if(container&&effective!=='google')container.innerHTML='';
   }
   function poiRow(poi,index,compact=false){const distance=distanceText(poi.distance),address=poi.address||[poi.district,poi.city].filter(Boolean).join(', '),open=poi.openTime?`<span class="nearby-open">${esc(poi.openTime)}</span>`:'';return `<button type="button" class="nearby-poi-row${compact?' compact':''}" data-nearby-index="${index}"><span class="nearby-poi-index">${index+1}</span><span class="nearby-poi-copy"><strong>${esc(poi.name||'POI')}</strong><small>${esc(address||poi.type||'')}</small><span>${distance?esc(distance):''}${distance&&open?' · ':''}${open}</span></span><span class="nearby-route-arrow">›</span></button>`;}
   function render(payload,messageElement){
     if(!messageElement||!Array.isArray(payload?.pois)||!payload.pois.length)return;
-    const card=document.createElement('section');card.className='nearby-chat-card';card.innerHTML=`<div class="nearby-chat-head"><div><span>${esc(providerLabel(payload))}</span><strong>${esc(payload.query||'Nearby')}</strong></div><small>${payload.pois.length} điểm</small></div><div class="nearby-mini-map-wrap"><div class="nearby-mini-map"></div><button type="button" class="nearby-open-map" aria-label="Mở bản đồ Nearby"><span>Mở bản đồ</span></button><div class="nearby-map-loading">Đang tải ${esc(providerLabel(payload))}...</div></div><div class="nearby-chat-list">${payload.pois.slice(0,5).map((p,i)=>poiRow(p,i,true)).join('')}</div>`;messageElement.appendChild(card);
+    const card=document.createElement('section');card.className='nearby-chat-card';card.innerHTML=`<div class="nearby-chat-head"><div><span>${esc(providerLabel(payload))}</span><strong>${esc(queryLabel(payload))}</strong></div><small>${payload.pois.length} điểm</small></div><div class="nearby-mini-map-wrap"><div class="nearby-mini-map"></div><button type="button" class="nearby-open-map" aria-label="Mở bản đồ Nearby"><span>Mở bản đồ</span></button><div class="nearby-map-loading">Đang tải ${esc(providerLabel(payload))}...</div></div><div class="nearby-chat-list">${payload.pois.slice(0,5).map((p,i)=>poiRow(p,i,true)).join('')}</div>`;messageElement.appendChild(card);
     card.querySelector('.nearby-open-map')?.addEventListener('click',()=>openFull(payload));card.querySelectorAll('[data-nearby-index]').forEach(b=>b.addEventListener('click',()=>openRoute(payload.pois[Number(b.dataset.nearbyIndex)],payload)));
     const mapNode=card.querySelector('.nearby-mini-map'),loading=card.querySelector('.nearby-map-loading');mountMap(mapNode,payload,false).then(()=>loading?.remove()).catch(error=>{console.warn('[TravelNearby mini map]',error);if(loading)loading.textContent=`Không tải được bản đồ · ${error.message||'thử lại sau'}`;});
   }
@@ -59,7 +67,7 @@
   }
   async function openFull(payload){
     if(!Array.isArray(payload?.pois)||!payload.pois.length)return;const root=ensureFullRoot(),previousProvider=fullProvider,nextProvider=providerOf(payload);fullPayload=payload;root.classList.add('open');root.setAttribute('aria-hidden','false');document.documentElement.classList.add('nearby-map-open');document.body.classList.add('nearby-map-open');
-    root.querySelector('#nearby-full-provider').textContent=providerLabel(payload);root.querySelector('#nearby-full-title').textContent=payload.query||'Nearby';const list=root.querySelector('#nearby-full-list');list.innerHTML=payload.pois.map((p,i)=>poiRow(p,i)).join('');list.querySelectorAll('[data-nearby-index]').forEach(b=>b.addEventListener('click',()=>openRoute(payload.pois[Number(b.dataset.nearbyIndex)],payload)));
+    root.querySelector('#nearby-full-provider').textContent=providerLabel(payload);root.querySelector('#nearby-full-title').textContent=queryLabel(payload);const list=root.querySelector('#nearby-full-list');list.innerHTML=payload.pois.map((p,i)=>poiRow(p,i)).join('');list.querySelectorAll('[data-nearby-index]').forEach(b=>b.addEventListener('click',()=>openRoute(payload.pois[Number(b.dataset.nearbyIndex)],payload)));
     const status=root.querySelector('#nearby-full-status'),mapNode=root.querySelector('#nearby-full-map');status.textContent=`Đang tải ${providerLabel(payload)}...`;status.classList.remove('hidden');destroyMap(fullMap,previousProvider,mapNode);fullMap=null;fullProvider=nextProvider;
     try{fullMap=await mountMap(mapNode,payload,true);status.classList.add('hidden');}catch(error){console.warn('[TravelNearby full map]',error);status.textContent=error.message||'Không tải được bản đồ.';}
   }

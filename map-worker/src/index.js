@@ -366,14 +366,37 @@ function normalizeGooglePlace(place, center, country) {
   const reviews=(Array.isArray(place?.reviews)?place.reviews:[]).slice(0,5).map(review=>({
     rating:Number(review?.rating)||null,text:clean(review?.text?.text,1000),relativeTime:clean(review?.relativePublishTimeDescription,120),author:clean(review?.authorAttribution?.displayName,200)
   }));
+  const todayOpening=openingHoursForToday(place);
   return {
     id:clean(place?.id,200),poiId:clean(place?.id,200),name:clean(place?.displayName?.text,300),address:clean(place?.formattedAddress,1000),lat,lng,
     distance:center?haversineMeters(center,{lat,lng}):null,phone:clean(place?.nationalPhoneNumber||place?.internationalPhoneNumber,300),website:clean(place?.websiteUri,1000),
     openNow:typeof place?.currentOpeningHours?.openNow==='boolean'?place.currentOpeningHours.openNow:null,
-    openTime:Array.isArray(place?.currentOpeningHours?.weekdayDescriptions)?place.currentOpeningHours.weekdayDescriptions.join(' | '):'',
+    openTime:todayOpening,
     businessStatus:clean(place?.businessStatus,80),rating:Number(place?.rating)||null,userRatingCount:Number(place?.userRatingCount)||0,reviews,
     provider:'google_places',coordSystem:'wgs84',country:clean(country,120)
   };
+}
+
+function openingHoursForToday(place) {
+  const offset=Number(place?.utcOffsetMinutes),localNow=new Date(Date.now()+(Number.isFinite(offset)?offset:0)*60000),today=localNow.getUTCDay();
+  const periods=Array.isArray(place?.currentOpeningHours?.periods)?place.currentOpeningHours.periods:[];
+  const pad=value=>String(Math.max(0,Number(value)||0)).padStart(2,'0');
+  const clock=point=>`${pad(point?.hour)}:${pad(point?.minute)}`;
+  const ranges=[];
+  periods.forEach(period=>{
+    const open=period?.open,close=period?.close;
+    if(Number(open?.day)===today){
+      if(!close) ranges.push('Mở cửa 24 giờ');
+      else ranges.push(`${clock(open)}–${clock(close)}`);
+    }else if(close&&Number(close?.day)===today){
+      ranges.push(`00:00–${clock(close)}`);
+    }
+  });
+  const unique=[...new Set(ranges)];
+  if(unique.length) return `Hôm nay: ${unique.join(', ')}`;
+  if(place?.currentOpeningHours?.openNow===true) return 'Hôm nay: Đang mở cửa';
+  if(place?.currentOpeningHours?.openNow===false) return 'Hôm nay: Đóng cửa';
+  return '';
 }
 
 async function googleTextPlaces(options, env) {
@@ -382,7 +405,7 @@ async function googleTextPlaces(options, env) {
   if(!query) return {ok:false,error:'EMPTY_QUERY',places:[]};
   const payload={textQuery:query,languageCode:clean(options?.language,10)||'vi',pageSize:clampInt(options?.limit,1,20,8)};
   if(center) payload.locationBias={circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(50000,Math.max(100,Number(options?.radius)||3000))}};
-  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri','places.reviews'].join(',');
+  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.utcOffsetMinutes','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri','places.reviews'].join(',');
   const result=await fetchJson(GOOGLE_TEXT_SEARCH_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fieldMask},body:JSON.stringify(payload)});
   if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Places HTTP ${result.status}`,places:[]};
   const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
@@ -398,7 +421,7 @@ async function googleNearbyPlaces(options, env) {
     locationRestriction:{circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(50000,Math.max(100,Number(options?.radius)||3000))}},
     languageCode:clean(options?.language,10)||'vi'
   };
-  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri'].join(',');
+  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.utcOffsetMinutes','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri'].join(',');
   const result=await fetchJson(GOOGLE_NEARBY_SEARCH_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fieldMask},body:JSON.stringify(payload)});
   if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Places Nearby HTTP ${result.status}`,places:[]};
   const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
@@ -476,7 +499,7 @@ export default {
     if(request.method==='OPTIONS') return origin?new Response(null,{status:204,headers:corsHeaders(origin)}):new Response(null,{status:403});
     if(!origin) return json({error:'Origin không được phép.'},403,'null');
     const url=new URL(request.url);
-    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',version:'google-primary-v2',amap:{route:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY),traffic:Boolean(env.AMAP_WEB_KEY)},google:{routes:Boolean(env.GOOGLE_MAPS_API_KEY),places:Boolean(env.GOOGLE_MAPS_API_KEY),traffic:Boolean(env.GOOGLE_MAPS_API_KEY)},geoapify:{fallbackRoutes:Boolean(env.GEOAPIFY_API_KEY),fallbackPlaces:Boolean(env.GEOAPIFY_API_KEY),fallbackGeocoding:Boolean(env.GEOAPIFY_API_KEY),fallbackDetails:Boolean(env.GEOAPIFY_API_KEY)},routing:'china-amap-global-google',retryProfiles:true},200,origin);
+    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',version:'google-primary-v3',amap:{route:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY),traffic:Boolean(env.AMAP_WEB_KEY)},google:{routes:Boolean(env.GOOGLE_MAPS_API_KEY),places:Boolean(env.GOOGLE_MAPS_API_KEY),traffic:Boolean(env.GOOGLE_MAPS_API_KEY)},geoapify:{fallbackRoutes:Boolean(env.GEOAPIFY_API_KEY),fallbackPlaces:Boolean(env.GEOAPIFY_API_KEY),fallbackGeocoding:Boolean(env.GEOAPIFY_API_KEY),fallbackDetails:Boolean(env.GEOAPIFY_API_KEY)},routing:'china-amap-global-google',retryProfiles:true},200,origin);
     if(request.method==='POST'&&url.pathname==='/route/walking') return walkingRoute(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/route/traffic') return trafficRoute(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/poi/nearby') return nearbySearch(request,env,origin);

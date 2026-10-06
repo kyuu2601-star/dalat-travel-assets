@@ -2,6 +2,9 @@
   const objectStore=new WeakMap();
   const layerStore=new WeakMap();
   let sdkPromise=null;
+  let authFailed=false;
+  const previousAuthFailure=window.gm_authFailure;
+  window.gm_authFailure=()=>{authFailed=true;window.dispatchEvent(new Event('travelos-google-map-auth-failed'));if(typeof previousAuthFailure==='function')previousAuthFailure();};
 
   function key(){return String(window.CONFIG?.GOOGLE_MAPS_BROWSER_KEY||'').trim();}
   function validPoint(p){
@@ -15,7 +18,7 @@
     sdkPromise=new Promise((resolve,reject)=>{
       const callback=`__travelosGoogleMapsReady_${Date.now()}`;
       const script=document.createElement('script');
-      window[callback]=()=>{delete window[callback];resolve(window.google.maps);};
+      window[callback]=()=>{delete window[callback];authFailed?reject(Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'})):resolve(window.google.maps);};
       script.async=true;script.defer=true;
       script.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key())}&v=weekly&loading=async&language=vi&region=VN&callback=${callback}`;
       script.onerror=()=>{delete window[callback];sdkPromise=null;reject(new Error('Không tải được Google Maps JavaScript API. Kiểm tra browser key và website restriction.'));};
@@ -34,6 +37,11 @@
     if(!container||!c)throw new Error('Google Map thiếu container/tọa độ.');
     Object.assign(container.style,{position:'absolute',inset:'0',width:'100%',height:'100%'});
     const map=new maps.Map(container,{center:c,zoom:15,mapTypeControl:false,streetViewControl:Boolean(interactive),fullscreenControl:Boolean(interactive),zoomControl:Boolean(interactive),gestureHandling:interactive?'greedy':'none',keyboardShortcuts:Boolean(interactive),clickableIcons:false});
+    await Promise.race([
+      new Promise(resolve=>setTimeout(resolve,500)),
+      new Promise((resolve,reject)=>window.addEventListener('travelos-google-map-auth-failed',()=>reject(Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'})),{once:true}))
+    ]);
+    if(authFailed)throw Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'});
     objectStore.set(map,[]);
     if(interactive){const traffic=new maps.TrafficLayer();traffic.setMap(map);layerStore.set(map,[traffic]);}
     requestAnimationFrame(()=>{maps.event.trigger(map,'resize');map.setCenter(c);});
@@ -41,11 +49,11 @@
   }
   function marker(map,position,label,title,user=false,onClick){
     const maps=window.google.maps;
-    const options={map,position,title:String(title||''),zIndex:user?999:undefined};
-    if(user){options.icon={path:maps.SymbolPath.CIRCLE,scale:8,fillColor:'#f59e0b',fillOpacity:1,strokeColor:'#ffffff',strokeWeight:3};}
-    else options.label={text:String(label),color:'#04131f',fontWeight:'900',fontSize:'11px'};
-    const item=track(map,new maps.Marker(options));
-    if(typeof onClick==='function')item.addListener('click',onClick);
+    const node=document.createElement('div');node.className=`nearby-pin${user?' nearby-pin-user':''}`;node.title=String(title||'');
+    const text=document.createElement('span');text.textContent=user?'●':String(label);node.appendChild(text);
+    const wrapper=document.createElement('div');wrapper.style.position='absolute';wrapper.style.transform=user?'translate(-50%,-50%)':'translate(-50%,-100%)';wrapper.style.cursor=onClick?'pointer':'default';wrapper.appendChild(node);
+    if(typeof onClick==='function')wrapper.addEventListener('click',onClick);
+    const item=new maps.OverlayView();item.onAdd=function(){this.getPanes().overlayMouseTarget.appendChild(wrapper);};item.draw=function(){const p=this.getProjection().fromLatLngToDivPixel(new maps.LatLng(position));wrapper.style.left=`${p.x}px`;wrapper.style.top=`${p.y}px`;};item.onRemove=function(){wrapper.remove();};item.setMap(map);track(map,item);
     return item;
   }
   function fit(map,points,pad=40){

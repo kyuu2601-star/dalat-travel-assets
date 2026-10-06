@@ -52,7 +52,11 @@
       const fallback=data.provider==='geoapify';$('.google-route-provider',r).textContent=fallback?'GEOAPIFY FALLBACK':'GOOGLE WALKING';
       $('.google-route-note',r).textContent=fallback?'Google Routes không khả dụng; tuyến hiện tại được lấy từ Geoapify fallback.':'Tuyến đi bộ do Google Routes cung cấp. Tuyến đi bộ đang ở trạng thái beta và có thể thiếu vỉa hè hoặc lối dành cho người đi bộ.';
       state={origin,destination,routes:data.routes,selected:0};renderChoices();selectRoute(0);$('.geo-status',r).classList.add('hidden');
-    }catch(error){if(id!==session)return;$('.geo-status',r).textContent=error.message||'Không mở được Google Navigation.';$('.google-route-summary',r).textContent='Không thể tạo route';}
+    }catch(error){
+      if(id!==session)return;
+      if(error?.code==='GOOGLE_MAP_AUTH_FAILED'&&window.GeoapifyNavigation?.open){close();await window.GeoapifyNavigation.open(options);return;}
+      $('.geo-status',r).textContent=error.message||'Không mở được Google Navigation.';$('.google-route-summary',r).textContent='Không thể tạo route';
+    }
   }
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&root?.classList.contains('open'))close();});
   window.GoogleNavigation={open,close};
