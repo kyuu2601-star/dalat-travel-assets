@@ -5,6 +5,7 @@ const GEOAPIFY_ROUTING_URL = 'https://api.geoapify.com/v1/routing';
 const GEOAPIFY_GEOCODING_URL = 'https://api.geoapify.com/v1/geocode/search';
 const GEOAPIFY_DETAILS_URL = 'https://api.geoapify.com/v2/place-details';
 const GOOGLE_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
+const GOOGLE_NEARBY_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 const GOOGLE_ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const AMAP_DRIVING_URL = 'https://restapi.amap.com/v5/direction/driving';
 const REQUEST_BUDGET_MS = 9500;
@@ -40,8 +41,9 @@ function providerFor(body) {
   const forced = clean(body?.provider, 20).toLowerCase();
   if (forced === 'amap' || forced === 'domestic') return 'amap';
   if (forced === 'geoapify') return 'geoapify';
+  if (forced === 'google' || forced === 'google_places' || forced === 'google_routes') return 'google';
   const country = body?.country || body?.destination?.country || body?.origin?.country || body?.center?.country || '';
-  return isChinaCountry(country) ? 'amap' : 'geoapify';
+  return isChinaCountry(country) ? 'amap' : 'google';
 }
 function clampInt(value, min, max, fallback) {
   const n = Math.round(Number(value));
@@ -177,37 +179,84 @@ async function geoapifyWalkingRoute(body, env, originHeader, origin, destination
     return json({error:error?.name==='AbortError'?'Geoapify Routing timeout.':`Không gọi được Geoapify Routing: ${clean(error?.message,300)}`,provider:'geoapify'},502,originHeader);
   } finally { clearTimeout(timer); }
 }
+function decodeGooglePolyline(encoded) {
+  const points=[]; let index=0,lat=0,lng=0;
+  while(index<String(encoded||'').length){
+    let result=0,shift=0,byte;
+    do{byte=encoded.charCodeAt(index++)-63;result|=(byte&31)<<shift;shift+=5;}while(byte>=32&&index<=encoded.length);
+    lat+=(result&1)?~(result>>1):(result>>1);result=0;shift=0;
+    do{byte=encoded.charCodeAt(index++)-63;result|=(byte&31)<<shift;shift+=5;}while(byte>=32&&index<=encoded.length);
+    lng+=(result&1)?~(result>>1):(result>>1);points.push({lat:lat/1e5,lng:lng/1e5});
+  }
+  return points;
+}
+function durationSeconds(value){return Number(String(value||'').replace(/s$/,''))||0;}
+function normalizeGoogleRoute(route, routeIndex) {
+  const steps=(Array.isArray(route?.legs)?route.legs:[]).flatMap(leg=>(Array.isArray(leg?.steps)?leg.steps:[])).map((step,index)=>({
+    index,instruction:clean(step?.navigationInstruction?.instructions||'',1000),road:'',orientation:'',distance:Number(step?.distanceMeters)||0,
+    duration:durationSeconds(step?.duration),action:clean(step?.navigationInstruction?.maneuver||'',100),assistantAction:'',walkType:'',
+    path:decodeGooglePolyline(step?.polyline?.encodedPolyline)
+  }));
+  return {
+    routeIndex,distance:Number(route?.distanceMeters)||0,duration:durationSeconds(route?.duration),
+    path:decodeGooglePolyline(route?.polyline?.encodedPolyline),steps,
+    warnings:Array.isArray(route?.warnings)?route.warnings.slice(0,10).map(x=>clean(x,500)):[],provider:'google_routes'
+  };
+}
+async function googleWalkingRoute(body, env, originHeader, origin, destination) {
+  if(!env.GOOGLE_MAPS_API_KEY) return geoapifyWalkingRoute(body,env,originHeader,origin,destination);
+  const payload={
+    origin:{location:{latLng:{latitude:origin.lat,longitude:origin.lng}}},
+    destination:{location:{latLng:{latitude:destination.lat,longitude:destination.lng}}},
+    travelMode:'WALK',computeAlternativeRoutes:true,languageCode:clean(body?.language,10)||'vi-VN',units:'METRIC',
+    polylineQuality:'HIGH_QUALITY',polylineEncoding:'ENCODED_POLYLINE'
+  };
+  const fields=['routes.duration','routes.distanceMeters','routes.polyline.encodedPolyline','routes.warnings','routes.legs.steps.distanceMeters','routes.legs.steps.duration','routes.legs.steps.polyline.encodedPolyline','routes.legs.steps.navigationInstruction'].join(',');
+  try{
+    const result=await fetchJson(GOOGLE_ROUTES_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fields},body:JSON.stringify(payload)});
+    const routes=(Array.isArray(result.data?.routes)?result.data.routes:[]).map(normalizeGoogleRoute).filter(route=>route.path.length||route.distance>0);
+    if(result.ok&&routes.length){
+      const country=clean(body?.country||destination.country||origin.country,120);
+      return json({ok:true,source:'google-routes-v2',provider:'google_routes',origin:{lat:origin.lat,lng:origin.lng,coordSystem:'wgs84',country},destination:{lat:destination.lat,lng:destination.lng,coordSystem:'wgs84',country},routes,meta:{count:routes.length,walkingBeta:true}},200,originHeader);
+    }
+  }catch{}
+  if(env.GEOAPIFY_API_KEY) return geoapifyWalkingRoute(body,env,originHeader,origin,destination);
+  return json({error:'Google Routes không trả tuyến đi bộ và Geoapify fallback chưa được cấu hình.',provider:'google_routes'},502,originHeader);
+}
 async function walkingRoute(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
   const origin=finiteCoord(body?.origin), destination=finiteCoord(body?.destination);
   if(!origin||!destination) return json({error:'origin/destination không hợp lệ.'},400,originHeader);
-  return providerFor(body)==='amap' ? amapWalkingRoute(body,env,originHeader,origin,destination) : geoapifyWalkingRoute(body,env,originHeader,origin,destination);
+  const provider=providerFor(body);
+  if(provider==='amap') return amapWalkingRoute(body,env,originHeader,origin,destination);
+  if(provider==='geoapify') return geoapifyWalkingRoute(body,env,originHeader,origin,destination);
+  return googleWalkingRoute(body,env,originHeader,origin,destination);
 }
 
 const SEARCH_RULES=[
-  {aliases:['pharmacy','drugstore','nha thuoc','hieu thuoc','tiem thuoc','mua thuoc'],geo:['healthcare.pharmacy','commercial.health_and_beauty.pharmacy','commercial.chemist'],amap:'药店'},
-  {aliases:['hospital','benh vien','cap cuu'],geo:['healthcare.hospital'],amap:'医院'},
-  {aliases:['clinic','phong kham','doctor','bac si'],geo:['healthcare.clinic_or_praxis'],amap:'诊所'},
-  {aliases:['convenience store','cua hang tien loi','minimart','mini mart'],geo:['commercial.convenience'],amap:'便利店'},
-  {aliases:['grocery','tap hoa','cua hang tap hoa'],geo:['commercial.food_and_drink'],amap:'杂货店'},
-  {aliases:['supermarket','sieu thi'],geo:['commercial.supermarket'],amap:'超市'},
-  {aliases:['atm','rut tien'],geo:['service.financial.atm'],amap:'ATM'},
-  {aliases:['bank','ngan hang'],geo:['service.financial.bank'],amap:'银行'},
-  {aliases:['gas station','petrol','tram xang','cay xang','do xang','fuel'],geo:['service.vehicle.fuel'],amap:'加油站'},
-  {aliases:['police','cong an'],geo:['service.police'],amap:'派出所'},
-  {aliases:['fire station','cuu hoa'],geo:['service.fire_station'],amap:'消防站'},
-  {aliases:['restaurant','quan an','an uong'],geo:['catering.restaurant','catering.fast_food','catering.food_court'],amap:'餐厅'},
-  {aliases:['cafe','coffee','quan cafe'],geo:['catering.cafe'],amap:'咖啡店'},
-  {aliases:['hotel','khach san'],geo:['accommodation.hotel','accommodation.guest_house'],amap:'酒店'},
-  {aliases:['parking','bai do xe','giu xe'],geo:['parking'],amap:'停车场'}
+  {aliases:['pharmacy','drugstore','nha thuoc','hieu thuoc','tiem thuoc','mua thuoc'],geo:['healthcare.pharmacy','commercial.health_and_beauty.pharmacy','commercial.chemist'],google:'pharmacy',amap:'药店'},
+  {aliases:['hospital','benh vien','cap cuu'],geo:['healthcare.hospital'],google:'hospital',amap:'医院'},
+  {aliases:['clinic','phong kham','doctor','bac si'],geo:['healthcare.clinic_or_praxis'],google:'doctor',amap:'诊所'},
+  {aliases:['convenience store','cua hang tien loi','minimart','mini mart'],geo:['commercial.convenience'],google:'convenience_store',amap:'便利店'},
+  {aliases:['grocery','tap hoa','cua hang tap hoa'],geo:['commercial.food_and_drink'],google:'grocery_store',amap:'杂货店'},
+  {aliases:['supermarket','sieu thi'],geo:['commercial.supermarket'],google:'supermarket',amap:'超市'},
+  {aliases:['atm','rut tien'],geo:['service.financial.atm'],google:'atm',amap:'ATM'},
+  {aliases:['bank','ngan hang'],geo:['service.financial.bank'],google:'bank',amap:'银行'},
+  {aliases:['gas station','petrol','tram xang','cay xang','do xang','fuel'],geo:['service.vehicle.fuel'],google:'gas_station',amap:'加油站'},
+  {aliases:['police','cong an'],geo:['service.police'],google:'police',amap:'派出所'},
+  {aliases:['fire station','cuu hoa'],geo:['service.fire_station'],google:'fire_station',amap:'消防站'},
+  {aliases:['restaurant','quan an','an uong'],geo:['catering.restaurant','catering.fast_food','catering.food_court'],google:'restaurant',amap:'餐厅'},
+  {aliases:['cafe','coffee','quan cafe'],geo:['catering.cafe'],google:'cafe',amap:'咖啡店'},
+  {aliases:['hotel','khach san'],geo:['accommodation.hotel','accommodation.guest_house'],google:'hotel',amap:'酒店'},
+  {aliases:['parking','bai do xe','giu xe'],geo:['parking'],google:'parking',amap:'停车场'}
 ];
 function categoryInfo(keyword, category='', name='') {
   const q=fold(`${category} ${keyword}`);
   for(const rule of SEARCH_RULES) if(rule.aliases.some(x=>q.includes(fold(x)))) {
-    return {geoCategories:rule.geo,amapKeyword:clean(name,120)||rule.amap,name:clean(name,120)};
+    return {geoCategories:rule.geo,googleType:rule.google,amapKeyword:clean(name,120)||rule.amap,name:clean(name,120)};
   }
   const freeText=clean(name||keyword,120);
-  return {geoCategories:['commercial','service','healthcare','catering','tourism','entertainment','accommodation'],amapKeyword:freeText,name:freeText};
+  return {geoCategories:['commercial','service','healthcare','catering','tourism','entertainment','accommodation'],googleType:'',amapKeyword:freeText,name:freeText};
 }
 function normalizeAmapPoi(poi, center, country) {
   const point=parseLngLat(poi?.location); if(!point) return null; const {lng,lat}=point;
@@ -271,7 +320,10 @@ async function nearbySearch(request, env, originHeader) {
   const name=clean(body?.name,120),keyword=clean(body?.keyword||body?.keywords||body?.query||name,100),types=clean(body?.types,300); if(!keyword&&!types&&!name) return json({error:'Cần keyword, name hoặc types để search nearby.'},400,originHeader);
   const radius=clampInt(body?.radius,100,50000,3000),limit=clampInt(body?.limit,1,20,8),candidateLimit=clampInt(body?.candidateLimit,limit,50,Math.max(20,limit*4)),country=clean(body?.country||center.country,120);
   const normalizedBody={...body,name};
-  return providerFor(body)==='amap' ? amapNearby(normalizedBody,env,originHeader,center,keyword,types,radius,limit,Math.min(25,candidateLimit),country) : geoapifyNearby(normalizedBody,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
+  const provider=providerFor(body);
+  if(provider==='amap') return amapNearby(normalizedBody,env,originHeader,center,keyword,types,radius,limit,Math.min(25,candidateLimit),country);
+  if(provider==='geoapify') return geoapifyNearby(normalizedBody,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
+  return googleNearby(normalizedBody,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
 }
 
 async function fetchJson(url, init = {}, timeoutMs = 9000) {
@@ -287,7 +339,11 @@ async function resolvePlace(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
   const query=clean(body?.query||body?.name,300),center=finiteCoord(body?.center||body?.location);
   if(!query) return json({error:'query là bắt buộc.'},400,originHeader);
-  if(!env.GEOAPIFY_API_KEY) return json({error:'Worker chưa có secret GEOAPIFY_API_KEY.',provider:'geoapify'},500,originHeader);
+  if(env.GOOGLE_MAPS_API_KEY){
+    const google=await googleTextPlaces({query,center,radius:body?.radius||10000,limit:clampInt(body?.limit,1,10,5),language:body?.language,country:body?.country},env);
+    if(google.ok&&google.places.length) return json({ok:true,source:'google-places-text-v1',provider:'google_places',query,places:google.places},200,originHeader);
+  }
+  if(!env.GEOAPIFY_API_KEY) return json({error:'Google Places không có kết quả và Geoapify fallback chưa được cấu hình.',provider:'google_places'},502,originHeader);
   const params=new URLSearchParams({text:query,format:'json',limit:String(clampInt(body?.limit,1,10,5)),lang:clean(body?.language,10)||'vi',apiKey:env.GEOAPIFY_API_KEY});
   if(center) params.set('bias',`proximity:${center.lng.toFixed(6)},${center.lat.toFixed(6)}`);
   const result=await fetchJson(`${GEOAPIFY_GEOCODING_URL}?${params.toString()}`);
@@ -328,6 +384,40 @@ async function googleTextPlaces(options, env) {
   if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Places HTTP ${result.status}`,places:[]};
   const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
   return {ok:true,places};
+}
+
+async function googleNearbyPlaces(options, env) {
+  if(!env.GOOGLE_MAPS_API_KEY) return {ok:false,error:'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED',places:[]};
+  const center=finiteCoord(options?.center),googleType=clean(options?.googleType,100);
+  if(!center||!googleType) return {ok:false,error:'LOCATION_OR_TYPE_REQUIRED',places:[]};
+  const payload={
+    includedTypes:[googleType],maxResultCount:clampInt(options?.limit,1,20,8),rankPreference:'DISTANCE',
+    locationRestriction:{circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(50000,Math.max(100,Number(options?.radius)||3000))}},
+    languageCode:clean(options?.language,10)||'vi'
+  };
+  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri'].join(',');
+  const result=await fetchJson(GOOGLE_NEARBY_SEARCH_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fieldMask},body:JSON.stringify(payload)});
+  if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Places Nearby HTTP ${result.status}`,places:[]};
+  const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
+  return {ok:true,places};
+}
+
+async function googleNearby(body, env, originHeader, center, keyword, radius, limit, candidateLimit, country) {
+  const info=categoryInfo(keyword,body?.category,body?.name),name=clean(body?.name,120);
+  let result,source;
+  if(name||!info.googleType){
+    result=await googleTextPlaces({query:clean(name||body?.query||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
+    source='google-places-text-v1';
+  }else{
+    result=await googleNearbyPlaces({googleType:info.googleType,center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
+    source='google-places-nearby-v1';
+  }
+  if(result.ok&&result.places.length){
+    const pois=result.places.slice(0,limit);
+    return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:result.places.length}},200,originHeader);
+  }
+  if(env.GEOAPIFY_API_KEY) return geoapifyNearby(body,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
+  return json({error:result.error||'Google Places không trả kết quả.',provider:'google_places'},502,originHeader);
 }
 
 async function googlePlaceDetails(body, env, originHeader) {
@@ -373,8 +463,7 @@ async function trafficRoute(request, env, originHeader) {
   const fields='routes.duration,routes.staticDuration,routes.distanceMeters,routes.description,routes.warnings';
   const result=await fetchJson(GOOGLE_ROUTES_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fields},body:JSON.stringify(payload)});
   if(!result.ok) return json({error:result.data?.error?.message||`Google Routes HTTP ${result.status}`,provider:'google_routes'},502,originHeader);
-  const seconds=value=>Number(String(value||'').replace(/s$/,''))||0;
-  const routes=(Array.isArray(result.data?.routes)?result.data.routes:[]).map((route,index)=>{const duration=seconds(route?.duration),staticDuration=seconds(route?.staticDuration);return {routeIndex:index,distance:Number(route?.distanceMeters)||0,duration,staticDuration,trafficDelay:Math.max(0,duration-staticDuration),description:clean(route?.description,500),warnings:Array.isArray(route?.warnings)?route.warnings.slice(0,10):[],provider:'google_routes'};});
+  const routes=(Array.isArray(result.data?.routes)?result.data.routes:[]).map((route,index)=>{const duration=durationSeconds(route?.duration),staticDuration=durationSeconds(route?.staticDuration);return {routeIndex:index,distance:Number(route?.distanceMeters)||0,duration,staticDuration,trafficDelay:Math.max(0,duration-staticDuration),description:clean(route?.description,500),warnings:Array.isArray(route?.warnings)?route.warnings.slice(0,10):[],provider:'google_routes'};});
   return json({ok:true,source:'google-routes-v2',provider:'google_routes',routes},200,originHeader);
 }
 
@@ -384,7 +473,7 @@ export default {
     if(request.method==='OPTIONS') return origin?new Response(null,{status:204,headers:corsHeaders(origin)}):new Response(null,{status:403});
     if(!origin) return json({error:'Origin không được phép.'},403,'null');
     const url=new URL(request.url);
-    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',amap:{route:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY),traffic:Boolean(env.AMAP_WEB_KEY)},geoapify:{routes:Boolean(env.GEOAPIFY_API_KEY),places:Boolean(env.GEOAPIFY_API_KEY),geocoding:Boolean(env.GEOAPIFY_API_KEY),details:Boolean(env.GEOAPIFY_API_KEY)},google:{places:Boolean(env.GOOGLE_MAPS_API_KEY),traffic:Boolean(env.GOOGLE_MAPS_API_KEY)},routing:'country-switch',retryProfiles:true},200,origin);
+    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',amap:{route:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY),traffic:Boolean(env.AMAP_WEB_KEY)},google:{routes:Boolean(env.GOOGLE_MAPS_API_KEY),places:Boolean(env.GOOGLE_MAPS_API_KEY),traffic:Boolean(env.GOOGLE_MAPS_API_KEY)},geoapify:{fallbackRoutes:Boolean(env.GEOAPIFY_API_KEY),fallbackPlaces:Boolean(env.GEOAPIFY_API_KEY),fallbackGeocoding:Boolean(env.GEOAPIFY_API_KEY),fallbackDetails:Boolean(env.GEOAPIFY_API_KEY)},routing:'china-amap-global-google',retryProfiles:true},200,origin);
     if(request.method==='POST'&&url.pathname==='/route/walking') return walkingRoute(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/route/traffic') return trafficRoute(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/poi/nearby') return nearbySearch(request,env,origin);

@@ -3,12 +3,16 @@
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function validPoint(p){const lat=Number(p?.lat??p?.latitude),lng=Number(p?.lng??p?.lon??p?.longitude);return Number.isFinite(lat)&&Number.isFinite(lng)?{...p,lat,lng}:null;}
   function distanceText(v){const m=Number(v);if(!Number.isFinite(m)||m<0)return'';return m<1000?`${Math.max(1,Math.round(m))} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;}
-  function providerOf(payload){return String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase()==='geoapify'?'geoapify':'amap';}
-  function providerLabel(payload){return providerOf(payload)==='geoapify'?'Geoapify Live':'AMap Live';}
+  function providerOf(payload){const raw=String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase();return raw.includes('google')?'google':raw==='geoapify'?'geoapify':'amap';}
+  function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Maps Live':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
   function currentCity(payload){return payload?.pois?.[0]?.city||document.getElementById('selectCity')?.value||'';}
   function poiDestination(poi,payload){const p=validPoint(poi);return p?{name:poi.name||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:poi.coordSystem||'wgs84',poiId:poi.poiId||poi.id||''}:null;}
   async function ensureProvider(payload){
     const provider=providerOf(payload);
+    if(provider==='google'){
+      if(!window.GoogleMapProvider?.ensureSdk) throw new Error('Google Maps module chưa sẵn sàng.');
+      await window.GoogleMapProvider.ensureSdk(); return 'google';
+    }
     if(provider==='geoapify'){
       if(!window.GeoapifyMapProvider?.ensureSdk) throw new Error('Geoapify map module chưa sẵn sàng.');
       await window.GeoapifyMapProvider.ensureSdk(); return 'geoapify';
@@ -22,6 +26,11 @@
   async function mountMap(container,payload,interactive){
     if(!container||!Array.isArray(payload?.pois))return null;
     const provider=await ensureProvider(payload);
+    if(provider==='google'){
+      const center=validPoint(payload.center)||validPoint(payload.pois[0]);if(!center)throw new Error('Nearby map thiếu tọa độ.');
+      const map=await window.GoogleMapProvider.createMap(container,center,interactive);
+      window.GoogleMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;
+    }
     if(provider==='geoapify'){
       const center=validPoint(payload.center)||validPoint(payload.pois[0]); if(!center)throw new Error('Nearby map thiếu tọa độ.');
       const map=await window.GeoapifyMapProvider.createMap(container,center,interactive);
@@ -35,7 +44,7 @@
     if(markers.length>1)map.setFitView(markers,false,interactive?[70,70,70,70]:[36,36,36,36]);return map;
   }
   function destroyMap(map,provider,container){
-    try{if(provider==='amap')map?.destroy?.();else window.GeoapifyMapProvider?.destroy?.(map);}catch{}
+    try{if(provider==='amap')map?.destroy?.();else if(provider==='google')window.GoogleMapProvider?.destroy?.(map);else window.GeoapifyMapProvider?.destroy?.(map);}catch{}
     if(container)container.innerHTML='';
   }
   function poiRow(poi,index,compact=false){const distance=distanceText(poi.distance),address=poi.address||[poi.district,poi.city].filter(Boolean).join(', '),open=poi.openTime?`<span class="nearby-open">${esc(poi.openTime)}</span>`:'';return `<button type="button" class="nearby-poi-row${compact?' compact':''}" data-nearby-index="${index}"><span class="nearby-poi-index">${index+1}</span><span class="nearby-poi-copy"><strong>${esc(poi.name||'POI')}</strong><small>${esc(address||poi.type||'')}</small><span>${distance?esc(distance):''}${distance&&open?' · ':''}${open}</span></span><span class="nearby-route-arrow">›</span></button>`;}
@@ -58,6 +67,10 @@
   async function openRoute(poi,payload=fullPayload){
     const destination=poiDestination(poi,payload);if(!destination)return;const provider=providerOf(payload);closeFull();
     try{
+      if(provider==='google'){
+        if(!window.GoogleNavigation?.open)throw new Error('Google Navigation module chưa sẵn sàng.');
+        await window.GoogleNavigation.open({destination});return;
+      }
       if(provider==='geoapify'){
         if(!window.GeoapifyNavigation?.open)throw new Error('Geoapify Navigation module chưa sẵn sàng.');
         await window.GeoapifyNavigation.open({destination});return;

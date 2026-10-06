@@ -21,6 +21,8 @@ wrangler secret put GOOGLE_MAPS_API_KEY
 wrangler deploy
 ```
 
-`GOOGLE_MAPS_API_KEY` là optional nhưng cần nếu muốn có business status, giờ mở cửa tốt hơn, rating/review và traffic live ngoài Trung Quốc. Key phải bật Places API (New) và Routes API.
+`GOOGLE_MAPS_API_KEY` là server key, dùng cho Places API (New) và Routes API. Giữ key này trong Cloudflare Secret; không đưa vào frontend.
 
-Geoapify được dùng cho POI/geocoding/routing ngoài Trung Quốc. AMap được dùng tại Trung Quốc. Search pharmacy bao phủ cả `healthcare.pharmacy`, `commercial.health_and_beauty.pharmacy` và `commercial.chemist`.
+Frontend dùng một key riêng tại `CONFIG.GOOGLE_MAPS_BROWSER_KEY`. Browser key chỉ bật Maps JavaScript API và phải giới hạn HTTP referrer theo domain GitHub Pages.
+
+Google được dùng cho POI/geocoding/routing ngoài Trung Quốc. AMap được dùng tại Trung Quốc. Geoapify được giữ làm fallback nếu Google lỗi hoặc không có kết quả. Search pharmacy bao phủ cả Google type `pharmacy` và các category Geoapify tương ứng.
