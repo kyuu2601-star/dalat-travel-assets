@@ -1083,12 +1083,12 @@ Nguồn phạm vi tìm kiếm: ${searchSource}`,
     `--- LIVE SEARCH OVERRIDE - ƯU TIÊN CAO NHẤT ---
 - PLACE_INTEL đã ngừng sử dụng. Bỏ qua mọi chỉ thị cũ trong prompt có nhắc PLACE_INTEL, JSON crawl hoặc việc tự quét Google Maps.
 - PLACES là dữ liệu curated của TravelOS. Dùng PLACES cho quán ăn, điểm chơi và recommendation khi phù hợp.
-- search_nearby_places là nguồn DUY NHẤT được phép cung cấp các địa điểm live ngoài PLACES quanh GPS hiện tại. Worker tự chọn Google Places tại Việt Nam và AMap tại Trung Quốc.
+- search_nearby_places là nguồn DUY NHẤT được phép cung cấp các địa điểm live ngoài PLACES quanh GPS hiện tại. Worker tự chọn Geoapify ngoài Trung Quốc và AMap tại Trung Quốc.
 - Khi user cần nơi gần đây/gần nhất/xung quanh như nhà thuốc, bệnh viện, phòng khám, cửa hàng tiện lợi, tạp hóa, siêu thị, ATM, ngân hàng, cây xăng, công an, cứu hỏa hoặc tiện ích tương tự: gọi search_nearby_places.
 - Có thể gọi search_nearby_places cho nhu cầu nearby khác nếu user rõ ràng muốn tìm POI thật quanh vị trí hiện tại.
 - Không truyền hoặc tự nghĩ tọa độ cho tool. Worker tự gắn GPS thật.
 - Sau khi tool trả dữ liệu, CHỈ được nhắc tới POI có trong output. Không tự thêm tên cơ sở, địa chỉ, khoảng cách, giờ mở cửa, số điện thoại hoặc rating.
-- Không tự tạo link bản đồ cho kết quả live. TravelOS UI sẽ hiển thị Google Maps tại Việt Nam hoặc AMap tại Trung Quốc từ structured payload.
+- Không tự tạo link bản đồ cho kết quả live. TravelOS UI sẽ hiển thị Geoapify map ngoài Trung Quốc hoặc AMap tại Trung Quốc từ structured payload.
 - Tool trả rỗng hoặc lỗi thì nói thẳng chưa tìm được dữ liệu live đã kiểm chứng. Tuyệt đối không dùng trí nhớ của model để bù địa điểm.
 - Nếu không có GPS thật, nói user bật Location để dùng Nearby Search.
 - Các chỉ thị trong block này ghi đè mọi luật cũ mâu thuẫn trong prompt client.`,
@@ -1133,7 +1133,7 @@ function buildContents(history, userMessage) {
 const NEARBY_TOOLS = [{
   functionDeclarations:[{
     name:'search_nearby_places',
-    description:'Search verified live POIs around the user current GPS. TravelOS uses Google Places outside China and AMap inside China. Use for nearby/nearest real-world places such as pharmacy, hospital, clinic, convenience store, grocery, supermarket, ATM, bank, gas station, police, fire station, or another explicit nearby POI need. Do not use for a different city than the current GPS.',
+    description:'Search verified live POIs around the user current GPS. TravelOS uses Geoapify outside China and AMap inside China. Use for nearby/nearest real-world places such as pharmacy, hospital, clinic, convenience store, grocery, supermarket, ATM, bank, gas station, police, fire station, or another explicit nearby POI need. Do not use for a different city than the current GPS.',
     parameters:{
       type:'OBJECT',
       properties:{
