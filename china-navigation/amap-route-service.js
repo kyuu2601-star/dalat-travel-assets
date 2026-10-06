@@ -8,9 +8,9 @@
   function point(input) {
     if (!input) return null;
     const lat = Number(input.lat ?? input.latitude), lng = Number(input.lng ?? input.lon ?? input.longitude);
-    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng, coordSystem:String(input?.coordSystem || '').toLowerCase() || undefined } : null;
   }
-  function toGcj(input) { return point(window.AMapProvider?.toGcj?.(input) || input); }
+  function toGcj(input) { const p=point(window.AMapProvider?.toGcj?.(input) || input); return p ? { ...p, coordSystem:'gcj02' } : null; }
 
   async function walkingRoute(origin, destination, options = {}) {
     const endpoint = baseUrl();
