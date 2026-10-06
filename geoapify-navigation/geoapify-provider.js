@@ -1,5 +1,6 @@
 (function () {
   const objectStore = new WeakMap();
+  let sdkPromise = null;
 
   function key() { return String(window.CONFIG?.GEOAPIFY_BROWSER_KEY || '').trim(); }
   function validPoint(p) {
@@ -7,9 +8,22 @@
     return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng}:null;
   }
   function ensureSdk() {
-    if (!window.L?.map) return Promise.reject(new Error('Leaflet chưa được load.'));
     if (!key()) return Promise.reject(new Error('Chưa khai báo CONFIG.GEOAPIFY_BROWSER_KEY.'));
-    return Promise.resolve(window.L);
+    if (window.L?.map) return Promise.resolve(window.L);
+    if (sdkPromise) return sdkPromise;
+    sdkPromise = new Promise((resolve,reject) => {
+      if (!document.getElementById('travelos-leaflet-css')) {
+        const link=document.createElement('link');
+        link.id='travelos-leaflet-css';link.rel='stylesheet';link.href='vendor/leaflet/leaflet.css?v=1.9.4';
+        document.head.appendChild(link);
+      }
+      const script=document.createElement('script');
+      script.src='vendor/leaflet/leaflet.js?v=1.9.4';script.async=true;
+      script.onload=()=>window.L?.map?resolve(window.L):reject(new Error('Leaflet tải xong nhưng không khởi tạo được.'));
+      script.onerror=()=>{sdkPromise=null;reject(new Error('Không tải được Leaflet fallback.'));};
+      document.head.appendChild(script);
+    });
+    return sdkPromise;
   }
   function tileUrl() {
     return window.L?.Browser?.retina
