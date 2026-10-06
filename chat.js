@@ -39,13 +39,15 @@ function escapeChatHtml(value) {
     return value.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 }
 
-function getMatchedModules(text) {
-    if (typeof DALAT_KEYWORDS === 'undefined' || !DALAT_KEYWORDS) return [];
-    const message = String(text || '').toLowerCase();
+function getIntentPlan(text) {
+    if (window.TravelIntentRouter?.route) return window.TravelIntentRouter.route(text);
+    if (typeof DALAT_KEYWORDS === 'undefined' || !DALAT_KEYWORDS) return { version:1, mode:'GENERAL_TRAVEL', modules:[] };
 
-    return Object.entries(DALAT_KEYWORDS)
+    const message = String(text || '').toLowerCase();
+    const modules = Object.entries(DALAT_KEYWORDS)
         .filter(([, keywords]) => Array.isArray(keywords) && keywords.some(keyword => message.includes(String(keyword).toLowerCase())))
         .map(([moduleName]) => moduleName);
+    return { version:1, mode:modules.length ? 'LEGACY_MATCH' : 'GENERAL_TRAVEL', primaryModule:modules[0] || '', modules };
 }
 
 function getStructuredUserLocation() {
@@ -102,7 +104,8 @@ async function handleChat() {
         while (retries > 0) {
             try {
                 const userLocation = getStructuredUserLocation();
-                const matchedModules = getMatchedModules(text);
+                const intentPlan = getIntentPlan(text);
+                const matchedModules = Array.isArray(intentPlan.modules) ? intentPlan.modules : [];
                 const selectedLocation = [userLocation.country, userLocation.city, userLocation.area].filter(Boolean).join(' / ');
 
                 let gpsInfo = '';
@@ -121,12 +124,13 @@ async function handleChat() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        systemPrompt: CONFIG.SYSTEM_PROMPT(text, knowledgeBase) + gpsInfo,
+                        systemPrompt: CONFIG.SYSTEM_PROMPT(text, knowledgeBase, intentPlan) + gpsInfo,
                         userMessage: text,
                         chatHistory: chatHistoryArray,
                         khuVuc: selectedLocation,
                         userLocation,
-                        matchedModules
+                        matchedModules,
+                        intentPlan
                     })
                 });
 

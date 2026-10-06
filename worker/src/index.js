@@ -938,6 +938,19 @@ function isFoodModule(modules) {
   return modules.includes('CSV_AN_UONG');
 }
 
+const BROAD_CURATED_MODULES = new Set(['CSV_AN_UONG','CSV_TIM_KIEM','LICH_TRINH']);
+const MODULE_NOISE_TOKENS = {
+  CSV_AN_UONG:new Set(['an','gi','ngon','quan','tiem','cho','gan','day','local','recommend']),
+  CSV_TIM_KIEM:new Set(['di','dau','choi','cho','diem','dia','tham','quan','gan','day','checkin','check','in']),
+  LICH_TRINH:new Set(['lich','trinh','ke','hoach','sap','xep','tuyen','route','ngay','dem','3n2d','2n1d','4n3d','5n4d'])
+};
+
+function filterNeedTokensByModules(tokenList, modules) {
+  const noise = new Set();
+  for (const moduleName of modules) for (const token of MODULE_NOISE_TOKENS[moduleName] || []) noise.add(token);
+  return tokenList.filter(token => !noise.has(token));
+}
+
 function moduleBoostPlace(place, modules) {
   if (!isFoodModule(modules)) return 0;
   const category = fold(place.category);
@@ -986,7 +999,8 @@ async function loadD1Context(userMessage, currentLocation, matchedModules, env) 
     const allPlaces = placesResult.results || [];
     const question = fold(userMessage);
     const tokenList = tokens(userMessage);
-    const needTokens = contentTokens(userMessage, searchLocation);
+    const rawNeedTokens = contentTokens(userMessage, searchLocation);
+    const needTokens = filterNeedTokensByModules(rawNeedTokens, matchedModules);
     const nearbyIntent = isNearbyIntent(userMessage);
     const canUseGpsDistance = Number.isFinite(currentLocation.latitude) && Number.isFinite(currentLocation.longitude) && samePlaceRegion(currentLocation, searchLocation);
 
@@ -1000,9 +1014,19 @@ async function loadD1Context(userMessage, currentLocation, matchedModules, env) 
     else if (isFoodModule(matchedModules)) curatedMatches = rankedPlaces.filter(entry => moduleBoostPlace(entry.place, matchedModules) > 0);
     else curatedMatches = rankedPlaces.filter(entry => entry.score > 0);
 
+    // Broad tourist questions such as "đi đâu", "lịch trình 3N2Đ", "ăn gì" need a useful
+    // curated pool even when generic intent words do not exist in place fields.
+    if (!curatedMatches.length && matchedModules.some(moduleName => BROAD_CURATED_MODULES.has(moduleName))) {
+      if (isFoodModule(matchedModules)) {
+        const food = rankedPlaces.filter(entry => moduleBoostPlace(entry.place, matchedModules) > 0);
+        curatedMatches = food.length ? food : rankedPlaces;
+      } else curatedMatches = rankedPlaces;
+    }
+
+    const contextLimit = matchedModules.includes('LICH_TRINH') ? 30 : 18;
     return {
       dbReady:true,
-      places:curatedMatches.slice(0, 15).map(entry => entry.place),
+      places:curatedMatches.slice(0, contextLimit).map(entry => entry.place),
       curatedMatched:curatedMatches.length > 0,
       currentLocation,
       searchLocation,
@@ -1046,6 +1070,36 @@ function formatLocation(location) {
   return `${label || 'Không xác định'}${coords}`;
 }
 
+const ALLOWED_INTENT_MODULES = new Set(['CSV_AN_UONG','CSV_TIM_KIEM','DI_CHUYEN','LIEN_HE_QUAN','THOI_TIET','AN_TOAN','LICH_TRINH','CANH_BAO','GIAO_THONG','Y_TE']);
+const ALLOWED_INTENT_MODES = new Set(['LIVE_POI','CURATED_NEARBY','CURATED_DISCOVERY','ITINERARY','HEALTH_TRAVEL','WEATHER_ADVICE','TRAVEL_MOBILITY','LODGING_CONTACT','TRAVEL_CAUTION','GENERAL_TRAVEL','LEGACY_MATCH']);
+const ALLOWED_LIVE_CATEGORIES = new Set(['pharmacy','hospital','clinic','convenience_store','grocery_store','supermarket','atm','bank','gas_station','police','fire_station','parking','hotel','restaurant','cafe']);
+
+function normalizeIntentPlan(raw, matchedModules = []) {
+  raw = raw && typeof raw === 'object' ? raw : {};
+  const fromPlan = Array.isArray(raw.modules) ? raw.modules : [];
+  const modules = [...new Set([...fromPlan, ...matchedModules].map(v => clean(v, 60)).filter(v => ALLOWED_INTENT_MODULES.has(v)))].slice(0, 5);
+  const modeRaw = clean(raw.mode, 40);
+  const mode = ALLOWED_INTENT_MODES.has(modeRaw) ? modeRaw : (modules.length ? 'CURATED_DISCOVERY' : 'GENERAL_TRAVEL');
+  const liveRaw = raw.livePoi && typeof raw.livePoi === 'object' ? raw.livePoi : null;
+  const category = clean(liveRaw?.category, 60);
+  const livePoi = category && ALLOWED_LIVE_CATEGORIES.has(category) ? {
+    category,
+    useLive:liveRaw?.useLive === true,
+    strategy:clean(liveRaw?.strategy, 30) === 'CURATED_FIRST' ? 'CURATED_FIRST' : 'DIRECT',
+    radius:clamp(liveRaw?.radius, 100, 10000, 3000),
+    fallbackRadius:clamp(liveRaw?.fallbackRadius, 500, 15000, 5000)
+  } : null;
+  const primary = ALLOWED_INTENT_MODULES.has(clean(raw.primaryModule, 60)) ? clean(raw.primaryModule, 60) : (modules[0] || '');
+  return { version:2, mode, primaryModule:primary, modules, livePoi, nearbyIntent:raw.nearbyIntent === true };
+}
+
+function formatIntentPlan(plan) {
+  const live = plan?.livePoi?.category ? `${plan.livePoi.category} / ${plan.livePoi.useLive ? 'live' : 'curated-first'}` : 'none';
+  return `Mode: ${plan?.mode || 'GENERAL_TRAVEL'}
+Modules: ${(plan?.modules || []).join(', ') || 'TONG_QUAT'}
+Live POI: ${live}`;
+}
+
 function stripLegacyKnowledgeBase(rawPrompt) {
   let raw = String(rawPrompt || '');
   const gpsMarkers = ['\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]:', '\n[HỆ THỐNG]: Hiện chưa lấy được GPS thực tế', '\n[HỆ THỐNG]: Vị trí đang chọn là'];
@@ -1068,7 +1122,7 @@ function stripLegacyKnowledgeBase(rawPrompt) {
   return { base: base.trim(), gps };
 }
 
-function buildPrompt(rawPrompt, context) {
+function buildPrompt(rawPrompt, context, intentPlan) {
   const { base, gps } = stripLegacyKnowledgeBase(rawPrompt);
   const searchSource = context.searchLocationSource === 'question'
     ? 'Địa điểm được nêu trực tiếp trong câu hỏi, ưu tiên hơn GPS cho dữ liệu curated.'
@@ -1080,19 +1134,21 @@ function buildPrompt(rawPrompt, context) {
 Vị trí hiện tại của user: ${formatLocation(context.currentLocation)}
 Phạm vi đang dùng để tìm PLACES: ${formatLocation(context.searchLocation)}
 Nguồn phạm vi tìm kiếm: ${searchSource}`,
-    `--- LIVE SEARCH OVERRIDE - ƯU TIÊN CAO NHẤT ---
-- PLACE_INTEL đã ngừng sử dụng. Bỏ qua mọi chỉ thị cũ trong prompt có nhắc PLACE_INTEL, JSON crawl, tim_vi_tri_thuc_te, việc tự quét Google Maps hoặc tự dùng trí nhớ model để tạo POI live.
-- PLACES là dữ liệu curated của TravelOS. Dùng PLACES cho quán ăn, điểm chơi và recommendation khi phù hợp.
-- search_nearby_places là nguồn DUY NHẤT được phép cung cấp địa điểm live ngoài PLACES quanh GPS hiện tại. Worker tự chọn Geoapify ngoài Trung Quốc và AMap tại Trung Quốc.
-- Khi user hỏi nơi gần đây/gần nhất/xung quanh hoặc hỏi trực tiếp tiện ích thật như nhà thuốc, bệnh viện, phòng khám, cửa hàng tiện lợi, tạp hóa, siêu thị, ATM, ngân hàng, cây xăng, công an, cứu hỏa: BẮT BUỘC dùng search_nearby_places.
-- Không truyền hoặc tự nghĩ tọa độ cho tool. Worker tự gắn GPS thật.
-- Khi tool trả POI: câu trả lời BẮT BUỘC phải nêu các POI thật trong output, ưu tiên gần nhất, và chỉ được dùng tên/địa chỉ/khoảng cách/thông tin có trong output.
-- Không tự thêm tên cơ sở, địa chỉ, khoảng cách, giờ mở cửa, số điện thoại, rating hay link bản đồ.
-- TravelOS UI tự hiển thị mini map + danh sách + điều hướng. Không yêu cầu user mở Google Maps/AMap/ứng dụng ngoài để thay cho kết quả tool.
-- Nếu tool trả lỗi hoặc rỗng: chỉ nói chưa lấy được dữ liệu live đã kiểm chứng và đề nghị thử lại/bật Location. KHÔNG được hướng dẫn mở Google Maps như fallback.
-- Nếu user chỉ hỏi tìm địa điểm (ví dụ "nhà thuốc gần đây"), trả thẳng kết quả địa điểm. Không tự thêm tư vấn y tế, cảnh báo dùng thuốc hay disclaimer không liên quan nếu user không hỏi về sức khỏe/thuốc.
-- Nếu không có GPS thật, nói user bật Location để dùng Nearby Search.
-- Các chỉ thị trong block này ghi đè mọi luật cũ mâu thuẫn trong prompt client.`,
+    `--- TRAVEL INTENT ROUTER ---
+${formatIntentPlan(intentPlan)}`,
+    `--- RUNTIME SOURCE POLICY - ƯU TIÊN CAO NHẤT ---
+- PLACE_INTEL, tim_vi_tri_thuc_te, "quét Google Maps", "quét vệ tinh", tự duyệt web hoặc dùng trí nhớ model để tạo fact live đều không còn hợp lệ. Block này ghi đè mọi rule cũ mâu thuẫn trong module prompt.
+- PLACES/D1 là nguồn curated cho quán ăn, cafe, điểm chơi và địa điểm TravelOS đã lưu. Chỉ khẳng định fact cụ thể của địa điểm khi fact có trong PLACES.
+- Live POI quanh GPS chỉ lấy từ search_nearby_places: Geoapify ngoài Trung Quốc, AMap tại Trung Quốc. Không tự thêm tên, địa chỉ, khoảng cách, giờ mở cửa, số điện thoại, rating hoặc tọa độ.
+- Nếu live tool trả POI, phải dùng đúng POI đó. Nếu tool lỗi/rỗng, nói chưa lấy được dữ liệu live đã kiểm chứng; không đá user sang Google Maps và không bù bằng trí nhớ model.
+- THOI_TIET: được tư vấn quần áo, mùa/khí hậu, phương án khi user nêu mưa/lạnh; không giả làm dự báo thời tiết hiện tại nếu hệ thống không có nguồn live.
+- GIAO_THONG/AN_TOAN/DI_CHUYEN: ưu tiên road_note, warning và dữ liệu curated; kiến thức chung chỉ là hướng dẫn an toàn, không khẳng định kẹt xe/đường đóng/sạt lở hiện tại nếu không có nguồn live.
+- CANH_BAO: dùng warning curated và checklist phòng tránh. Không bịa review/phốt gần đây hay nói đã quét TikTok/Maps nếu hệ thống không có nguồn.
+- LIEN_HE_QUAN: chỉ khẳng định hotline, tiện ích, giờ hoạt động khi dữ liệu đã cung cấp. Thiếu thì nói cần xác nhận trực tiếp với cơ sở.
+- Y_TE: nếu hỏi triệu chứng thì hỗ trợ ở mức thông tin chung và dấu hiệu cần đi khám; không chẩn đoán. Nếu hỏi nơi khám/mua thuốc gần đây thì dùng live POI.
+- LICH_TRINH: phối hợp các module đã chọn, dùng địa điểm curated đúng khu vực, khoảng cách và constraint user đã nêu để xếp lịch thực tế.
+- Câu hỏi nhiều nhu cầu phải kết hợp module thành một câu trả lời thống nhất; không bỏ qua constraint chỉ vì một module khác có score cao hơn.
+- Nếu user chỉ hỏi tìm địa điểm, trả kết quả địa điểm trước; không thêm disclaimer hoặc lời khuyên không liên quan.`,
     `--- PLACES CURATED PHÙ HỢP ---
 ${formatPlaces(context.places) || 'Không có địa điểm curated nào khớp nhu cầu trong phạm vi tìm kiếm hiện tại.'}`
   ];
@@ -1132,27 +1188,65 @@ function buildContents(history, userMessage) {
 }
 
 const LIVE_NEARBY_RULES = [
-  { category:'pharmacy', keyword:'nhà thuốc', aliases:['nha thuoc','hieu thuoc','tiem thuoc','pharmacy','drugstore','mua thuoc'] },
-  { category:'hospital', keyword:'bệnh viện', aliases:['benh vien','hospital','cap cuu','emergency room'] },
-  { category:'clinic', keyword:'phòng khám', aliases:['phong kham','clinic','bac si','doctor'] },
-  { category:'convenience_store', keyword:'cửa hàng tiện lợi', aliases:['cua hang tien loi','convenience store','minimart','mini mart'] },
-  { category:'grocery_store', keyword:'tạp hóa', aliases:['tap hoa','grocery','grocery store'] },
-  { category:'supermarket', keyword:'siêu thị', aliases:['sieu thi','supermarket','hypermarket'] },
-  { category:'atm', keyword:'ATM', aliases:['atm','rut tien'] },
-  { category:'bank', keyword:'ngân hàng', aliases:['ngan hang','bank'] },
-  { category:'gas_station', keyword:'cây xăng', aliases:['cay xang','tram xang','do xang','gas station','petrol'] },
-  { category:'police', keyword:'công an', aliases:['cong an','police','canh sat'] },
-  { category:'fire_station', keyword:'cứu hỏa', aliases:['cuu hoa','fire station'] },
-  { category:'restaurant', keyword:'quán ăn', aliases:['quan an','restaurant','an uong'] },
-  { category:'cafe', keyword:'cafe', aliases:['cafe','coffee','quan cafe'] }
+  { category:'pharmacy', keyword:'nhà thuốc', aliases:['nha thuoc','hieu thuoc','tiem thuoc','pharmacy','drugstore','mua thuoc'], direct:true },
+  { category:'hospital', keyword:'bệnh viện', aliases:['benh vien','hospital','cap cuu','emergency room'], direct:true },
+  { category:'clinic', keyword:'phòng khám', aliases:['phong kham','clinic','bac si','doctor','nha khoa'], direct:true },
+  { category:'convenience_store', keyword:'cửa hàng tiện lợi', aliases:['cua hang tien loi','convenience store','minimart','mini mart'], direct:true },
+  { category:'grocery_store', keyword:'tạp hóa', aliases:['tap hoa','tiem tap hoa','grocery','grocery store','bach hoa'], direct:true },
+  { category:'supermarket', keyword:'siêu thị', aliases:['sieu thi','supermarket','hypermarket','winmart','bach hoa xanh'], direct:true },
+  { category:'atm', keyword:'ATM', aliases:['atm','rut tien'], direct:true },
+  { category:'bank', keyword:'ngân hàng', aliases:['ngan hang','bank','vietcombank','bidv','agribank','vietinbank','techcombank','sacombank'], direct:true },
+  { category:'gas_station', keyword:'cây xăng', aliases:['cay xang','tram xang','do xang','mua xang','het xang','gas station','petrol','petrolimex','pvoil'], direct:true },
+  { category:'police', keyword:'công an', aliases:['cong an','police','canh sat'], direct:true },
+  { category:'fire_station', keyword:'cứu hỏa', aliases:['cuu hoa','fire station'], direct:true },
+  { category:'parking', keyword:'bãi đỗ xe', aliases:['bai do xe','bai dau xe','bai xe','gui xe','dau xe','parking'], requireNearby:true },
+  { category:'hotel', keyword:'khách sạn', aliases:['khach san','hotel','homestay','resort','villa'], requireNearby:true },
+  { category:'restaurant', keyword:'quán ăn', aliases:['quan an','tiem an','restaurant','cho an'], requireNearby:true, curatedFirst:true },
+  { category:'cafe', keyword:'cafe', aliases:['cafe','ca phe','quan cf','tiem cf','coffee'], requireNearby:true, curatedFirst:true }
 ];
 
+const LIVE_CATEGORY_KEYWORDS = Object.fromEntries(LIVE_NEARBY_RULES.map(rule => [rule.category, rule.keyword]));
+const LIVE_LOCATE_CUES = ['tim','o dau','cho nao','di dau','dua di dau','mua o dau','rut tien','do xang','gui xe','dau xe','mo khuya','24h','24 24'];
+
+function hasFoldPhrase(text, phrase) {
+  const q = ` ${fold(text)} `, p = fold(phrase);
+  return Boolean(p) && q.includes(` ${p} `);
+}
+
+function hasLocateCue(message) {
+  return LIVE_LOCATE_CUES.some(cue => hasFoldPhrase(message, cue));
+}
+
 function liveNearbyIntent(message) {
-  const q = fold(message);
-  const rule = LIVE_NEARBY_RULES.find(item => item.aliases.some(alias => q.includes(fold(alias))));
-  if (rule) return { ...rule, explicitNearby:isNearbyIntent(message) };
-  if (isNearbyIntent(message)) return { category:'', keyword:clean(message, 80) || 'nearby', aliases:[], explicitNearby:true };
-  return null;
+  const rule = LIVE_NEARBY_RULES.find(item => item.aliases.some(alias => hasFoldPhrase(message, alias)));
+  if (!rule) return null;
+  const explicitNearby = isNearbyIntent(message);
+  const locating = hasLocateCue(message);
+  const shortUtilityQuestion = fold(message).split(/\s+/).filter(Boolean).length <= 7;
+  if (rule.requireNearby && !explicitNearby) return null;
+  if (!rule.requireNearby && !explicitNearby && !locating && !shortUtilityQuestion) return null;
+  return {
+    ...rule,
+    explicitNearby,
+    locating,
+    strategy:rule.curatedFirst ? 'CURATED_FIRST' : 'DIRECT',
+    radius:3000,
+    fallbackRadius:5000,
+    source:'server-keyword'
+  };
+}
+
+function liveIntentFromPlan(plan) {
+  const live = plan?.livePoi;
+  if (!live?.useLive || !ALLOWED_LIVE_CATEGORIES.has(live.category)) return null;
+  return {
+    category:live.category,
+    keyword:LIVE_CATEGORY_KEYWORDS[live.category] || live.category,
+    strategy:live.strategy === 'CURATED_FIRST' ? 'CURATED_FIRST' : 'DIRECT',
+    radius:clamp(live.radius, 100, 10000, 3000),
+    fallbackRadius:clamp(live.fallbackRadius, 500, 15000, 5000),
+    source:'client-router'
+  };
 }
 
 function hasGps(location) {
@@ -1163,14 +1257,14 @@ function nearbyLanguage(location) {
   return countryAliases(location?.country).some(v => v.includes('trung quoc') || v === 'china' || v === 'cn') ? 'zh' : 'vi';
 }
 
-function forcedNearbyCall(intent, currentLocation) {
+function forcedNearbyCall(intent, currentLocation, radius = null) {
   return {
     name:'search_nearby_places',
     args:{
-      keyword:intent?.keyword || 'nearby',
+      keyword:intent?.keyword || LIVE_CATEGORY_KEYWORDS[intent?.category] || 'nearby',
       category:intent?.category || '',
       types:'',
-      radius:3000,
+      radius:clamp(radius ?? intent?.radius, 100, 15000, 3000),
       limit:6,
       language:nearbyLanguage(currentLocation)
     }
@@ -1340,7 +1434,7 @@ function validNearbyAnswer(text, nearby) {
   return !forbidden.some(term => answer.includes(term));
 }
 
-function nearbyFailurePayload(toolResults, request, env) {
+function nearbyFailurePayload(toolResults, request, env, intentPlan = null) {
   const first = toolResults.find(x => !x?.ok) || {};
   const gpsMissing = first?.error === 'GPS_REQUIRED';
   const text = gpsMissing
@@ -1353,51 +1447,42 @@ function nearbyFailurePayload(toolResults, request, env) {
         code:clean(first?.error || 'NO_VERIFIED_RESULTS', 80),
         provider:clean(first?.provider, 40),
         message:clean(first?.message, 500)
-      }
+      },
+      intent:intentPlan
     }
   }, 200, request, env);
 }
 
 async function handleForcedNearby({
-  userMessage, body, currentLocation, matchedModules, context, finalPrompt, request, env, intent
+  userMessage, body, currentLocation, matchedModules, context, finalPrompt, request, env, intent, intentPlan
 }) {
   if (!hasGps(currentLocation)) {
     return json({
       text:'TravelOS chưa có GPS hiện tại. Bạn bật Location rồi hỏi lại để tôi tìm địa điểm thật quanh bạn nha.',
-      travelos:{ nearbyError:{ code:'GPS_REQUIRED', message:'Missing current GPS.' } }
+      travelos:{ nearbyError:{ code:'GPS_REQUIRED', message:'Missing current GPS.' }, intent:intentPlan }
     }, 200, request, env);
   }
 
-  const planningContents = buildContents(body.chatHistory, userMessage);
-  const plannerPrompt = `${finalPrompt}
+  // Với category đã biết từ keyword/router, Worker gọi provider trực tiếp.
+  // Không cho Gemini đổi keyword/category nữa vì đây là nguồn gây query lệch trước đó.
+  const toolResults = [];
+  const firstRadius = clamp(intent?.radius, 100, 15000, 3000);
+  const fallbackRadius = clamp(intent?.fallbackRadius, firstRadius, 15000, 5000);
+  const radii = [...new Set([firstRadius, fallbackRadius])];
 
---- BẮT BUỘC TOOL CHO REQUEST NÀY ---
-Request hiện tại là live Nearby Search. BẮT BUỘC gọi search_nearby_places ngay.
-Không trả lời bằng kiến thức model. Không đề nghị Google Maps. Không viết câu trả lời cuối trước khi tool chạy.`;
-
-  let calls = [];
-  try {
-    const planner = await callGemini(plannerPrompt, planningContents, env, NEARBY_TOOLS, true);
-    calls = functionCalls(planner).filter(call => call.name === 'search_nearby_places').slice(0, 2);
-  } catch (error) {
-    console.warn('NEARBY PLANNER ERROR:', error);
+  for (const radius of radii) {
+    const result = await runNearbyTool(forcedNearbyCall(intent, currentLocation, radius), currentLocation, env);
+    toolResults.push(result);
+    if (!result?.ok) break;
+    if ((result.output || []).length) break;
   }
 
-  // Gemini chỉ được dùng để chọn keyword/category. Nếu planner không gọi tool,
-  // Worker tự tạo call từ intent để bảo đảm Nearby không rơi về câu trả lời model.
-  if (!calls.length) calls = [forcedNearbyCall(intent, currentLocation)];
-
-  const toolResults = [];
-  for (const call of calls) toolResults.push(await runNearbyTool(call, currentLocation, env));
   const nearby = mergeNearbyResults(toolResults);
+  if (!nearby?.pois?.length) return nearbyFailurePayload(toolResults, request, env, intentPlan);
 
-  if (!nearby?.pois?.length) return nearbyFailurePayload(toolResults, request, env);
-
-  // Live POI output được format deterministic từ tool result.
-  // Không đưa lại cho Gemini viết câu cuối để tránh hallucination/fallback/disclaimer.
   return json({
     text:deterministicNearbyText(nearby),
-    travelos:{ nearby }
+    travelos:{ nearby, intent:intentPlan }
   }, 200, request, env);
 }
 
@@ -1414,53 +1499,51 @@ async function handleAi(request, env) {
   if (!userMessage) return json({ error:'userMessage is required' }, 400, request, env);
   const currentLocation = normalizeUserLocation(body.userLocation, body.khuVuc);
   const matchedModules = Array.isArray(body.matchedModules) ? body.matchedModules.map(v => clean(v, 100)).filter(Boolean) : [];
+  const intentPlan = normalizeIntentPlan(body.intentPlan, matchedModules);
 
   try {
-    const context = await loadD1Context(userMessage, currentLocation, matchedModules, env);
-    const finalPrompt = buildPrompt(body.systemPrompt, context);
-    const intent = liveNearbyIntent(userMessage);
+    const context = await loadD1Context(userMessage, currentLocation, intentPlan.modules, env);
+    const finalPrompt = buildPrompt(body.systemPrompt, context, intentPlan);
+    const clientLiveIntent = liveIntentFromPlan(intentPlan);
+    const hasClientPlan = Number(body?.intentPlan?.version || 0) >= 2;
+    const fallbackLiveIntent = hasClientPlan ? null : liveNearbyIntent(userMessage);
+    const intent = clientLiveIntent || fallbackLiveIntent;
 
     const explicitRemoteLocation =
       context.searchLocationSource === 'question' &&
       !samePlaceRegion(currentLocation, context.searchLocation);
 
-    if (intent && !explicitRemoteLocation) {
+    // Utility POI = live provider. Restaurant/cafe = curated first trong bán kính hợp lý,
+    // chỉ fallback live khi TravelOS không có curated result gần GPS.
+    const curatedNearbyAvailable = (context.places || []).some(place => {
+      const km = Number(place?._distance_km);
+      return Number.isFinite(km) && km <= 5;
+    });
+    const curatedAvailableForIntent = intentPlan.mode === 'CURATED_NEARBY' ? curatedNearbyAvailable : context.curatedMatched;
+    const shouldUseLive = Boolean(intent) && !explicitRemoteLocation &&
+      (intent.strategy !== 'CURATED_FIRST' || !curatedAvailableForIntent);
+
+    if (shouldUseLive) {
       return handleForcedNearby({
-        userMessage, body, currentLocation, matchedModules, context, finalPrompt, request, env, intent
+        userMessage, body, currentLocation, matchedModules:intentPlan.modules,
+        context, finalPrompt, request, env, intent, intentPlan
       });
     }
 
+    // Tất cả intent còn lại dùng module prompt + curated D1. Không expose Nearby tool cho Gemini
+    // để tránh model tự gọi provider sai category hoặc biến câu tư vấn thành live search.
     const contents = buildContents(body.chatHistory, userMessage);
-    const allToolResults = [];
-    let result = null;
-
-    for (let round = 0; round < 3; round++) {
-      result = await callGemini(finalPrompt, contents, env, NEARBY_TOOLS, false);
-      const calls = functionCalls(result).filter(call => call.name === 'search_nearby_places').slice(0, 3);
-      if (!calls.length) break;
-
-      const toolResults = [];
-      for (const call of calls) toolResults.push(await runNearbyTool(call, currentLocation, env));
-      allToolResults.push(...toolResults);
-
-      const modelContent = result?.candidates?.[0]?.content;
-      if (modelContent) contents.push(modelContent);
-      contents.push({
-        role:'user',
-        parts:calls.map((call, index) => ({ functionResponse:{ name:call.name, response:toolResults[index] } }))
-      });
+    const result = await callGemini(finalPrompt, contents, env, null, false);
+    if (result && typeof result === 'object') {
+      result.travelos = { ...(result.travelos || {}), intent:intentPlan };
     }
-
-    if (functionCalls(result).length) result = await callGemini(finalPrompt, contents, env, null);
-    const nearby = mergeNearbyResults(allToolResults);
-    if (nearby?.pois?.length && !validNearbyAnswer(modelText(result), nearby)) result = { text:deterministicNearbyText(nearby) };
-    if (nearby && result) result.travelos = { ...(result.travelos || {}), nearby };
     return json(result, 200, request, env);
   } catch (error) {
     console.error('AI ERROR:', error);
     return json({
       text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${clean(error?.message || 'Unknown error', 500)}. Fen thử lại sau nha.`,
-      error:{ message:clean(error?.message || 'Unknown error', 1000) }
+      error:{ message:clean(error?.message || 'Unknown error', 1000) },
+      travelos:{ intent:intentPlan }
     }, 200, request, env);
   }
 }
