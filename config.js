@@ -8,7 +8,7 @@ const CONFIG = {
 
     // Browser key only for Geoapify map tiles outside China.
     // Restrict this key by HTTP referrer/origin to your TravelOS domain in Geoapify MyProjects.
-    GEOAPIFY_BROWSER_KEY: "",
+    GEOAPIFY_BROWSER_KEY: "416094df2d9642f392ffc02c7dd2e81c",
 
     SYSTEM_PROMPT: function(userMessage, knowledgeBase) {
         const messageLower = userMessage.toLowerCase();
