@@ -1,4 +1,3 @@
-let knowledgeBase = "";
 const CHAT_STORAGE_KEY = 'travelos_chat_history';
 const LEGACY_CHAT_STORAGE_KEY = 'dalatos_chat_history';
 const EXPIRY_TIME = 24 * 60 * 60 * 1000;
@@ -39,17 +38,6 @@ function escapeChatHtml(value) {
     return value.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 }
 
-function getIntentPlan(text) {
-    if (window.TravelIntentRouter?.route) return window.TravelIntentRouter.route(text);
-    if (typeof DALAT_KEYWORDS === 'undefined' || !DALAT_KEYWORDS) return { version:1, mode:'GENERAL_TRAVEL', modules:[] };
-
-    const message = String(text || '').toLowerCase();
-    const modules = Object.entries(DALAT_KEYWORDS)
-        .filter(([, keywords]) => Array.isArray(keywords) && keywords.some(keyword => message.includes(String(keyword).toLowerCase())))
-        .map(([moduleName]) => moduleName);
-    return { version:1, mode:modules.length ? 'LEGACY_MATCH' : 'GENERAL_TRAVEL', primaryModule:modules[0] || '', modules };
-}
-
 function getStructuredUserLocation() {
     const country = document.getElementById('selectCountry')?.value || '';
     const city = document.getElementById('selectCity')?.value || '';
@@ -69,11 +57,6 @@ function getStructuredUserLocation() {
 }
 
 async function initBot() {
-    try {
-        knowledgeBase = await TravelData.getKnowledgeBase();
-    } catch (error) {
-        console.error('Không nạp được dữ liệu cẩm nang', error);
-    }
     loadChatHistory();
 }
 
@@ -84,7 +67,7 @@ async function handleChat() {
     if (!input) return;
 
     const text = input.value.trim();
-    if (!text || !knowledgeBase) return;
+    if (!text) return;
 
     if (sendBtn) sendBtn.disabled = true;
     if (voiceBtn) voiceBtn.disabled = true;
@@ -104,35 +87,32 @@ async function handleChat() {
         while (retries > 0) {
             try {
                 const userLocation = getStructuredUserLocation();
-                const intentPlan = getIntentPlan(text);
-                const matchedModules = Array.isArray(intentPlan.modules) ? intentPlan.modules : [];
                 const selectedLocation = [userLocation.country, userLocation.city, userLocation.area].filter(Boolean).join(' / ');
-
-                let gpsInfo = '';
-                if (userLocation.latitude !== null && userLocation.longitude !== null) {
-                    const locationLabel = [userLocation.area, userLocation.city, userLocation.country].filter(Boolean).join(', ');
-                    gpsInfo = `\n[VỊ TRÍ HIỆN TẠI CỦA KHÁCH]: ${locationLabel || 'Chưa xác định tên khu vực'}. Latitude ${userLocation.latitude}, Longitude ${userLocation.longitude}. Đây là vị trí hiện tại, nhưng nếu câu hỏi nêu rõ một địa điểm khác thì phải ưu tiên địa điểm trong câu hỏi.`;
-                } else {
-                    gpsInfo = `\n[HỆ THỐNG]: Vị trí đang chọn là ${selectedLocation || 'chưa xác định'}. Nếu câu hỏi nêu rõ địa điểm khác thì phải ưu tiên địa điểm trong câu hỏi.`;
-                }
 
                 const localHistory = readHistory();
                 let chatHistoryArray = localHistory ? localHistory.messages : [];
                 if (chatHistoryArray.length > 6) chatHistoryArray = chatHistoryArray.slice(-6);
 
-                const response = await fetch(CONFIG.WORKER_URL, {
+                const requestBody = {
+                    userMessage: text,
+                    chatHistory: chatHistoryArray,
+                    khuVuc: selectedLocation,
+                    userLocation
+                };
+                const workerBase = CONFIG.WORKER_URL.replace(/\/+$/, '');
+                let response = await fetch(`${workerBase}${CONFIG.AI_PATH || '/ai-v3'}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        systemPrompt: CONFIG.SYSTEM_PROMPT(text, knowledgeBase, intentPlan) + gpsInfo,
-                        userMessage: text,
-                        chatHistory: chatHistoryArray,
-                        khuVuc: selectedLocation,
-                        userLocation,
-                        matchedModules,
-                        intentPlan
-                    })
+                    body: JSON.stringify(requestBody)
                 });
+                // Cho phép deploy GitHub Pages trước Worker mà chat không bị gãy.
+                if (response.status === 404 || response.status === 405) {
+                    response = await fetch(workerBase, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    });
+                }
 
                 if (response.ok) {
                     data = await response.json();

@@ -2,6 +2,11 @@ const AMAP_WALKING_URL = 'https://restapi.amap.com/v5/direction/walking';
 const AMAP_NEARBY_URL = 'https://restapi.amap.com/v5/place/around';
 const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places';
 const GEOAPIFY_ROUTING_URL = 'https://api.geoapify.com/v1/routing';
+const GEOAPIFY_GEOCODING_URL = 'https://api.geoapify.com/v1/geocode/search';
+const GEOAPIFY_DETAILS_URL = 'https://api.geoapify.com/v2/place-details';
+const GOOGLE_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
+const GOOGLE_ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+const AMAP_DRIVING_URL = 'https://restapi.amap.com/v5/direction/driving';
 const REQUEST_BUDGET_MS = 9500;
 
 function allowedOrigin(request, env) {
@@ -180,7 +185,7 @@ async function walkingRoute(request, env, originHeader) {
 }
 
 const SEARCH_RULES=[
-  {aliases:['pharmacy','drugstore','nha thuoc','hieu thuoc','tiem thuoc','mua thuoc'],geo:['healthcare.pharmacy'],amap:'药店'},
+  {aliases:['pharmacy','drugstore','nha thuoc','hieu thuoc','tiem thuoc','mua thuoc'],geo:['healthcare.pharmacy','commercial.health_and_beauty.pharmacy','commercial.chemist'],amap:'药店'},
   {aliases:['hospital','benh vien','cap cuu'],geo:['healthcare.hospital'],amap:'医院'},
   {aliases:['clinic','phong kham','doctor','bac si'],geo:['healthcare.clinic_or_praxis'],amap:'诊所'},
   {aliases:['convenience store','cua hang tien loi','minimart','mini mart'],geo:['commercial.convenience'],amap:'便利店'},
@@ -192,24 +197,27 @@ const SEARCH_RULES=[
   {aliases:['police','cong an'],geo:['service.police'],amap:'派出所'},
   {aliases:['fire station','cuu hoa'],geo:['service.fire_station'],amap:'消防站'},
   {aliases:['restaurant','quan an','an uong'],geo:['catering.restaurant','catering.fast_food','catering.food_court'],amap:'餐厅'},
-  {aliases:['cafe','coffee','quan cafe'],geo:['commercial.cafe'],amap:'咖啡店'},
+  {aliases:['cafe','coffee','quan cafe'],geo:['catering.cafe'],amap:'咖啡店'},
   {aliases:['hotel','khach san'],geo:['accommodation.hotel','accommodation.guest_house'],amap:'酒店'},
   {aliases:['parking','bai do xe','giu xe'],geo:['parking'],amap:'停车场'}
 ];
-function categoryInfo(keyword, category='') {
+function categoryInfo(keyword, category='', name='') {
   const q=fold(`${category} ${keyword}`);
-  for(const rule of SEARCH_RULES) if(rule.aliases.some(x=>q.includes(fold(x)))) return {geoCategories:rule.geo,amapKeyword:rule.amap};
-  return {geoCategories:['commercial','service','healthcare','catering','tourism','entertainment'],amapKeyword:clean(keyword,80),name:clean(keyword,120)};
+  for(const rule of SEARCH_RULES) if(rule.aliases.some(x=>q.includes(fold(x)))) {
+    return {geoCategories:rule.geo,amapKeyword:clean(name,120)||rule.amap,name:clean(name,120)};
+  }
+  const freeText=clean(name||keyword,120);
+  return {geoCategories:['commercial','service','healthcare','catering','tourism','entertainment','accommodation'],amapKeyword:freeText,name:freeText};
 }
 function normalizeAmapPoi(poi, center, country) {
   const point=parseLngLat(poi?.location); if(!point) return null; const {lng,lat}=point;
   const business=poi?.business&&typeof poi.business==='object'?poi.business:{};
   return {id:clean(poi?.id,160),poiId:clean(poi?.id,160),name:clean(poi?.name,300),address:clean(poi?.address,1000),lat,lng,distance:num(poi?.distance)||haversineMeters(center,{lat,lng}),type:clean(poi?.type,500),typecode:clean(poi?.typecode,100),city:clean(poi?.cityname,200),district:clean(poi?.adname,200),province:clean(poi?.pname,200),phone:clean(business?.tel||poi?.tel,300),openTime:clean(business?.opentime_today,500),rating:clean(business?.rating,50),coordSystem:'gcj02',provider:'amap',country:clean(country,120)};
 }
-async function amapNearby(body, env, originHeader, center, keyword, types, radius, limit, country) {
+async function amapNearby(body, env, originHeader, center, keyword, types, radius, limit, candidateLimit, country) {
   if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const queryCenter=toAmapPoint(center), info=categoryInfo(keyword,body?.category), amapKeyword=info.amapKeyword||keyword;
-  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(limit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
+  const queryCenter=toAmapPoint(center), info=categoryInfo(keyword,body?.category,body?.name), amapKeyword=info.amapKeyword||keyword;
+  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(candidateLimit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
   if(amapKeyword) params.set('keywords',amapKeyword); if(types) params.set('types',types);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
   try{
@@ -217,7 +225,7 @@ async function amapNearby(body, env, originHeader, center, keyword, types, radiu
     if(!response.ok||!raw) return json({error:`AMap Nearby HTTP ${response.status}`,provider:'amap'},502,originHeader);
     if(String(raw.status)!=='1') return json({error:`AMap Nearby: ${raw.info||'unknown error'}`,infocode:raw.infocode||'',provider:'amap'},502,originHeader);
     const pois=(Array.isArray(raw.pois)?raw.pois:[]).map(p=>normalizeAmapPoi(p,queryCenter,country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity)).slice(0,limit);
-    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,types,radius,limit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
+    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,name:clean(body?.name,120),types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
   }catch(error){return json({error:error?.name==='AbortError'?'AMap Nearby timeout.':`Không gọi được AMap Nearby: ${clean(error?.message,300)}`,provider:'amap'},502,originHeader);}finally{clearTimeout(timer);}
 }
 function normalizeGeoapifyPoi(feature, center, country) {
@@ -235,13 +243,13 @@ function normalizeGeoapifyPoi(feature, center, country) {
     coordSystem:'wgs84',provider:'geoapify',country:clean(country||p?.country,120)
   };
 }
-async function geoapifyNearby(body, env, originHeader, center, keyword, radius, limit, country) {
+async function geoapifyNearby(body, env, originHeader, center, keyword, radius, limit, candidateLimit, country) {
   if(!env.GEOAPIFY_API_KEY) return json({error:'Worker chưa có secret GEOAPIFY_API_KEY.',provider:'geoapify'},500,originHeader);
-  const info=categoryInfo(keyword,body?.category), params=new URLSearchParams({
+  const info=categoryInfo(keyword,body?.category,body?.name), params=new URLSearchParams({
     categories:info.geoCategories.join(','),
     filter:`circle:${center.lng.toFixed(6)},${center.lat.toFixed(6)},${radius}`,
     bias:`proximity:${center.lng.toFixed(6)},${center.lat.toFixed(6)}`,
-    limit:String(limit), lang:clean(body?.language,10)||'vi', apiKey:env.GEOAPIFY_API_KEY
+    limit:String(candidateLimit), lang:clean(body?.language,10)||'vi', apiKey:env.GEOAPIFY_API_KEY
   });
   if(info.name) params.set('name',info.name);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
@@ -250,15 +258,124 @@ async function geoapifyNearby(body, env, originHeader, center, keyword, radius, 
     const raw=await response.json().catch(()=>null);
     if(!response.ok||!raw) return json({error:raw?.message||raw?.error||`Geoapify Places HTTP ${response.status}`,provider:'geoapify'},502,originHeader);
     const pois=(Array.isArray(raw?.features)?raw.features:[]).map(p=>normalizeGeoapifyPoi(p,center,country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity)).slice(0,limit);
-    return json({ok:true,source:'geoapify-places-v2',provider:'geoapify',query:{keyword,categories:info.geoCategories,radius,limit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:pois.length}},200,originHeader);
+    if(!pois.length&&env.GOOGLE_MAPS_API_KEY){
+      const fallback=await googleTextPlaces({query:clean(body?.name||body?.query||keyword,300),center,radius,limit,language:body?.language,country},env);
+      if(fallback.ok&&fallback.places.length) return json({ok:true,source:'google-places-text-v1',provider:'google_places',query:{keyword,name:info.name,categories:info.geoCategories,radius,limit,fallbackFrom:'geoapify'},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:fallback.places.length,pois:fallback.places,meta:{fallback:true}},200,originHeader);
+    }
+    return json({ok:true,source:'geoapify-places-v2',provider:'geoapify',query:{keyword,name:info.name,categories:info.geoCategories,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:Array.isArray(raw?.features)?raw.features.length:pois.length}},200,originHeader);
   }catch(error){return json({error:error?.name==='AbortError'?'Geoapify Places timeout.':`Geoapify Places: ${clean(error?.message,500)}`,provider:'geoapify'},502,originHeader);}finally{clearTimeout(timer);}
 }
 async function nearbySearch(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
   const center=finiteCoord(body?.center||body?.location); if(!center) return json({error:'center/location không hợp lệ.'},400,originHeader);
-  const keyword=clean(body?.keyword||body?.keywords,100),types=clean(body?.types,300); if(!keyword&&!types) return json({error:'Cần keyword hoặc types để search nearby.'},400,originHeader);
-  const radius=clampInt(body?.radius,100,50000,3000),limit=clampInt(body?.limit,1,20,8),country=clean(body?.country||center.country,120);
-  return providerFor(body)==='amap' ? amapNearby(body,env,originHeader,center,keyword,types,radius,limit,country) : geoapifyNearby(body,env,originHeader,center,keyword,radius,limit,country);
+  const name=clean(body?.name,120),keyword=clean(body?.keyword||body?.keywords||body?.query||name,100),types=clean(body?.types,300); if(!keyword&&!types&&!name) return json({error:'Cần keyword, name hoặc types để search nearby.'},400,originHeader);
+  const radius=clampInt(body?.radius,100,50000,3000),limit=clampInt(body?.limit,1,20,8),candidateLimit=clampInt(body?.candidateLimit,limit,50,Math.max(20,limit*4)),country=clean(body?.country||center.country,120);
+  const normalizedBody={...body,name};
+  return providerFor(body)==='amap' ? amapNearby(normalizedBody,env,originHeader,center,keyword,types,radius,limit,Math.min(25,candidateLimit),country) : geoapifyNearby(normalizedBody,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
+}
+
+async function fetchJson(url, init = {}, timeoutMs = 9000) {
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try {
+    const response=await fetch(url,{...init,signal:controller.signal});
+    const data=await response.json().catch(()=>null);
+    return {ok:response.ok,status:response.status,data};
+  } finally { clearTimeout(timer); }
+}
+
+async function resolvePlace(request, env, originHeader) {
+  let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
+  const query=clean(body?.query||body?.name,300),center=finiteCoord(body?.center||body?.location);
+  if(!query) return json({error:'query là bắt buộc.'},400,originHeader);
+  if(!env.GEOAPIFY_API_KEY) return json({error:'Worker chưa có secret GEOAPIFY_API_KEY.',provider:'geoapify'},500,originHeader);
+  const params=new URLSearchParams({text:query,format:'json',limit:String(clampInt(body?.limit,1,10,5)),lang:clean(body?.language,10)||'vi',apiKey:env.GEOAPIFY_API_KEY});
+  if(center) params.set('bias',`proximity:${center.lng.toFixed(6)},${center.lat.toFixed(6)}`);
+  const result=await fetchJson(`${GEOAPIFY_GEOCODING_URL}?${params.toString()}`);
+  if(!result.ok||!Array.isArray(result.data?.results)) return json({error:result.data?.message||`Geoapify Geocoding HTTP ${result.status}`,provider:'geoapify'},502,originHeader);
+  const places=result.data.results.map(item=>({
+    id:clean(item?.place_id,200),poiId:clean(item?.place_id,200),name:clean(item?.name||item?.address_line1||item?.formatted,300),address:clean(item?.formatted,1000),
+    lat:Number(item?.lat),lng:Number(item?.lon),distance:center?haversineMeters(center,{lat:Number(item?.lat),lng:Number(item?.lon)}):null,
+    city:clean(item?.city||item?.county,200),district:clean(item?.district||item?.suburb,200),province:clean(item?.state,200),country:clean(item?.country,120),
+    provider:'geoapify',coordSystem:'wgs84',resultType:clean(item?.result_type,100)
+  })).filter(item=>Number.isFinite(item.lat)&&Number.isFinite(item.lng));
+  return json({ok:true,source:'geoapify-geocoding-v1',provider:'geoapify',query,places},200,originHeader);
+}
+
+function normalizeGooglePlace(place, center, country) {
+  const lat=Number(place?.location?.latitude),lng=Number(place?.location?.longitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)) return null;
+  const reviews=(Array.isArray(place?.reviews)?place.reviews:[]).slice(0,5).map(review=>({
+    rating:Number(review?.rating)||null,text:clean(review?.text?.text,1000),relativeTime:clean(review?.relativePublishTimeDescription,120),author:clean(review?.authorAttribution?.displayName,200)
+  }));
+  return {
+    id:clean(place?.id,200),poiId:clean(place?.id,200),name:clean(place?.displayName?.text,300),address:clean(place?.formattedAddress,1000),lat,lng,
+    distance:center?haversineMeters(center,{lat,lng}):null,phone:clean(place?.nationalPhoneNumber||place?.internationalPhoneNumber,300),website:clean(place?.websiteUri,1000),
+    openNow:typeof place?.currentOpeningHours?.openNow==='boolean'?place.currentOpeningHours.openNow:null,
+    openTime:Array.isArray(place?.currentOpeningHours?.weekdayDescriptions)?place.currentOpeningHours.weekdayDescriptions.join(' | '):'',
+    businessStatus:clean(place?.businessStatus,80),rating:Number(place?.rating)||null,userRatingCount:Number(place?.userRatingCount)||0,reviews,
+    provider:'google_places',coordSystem:'wgs84',country:clean(country,120)
+  };
+}
+
+async function googleTextPlaces(options, env) {
+  if(!env.GOOGLE_MAPS_API_KEY) return {ok:false,error:'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED',places:[]};
+  const center=finiteCoord(options?.center),query=clean(options?.query,300);
+  if(!query) return {ok:false,error:'EMPTY_QUERY',places:[]};
+  const payload={textQuery:query,languageCode:clean(options?.language,10)||'vi',pageSize:clampInt(options?.limit,1,20,8)};
+  if(center) payload.locationBias={circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(50000,Math.max(100,Number(options?.radius)||3000))}};
+  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri','places.reviews'].join(',');
+  const result=await fetchJson(GOOGLE_TEXT_SEARCH_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fieldMask},body:JSON.stringify(payload)});
+  if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Places HTTP ${result.status}`,places:[]};
+  const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
+  return {ok:true,places};
+}
+
+async function googlePlaceDetails(body, env, originHeader) {
+  if(!env.GOOGLE_MAPS_API_KEY) return null;
+  const center=finiteCoord(body?.center||body?.location),query=clean(body?.query||[body?.name,body?.address].filter(Boolean).join(' '),300);
+  if(!query) return json({error:'query/name là bắt buộc.'},400,originHeader);
+  const result=await googleTextPlaces({query,center,radius:body?.radius,limit:5,language:body?.language,country:body?.country},env);
+  if(!result.ok) return json({error:result.error,provider:'google_places'},502,originHeader);
+  const places=result.places;
+  return json({ok:true,source:'google-places-text-v1',provider:'google_places',query,places,place:places[0]||null},200,originHeader);
+}
+
+async function placeDetails(request, env, originHeader) {
+  let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
+  const google=await googlePlaceDetails(body,env,originHeader);
+  if(google) return google;
+  const id=clean(body?.placeId||body?.id,500);
+  if(!id) return json({error:'Cần GOOGLE_MAPS_API_KEY hoặc placeId Geoapify để lấy details.'},503,originHeader);
+  if(!env.GEOAPIFY_API_KEY) return json({error:'Worker chưa có secret GEOAPIFY_API_KEY.',provider:'geoapify'},500,originHeader);
+  const params=new URLSearchParams({id,features:'details',apiKey:env.GEOAPIFY_API_KEY});
+  const result=await fetchJson(`${GEOAPIFY_DETAILS_URL}?${params.toString()}`);
+  if(!result.ok) return json({error:result.data?.message||`Geoapify Details HTTP ${result.status}`,provider:'geoapify'},502,originHeader);
+  const feature=Array.isArray(result.data?.features)?result.data.features[0]:null;
+  const place=feature?normalizeGeoapifyPoi(feature,finiteCoord(body?.center)||null,body?.country):null;
+  return json({ok:Boolean(place),source:'geoapify-place-details-v2',provider:'geoapify',place,places:place?[place]:[]},place?200:404,originHeader);
+}
+
+async function trafficRoute(request, env, originHeader) {
+  let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
+  const origin=finiteCoord(body?.origin),destination=finiteCoord(body?.destination);
+  if(!origin||!destination) return json({error:'origin/destination không hợp lệ.'},400,originHeader);
+  if(isChinaCountry(body?.country||origin.country||destination.country)) {
+    if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
+    const from=toAmapPoint(origin),to=toAmapPoint(destination),params=new URLSearchParams({key:env.AMAP_WEB_KEY,origin:`${from.lng.toFixed(6)},${from.lat.toFixed(6)}`,destination:`${to.lng.toFixed(6)},${to.lat.toFixed(6)}`,show_fields:'cost,polyline',output:'json'});
+    const result=await fetchJson(`${AMAP_DRIVING_URL}?${params.toString()}`);
+    const paths=Array.isArray(result.data?.route?.paths)?result.data.route.paths:[];
+    if(!result.ok||String(result.data?.status)!=='1'||!paths.length) return json({error:result.data?.info||`AMap Driving HTTP ${result.status}`,provider:'amap'},502,originHeader);
+    const routes=paths.map((path,index)=>({routeIndex:index,distance:Number(path?.distance)||0,duration:Number(path?.cost?.duration)||0,trafficLights:Number(path?.cost?.traffic_lights)||null,provider:'amap'}));
+    return json({ok:true,source:'amap-driving-v5',provider:'amap',routes},200,originHeader);
+  }
+  if(!env.GOOGLE_MAPS_API_KEY) return json({error:'Traffic live cần secret GOOGLE_MAPS_API_KEY.',provider:'google_routes',code:'PROVIDER_NOT_CONFIGURED'},503,originHeader);
+  const payload={origin:{location:{latLng:{latitude:origin.lat,longitude:origin.lng}}},destination:{location:{latLng:{latitude:destination.lat,longitude:destination.lng}}},travelMode:'DRIVE',routingPreference:'TRAFFIC_AWARE',computeAlternativeRoutes:true,languageCode:clean(body?.language,10)||'vi-VN',units:'METRIC'};
+  const fields='routes.duration,routes.staticDuration,routes.distanceMeters,routes.description,routes.warnings';
+  const result=await fetchJson(GOOGLE_ROUTES_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fields},body:JSON.stringify(payload)});
+  if(!result.ok) return json({error:result.data?.error?.message||`Google Routes HTTP ${result.status}`,provider:'google_routes'},502,originHeader);
+  const seconds=value=>Number(String(value||'').replace(/s$/,''))||0;
+  const routes=(Array.isArray(result.data?.routes)?result.data.routes:[]).map((route,index)=>{const duration=seconds(route?.duration),staticDuration=seconds(route?.staticDuration);return {routeIndex:index,distance:Number(route?.distanceMeters)||0,duration,staticDuration,trafficDelay:Math.max(0,duration-staticDuration),description:clean(route?.description,500),warnings:Array.isArray(route?.warnings)?route.warnings.slice(0,10):[],provider:'google_routes'};});
+  return json({ok:true,source:'google-routes-v2',provider:'google_routes',routes},200,originHeader);
 }
 
 export default {
@@ -267,9 +384,12 @@ export default {
     if(request.method==='OPTIONS') return origin?new Response(null,{status:204,headers:corsHeaders(origin)}):new Response(null,{status:403});
     if(!origin) return json({error:'Origin không được phép.'},403,'null');
     const url=new URL(request.url);
-    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',amap:{route:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY)},geoapify:{routes:Boolean(env.GEOAPIFY_API_KEY),places:Boolean(env.GEOAPIFY_API_KEY)},routing:'country-switch',retryProfiles:true},200,origin);
+    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',amap:{route:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY),traffic:Boolean(env.AMAP_WEB_KEY)},geoapify:{routes:Boolean(env.GEOAPIFY_API_KEY),places:Boolean(env.GEOAPIFY_API_KEY),geocoding:Boolean(env.GEOAPIFY_API_KEY),details:Boolean(env.GEOAPIFY_API_KEY)},google:{places:Boolean(env.GOOGLE_MAPS_API_KEY),traffic:Boolean(env.GOOGLE_MAPS_API_KEY)},routing:'country-switch',retryProfiles:true},200,origin);
     if(request.method==='POST'&&url.pathname==='/route/walking') return walkingRoute(request,env,origin);
+    if(request.method==='POST'&&url.pathname==='/route/traffic') return trafficRoute(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/poi/nearby') return nearbySearch(request,env,origin);
+    if(request.method==='POST'&&url.pathname==='/poi/details') return placeDetails(request,env,origin);
+    if(request.method==='POST'&&url.pathname==='/place/resolve') return resolvePlace(request,env,origin);
     return json({error:'Not found'},404,origin);
   }
 };
