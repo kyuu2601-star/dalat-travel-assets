@@ -22,6 +22,7 @@ const STOP_WORDS = new Set([
 
 const ADMIN_WORDS = new Set(['quan','huyen','phuong','xa','tp','thanh','pho','tinh','district','ward','city','province']);
 const clean = (v, max = 10000) => String(v ?? '').trim().slice(0, max);
+const errorText = (error, fallback = 'Unknown error', max = 1000) => clean(error instanceof Error ? error.message : (typeof error === 'string' ? error : fallback), max);
 const num = v => (v === '' || v == null || !Number.isFinite(Number(v))) ? null : Number(v);
 const int = v => Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : 0;
 const clamp = (v, min, max, fallback) => {
@@ -462,7 +463,7 @@ async function migrateImages(request, env) {
           field,
           status: 'failed',
           source,
-          error: clean(error?.message || 'Không import được ảnh.', 1000)
+          error: errorText(error, 'Không import được ảnh.', 1000)
         });
       }
     }
@@ -1290,9 +1291,17 @@ const NEARBY_TOOLS = [{
   }]
 }];
 
+/**
+ * @param {any} systemPrompt
+ * @param {any} contents
+ * @param {any} env
+ * @param {any[] | null} tools
+ * @param {boolean} forceFunctionCall
+ */
 async function callGemini(systemPrompt, contents, env, tools = null, forceFunctionCall = false) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY chưa được cấu hình.');
   const model = clean(env.GEMINI_MODEL || DEFAULT_MODEL, 120) || DEFAULT_MODEL;
+  /** @type {any} */
   const payload = { systemInstruction:{ parts:[{ text:systemPrompt }] }, contents };
   if (Array.isArray(tools) && tools.length) {
     payload.tools = tools;
@@ -1420,7 +1429,7 @@ async function runNearbyTool(call, currentLocation, env) {
     return {
       ok:false,
       error:'MAP_WORKER_UNAVAILABLE',
-      message:clean(error?.message || 'Map Worker unavailable', 1000),
+      message:errorText(error, 'Map Worker unavailable', 1000),
       upstream:hasMapWorkerServiceBinding(env) ? 'service-binding' : 'public-url',
       query:body
     };
@@ -1572,10 +1581,10 @@ async function handleAi(request, env) {
       return Number.isFinite(km) && km <= 5;
     });
     const curatedAvailableForIntent = intentPlan.mode === 'CURATED_NEARBY' ? curatedNearbyAvailable : context.curatedMatched;
-    const shouldUseLive = Boolean(intent) && !explicitRemoteLocation &&
-      (intent.strategy !== 'CURATED_FIRST' || !curatedAvailableForIntent);
+    const shouldUseLive = intent ? (!explicitRemoteLocation &&
+      (intent.strategy !== 'CURATED_FIRST' || !curatedAvailableForIntent)) : false;
 
-    if (shouldUseLive) {
+    if (shouldUseLive && intent) {
       return handleForcedNearby({
         userMessage, body, currentLocation, matchedModules:intentPlan.modules,
         context, finalPrompt, request, env, intent, intentPlan
@@ -1593,8 +1602,8 @@ async function handleAi(request, env) {
   } catch (error) {
     console.error('AI ERROR:', error);
     return json({
-      text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${clean(error?.message || 'Unknown error', 500)}. Fen thử lại sau nha.`,
-      error:{ message:clean(error?.message || 'Unknown error', 1000) },
+      text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${errorText(error, 'Unknown error', 500)}. Fen thử lại sau nha.`,
+      error:{ message:errorText(error, 'Unknown error', 1000) },
       travelos:{ intent:intentPlan }
     }, 200, request, env);
   }
@@ -1747,7 +1756,7 @@ async function weatherTool(args, fallbackCoord) {
     if(!response.ok) return {ok:false,error:clean(data?.reason||`Open-Meteo HTTP ${response.status}`,500)};
     const current=data.current||{},hourly=data.hourly||{},daily=data.daily||{};
     return {ok:true,source:'open-meteo',data:{coordinates:coord,timezone:clean(data.timezone,100),units:{current:data.current_units||{},hourly:data.hourly_units||{},daily:data.daily_units||{}},current:{time:current.time,temperature:current.temperature_2m,apparentTemperature:current.apparent_temperature,precipitation:current.precipitation,rain:current.rain,windSpeed:current.wind_speed_10m,weatherCode:current.weather_code,condition:weatherCodeLabel(current.weather_code)},hourly:{time:(hourly.time||[]).slice(0,72),temperature:(hourly.temperature_2m||[]).slice(0,72),precipitationProbability:(hourly.precipitation_probability||[]).slice(0,72),precipitation:(hourly.precipitation||[]).slice(0,72),weatherCode:(hourly.weather_code||[]).slice(0,72),windSpeed:(hourly.wind_speed_10m||[]).slice(0,72)},daily:{time:(daily.time||[]).slice(0,7),weatherCode:(daily.weather_code||[]).slice(0,7),temperatureMax:(daily.temperature_2m_max||[]).slice(0,7),temperatureMin:(daily.temperature_2m_min||[]).slice(0,7),precipitationProbabilityMax:(daily.precipitation_probability_max||[]).slice(0,7),sunrise:(daily.sunrise||[]).slice(0,7),sunset:(daily.sunset||[]).slice(0,7)}}};
-  } catch(error) { return {ok:false,error:clean(error?.message||'Open-Meteo unavailable',500)}; }
+  } catch(error) { return {ok:false,error:errorText(error,'Open-Meteo unavailable',500)}; }
 }
 
 function compactRoutes(data) {
@@ -1765,10 +1774,13 @@ function toolModules(args, plan) {
 }
 
 async function executeV3Tools(plan, userMessage, location, env) {
-  const evidence=[],state={lastPlace:null,nearby:null,weather:null,routes:null,details:null,curated:null};
+  const evidence=[];
+  /** @type {any} */
+  const state={lastPlace:null,nearby:null,weather:null,routes:null,details:null,curated:null};
   const gps=Number.isFinite(location.latitude)&&Number.isFinite(location.longitude)?{lat:location.latitude,lng:location.longitude}:null;
   for(let index=0;index<plan.tools.length;index++) {
     const args=plan.tools[index],started=new Date().toISOString();
+    /** @type {{ok:boolean,error?:string,code?:string,provider?:string,source?:string,data?:any}} */
     let result={ok:false,error:'UNKNOWN_TOOL'};
     try {
       if(args.name==='search_places') {
@@ -1815,7 +1827,7 @@ async function executeV3Tools(plan, userMessage, location, env) {
         result={ok:context.dbReady,source:'travelos-d1',error:context.dbReady?'':'D1_UNAVAILABLE',data:{places,searchLocation:context.searchLocation,curatedMatched:context.curatedMatched}};
         state.curated=result.data;
       }
-    } catch(error) { result={ok:false,error:clean(error?.message||'Tool failed',1000)}; }
+    } catch(error) { result={ok:false,error:errorText(error,'Tool failed',1000)}; }
     evidence.push({id:`tool-${index+1}`,tool:args.name,requested:args,ok:result.ok===true,source:clean(result.source||result.provider,100),fetchedAt:started,error:result.ok?'':clean(result.error,1000),data:result.ok?result.data:null});
   }
   return {evidence,state};
@@ -1863,7 +1875,7 @@ async function handleAiV3(request, env) {
     return json({text:text||'Tui chưa tạo được câu trả lời phù hợp.',travelos:{version:3,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,weather:state.weather||undefined,routes:state.routes||undefined,placeDetails:state.details||undefined,curated:state.curated||undefined}},200,request,env);
   } catch(error) {
     console.error('AI V3 ERROR:',error);
-    return json({text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${clean(error?.message||'Unknown error',500)}. Fen thử lại sau nha.`,error:{message:clean(error?.message||'Unknown error',1000)},travelos:{version:3}},200,request,env);
+    return json({text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${errorText(error,'Unknown error',500)}. Fen thử lại sau nha.`,error:{message:errorText(error,'Unknown error',1000)},travelos:{version:3}},200,request,env);
   }
 }
 
@@ -1892,10 +1904,11 @@ export default {
     if ((path === '/' || path === '/ai') && request.method === 'GET') return json({ ok: true, worker: 'TravelOS' }, 200, request, env);
 
     if (path === '/api/health' && request.method === 'GET') {
+      /** @type {any} */
       let db = { bound: Boolean(env.DB), ready: false };
       if (env.DB) {
         try { db = { bound: true, ready: true, ...await stats(env) }; }
-        catch (error) { db = { bound: true, ready: false, error: clean(error?.message, 500) }; }
+        catch (error) { db = { bound: true, ready: false, error: errorText(error, 'Unknown error', 500) }; }
       }
       return json({ ok: true, worker: 'TravelOS', db, images: { bound: Boolean(env.IMAGES) } }, 200, request, env);
     }
@@ -1903,7 +1916,7 @@ export default {
     if (path === '/api/places' && request.method === 'GET') {
       if (!env.DB) return json({ error: 'D1 binding DB chưa được cấu hình.' }, 503, request, env);
       try { return json({ places: await listPlaces(url, env) }, 200, request, env); }
-      catch (error) { return json({ error: clean(error?.message, 1000) }, 500, request, env); }
+      catch (error) { return json({ error: errorText(error, 'Unknown error', 1000) }, 500, request, env); }
     }
 
     if (path === '/api/locations' && request.method === 'GET') {
@@ -1915,7 +1928,7 @@ export default {
         `).all();
         return json({ locations: result.results || [] }, 200, request, env);
       } catch (error) {
-        return json({ error: clean(error?.message, 1000) }, 500, request, env);
+        return json({ error: errorText(error, 'Unknown error', 1000) }, 500, request, env);
       }
     }
 
@@ -1923,7 +1936,7 @@ export default {
       const denied = requireAdmin(request, env);
       if (denied) return denied;
       try { return json({ ok: true, ...await importImageEndpoint(request, env) }, 200, request, env); }
-      catch (error) { return json({ error: clean(error?.message, 1500) }, 422, request, env); }
+      catch (error) { return json({ error: errorText(error, 'Unknown error', 1500) }, 422, request, env); }
     }
 
     if (path === '/api/places' && request.method === 'POST') {
@@ -1931,7 +1944,7 @@ export default {
       if (denied) return denied;
       if (!env.DB) return json({ error: 'D1 binding DB chưa được cấu hình.' }, 503, request, env);
       try { return json(await createPlace(request, env), 201, request, env); }
-      catch (error) { return json({ error: clean(error?.message, 1000) }, 400, request, env); }
+      catch (error) { return json({ error: errorText(error, 'Unknown error', 1000) }, 400, request, env); }
     }
 
     const match = path.match(/^\/api\/places\/(\d+)$/);
@@ -1944,7 +1957,7 @@ export default {
         const place = await updatePlace(id, request, env);
         return place ? json(place, 200, request, env) : json({ error: 'Place not found' }, 404, request, env);
       } catch (error) {
-        return json({ error: clean(error?.message, 1000) }, 400, request, env);
+        return json({ error: errorText(error, 'Unknown error', 1000) }, 400, request, env);
       }
     }
 
@@ -1957,7 +1970,7 @@ export default {
         await env.DB.prepare('DELETE FROM places WHERE id=?').bind(id).run();
         return json({ ok: true, id }, 200, request, env);
       } catch (error) {
-        return json({ error: clean(error?.message, 1000) }, 500, request, env);
+        return json({ error: errorText(error, 'Unknown error', 1000) }, 500, request, env);
       }
     }
 
@@ -1967,7 +1980,7 @@ export default {
       if (!env.DB) return json({ error: 'D1 binding DB chưa được cấu hình.' }, 503, request, env);
       if (!env.IMAGES) return json({ error: 'R2 binding IMAGES chưa được cấu hình.' }, 503, request, env);
       try { return json({ ok: true, ...await migrateImages(request, env) }, 200, request, env); }
-      catch (error) { return json({ error: clean(error?.message, 1500) }, 400, request, env); }
+      catch (error) { return json({ error: errorText(error, 'Unknown error', 1500) }, 400, request, env); }
     }
 
     if (path === '/api/admin/setup' && request.method === 'POST') {
@@ -1977,7 +1990,7 @@ export default {
         await ensureSchema(env);
         return json({ ok: true, message: 'D1 schema ready', stats: await stats(env) }, 200, request, env);
       } catch (error) {
-        return json({ error: clean(error?.message, 1500) }, 500, request, env);
+        return json({ error: errorText(error, 'Unknown error', 1500) }, 500, request, env);
       }
     }
 
@@ -1988,7 +2001,7 @@ export default {
         await ensureSchema(env);
         return json({ ok: true, ...await importSheet(request, env), stats: await stats(env) }, 200, request, env);
       } catch (error) {
-        return json({ error: clean(error?.message, 1500) }, 500, request, env);
+        return json({ error: errorText(error, 'Unknown error', 1500) }, 500, request, env);
       }
     }
 
@@ -1996,7 +2009,7 @@ export default {
       const denied = requireAdmin(request, env);
       if (denied) return denied;
       try { return json({ ok: true, stats: await stats(env) }, 200, request, env); }
-      catch (error) { return json({ error: clean(error?.message, 1000) }, 500, request, env); }
+      catch (error) { return json({ error: errorText(error, 'Unknown error', 1000) }, 500, request, env); }
     }
 
     return json({ error: 'Not found' }, 404, request, env);
