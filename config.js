@@ -9,7 +9,7 @@ const CONFIG = {
 
     // Browser key riêng, chỉ bật Maps JavaScript API và restrict theo GitHub Pages domain.
     // Dán key thứ 2 của bạn vào đây trước khi deploy GitHub Pages.
-    GOOGLE_MAPS_BROWSER_KEY: "",
+    GOOGLE_MAPS_BROWSER_KEY: "AIzaSyDWDZlRWk9ceORNO-pQfOTfsYMBhjtW0BE",
 
     // Browser key chỉ dùng cho Geoapify map tiles ngoài Trung Quốc.
     // Giữ lại để fallback nếu Google Maps không tải được.
