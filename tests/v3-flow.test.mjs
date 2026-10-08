@@ -139,6 +139,23 @@ test('Map Worker sends translated dish variants to AMap and keeps food evidence'
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker replaces a Vietnamese pharmacy category with the native AMap keyword', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='';
+  globalThis.fetch=async url=>{
+    requestedUrl=String(url);
+    return new Response(JSON.stringify({status:'1',info:'OK',count:'1',pois:[{id:'amap-pharmacy',name:'唐氏药房',address:'人民路158号',location:'106.551,29.566',cityname:'重庆市',adname:'渝中区',business:{rating:'4.6'}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.5657,lng:106.5512},country:'Trung Quốc',query:'nhà thuốc',keyword:'nhà thuốc',category:'pharmacy',radius:3000,limit:10})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),url=new URL(requestedUrl);
+    assert.equal(response.status,200);
+    assert.equal(url.searchParams.get('keywords'),'药店');
+    assert.doesNotMatch(url.searchParams.get('keywords'),/nhà thuốc/i);
+    assert.equal(data.pois[0].name,'唐氏药房');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker enriches place details by exact Google Place ID for review text', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';

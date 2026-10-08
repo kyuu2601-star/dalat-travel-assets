@@ -342,7 +342,7 @@ function normalizeAmapPoi(poi, center, country) {
 }
 async function amapNearby(body, env, originHeader, center, keyword, types, radius, limit, candidateLimit, country) {
   if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const queryCenter=toAmapPoint(center), info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),categoryFallback=specificChineseFood?'':info.amapKeyword,amapQueries=uniqueSearchQueries(keyword,body?.queryVariants,categoryFallback),amapKeyword=amapQueries.join('|').slice(0,80);
+  const queryCenter=toAmapPoint(center),info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),mappedKeyword=clean(info.amapKeyword,300),useMappedKeyword=!specificChineseFood&&mappedKeyword&&mappedKeyword!==clean(keyword,300),amapQueries=useMappedKeyword?uniqueSearchQueries(mappedKeyword,body?.queryVariants):uniqueSearchQueries(keyword,body?.queryVariants,specificChineseFood?'':mappedKeyword),amapKeyword=amapQueries.join('|').slice(0,80);
   const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(candidateLimit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
   if(amapKeyword) params.set('keywords',amapKeyword); if(types) params.set('types',types);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
