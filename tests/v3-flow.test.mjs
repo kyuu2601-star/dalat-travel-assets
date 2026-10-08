@@ -181,6 +181,32 @@ test('Browser route service prefers Google Directions before Geoapify fallback',
   assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải vào QL20');
 });
 
+test('Google map provider rejects the rendered authorization error screen', async () => {
+  const source=await readFile(new URL('../google-maps-provider.js',import.meta.url),'utf8');
+  const observers=[];
+  class FakeMutationObserver {
+    constructor(callback){this.callback=callback;this.disconnected=false;observers.push(this);}
+    observe(){}
+    disconnect(){this.disconnected=true;}
+  }
+  class FakeMap {}
+  const browserWindow=new EventTarget();
+  browserWindow.google={maps:{Map:FakeMap,event:{addListenerOnce:()=>({remove(){}}),clearInstanceListeners(){}},RenderingType:{VECTOR:'VECTOR'}}};
+  const context={
+    window:browserWindow,document:{},MutationObserver:FakeMutationObserver,Event,
+    setTimeout,clearTimeout,requestAnimationFrame:callback=>callback(),console
+  };
+  vm.runInNewContext(source,context);
+  const container={style:{},authError:false,querySelector(){return this.authError?{}:null;}};
+  const pending=browserWindow.GoogleMapProvider.createMap(container,{lat:10.77,lng:106.69},false);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(observers.length,1);
+  container.authError=true;
+  observers[0].callback();
+  await assert.rejects(pending,error=>error?.code==='GOOGLE_MAP_AUTH_FAILED');
+  assert.equal(observers[0].disconnected,true);
+});
+
 test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;

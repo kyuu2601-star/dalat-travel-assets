@@ -2,10 +2,15 @@
   const objectStore=new WeakMap();
   const layerStore=new WeakMap();
   const navigationStore=new WeakMap();
+  const errorObserverStore=new WeakMap();
   let sdkPromise=null;
   let authFailed=false;
   const previousAuthFailure=window.gm_authFailure;
-  window.gm_authFailure=()=>{authFailed=true;window.dispatchEvent(new Event('travelos-google-map-auth-failed'));if(typeof previousAuthFailure==='function')previousAuthFailure();};
+  function markAuthFailed(){
+    authFailed=true;
+    window.dispatchEvent(new Event('travelos-google-map-auth-failed'));
+  }
+  window.gm_authFailure=()=>{markAuthFailed();if(typeof previousAuthFailure==='function')previousAuthFailure();};
 
   function key(){return String(window.CONFIG?.GOOGLE_MAPS_BROWSER_KEY||'').trim();}
   function validPoint(p){
@@ -33,31 +38,49 @@
     (objectStore.get(map)||[]).forEach(obj=>{try{obj.setMap?.(null);obj.close?.();}catch{}});
     objectStore.set(map,[]);
   }
+  function hasGoogleMapError(container){
+    return Boolean(container?.querySelector?.('.gm-err-container, .gm-err-content, .gm-err-message'));
+  }
   async function createMap(container,center,interactive=true,options={}){
     const maps=await ensureSdk(),c=validPoint(center);
     if(!container||!c)throw new Error('Google Map thiếu container/tọa độ.');
     if(authFailed)throw Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'});
     Object.assign(container.style,{position:'absolute',inset:'0',width:'100%',height:'100%'});
     const map=new maps.Map(container,{center:c,zoom:15,mapTypeControl:false,streetViewControl:Boolean(interactive),fullscreenControl:Boolean(interactive),zoomControl:Boolean(interactive),gestureHandling:interactive?'greedy':'none',keyboardShortcuts:Boolean(interactive),clickableIcons:false,...(maps.RenderingType?.VECTOR?{renderingType:maps.RenderingType.VECTOR}:{}),...(options.mapOptions||{})});
-    await new Promise((resolve,reject)=>{
-      let settled=false,timeout=null;
+    try{await new Promise((resolve,reject)=>{
+      let settled=false,timeout=null,readyTimer=null;
       const authError=()=>finish(reject)(Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'}));
       const cleanup=()=>{
         clearTimeout(timeout);
+        clearTimeout(readyTimer);
         window.removeEventListener('travelos-google-map-auth-failed',authError);
         idleListener?.remove?.();
         tilesListener?.remove?.();
       };
       const finish=callback=>value=>{if(settled)return;settled=true;cleanup();callback(value);};
       const succeed=finish(resolve);
-      const idleListener=maps.event.addListenerOnce(map,'idle',succeed);
-      const tilesListener=maps.event.addListenerOnce(map,'tilesloaded',succeed);
+      const failFromRenderedError=()=>{
+        if(!hasGoogleMapError(container))return false;
+        markAuthFailed();
+        return true;
+      };
+      const observer=new MutationObserver(failFromRenderedError);
+      observer.observe(container,{childList:true,subtree:true,characterData:true});
+      errorObserverStore.set(map,observer);
+      const ready=()=>{
+        if(settled||readyTimer)return;
+        // Google can emit `idle` just before replacing the canvas with its
+        // authorization error. Give that DOM error a short chance to appear.
+        readyTimer=setTimeout(()=>{readyTimer=null;if(!failFromRenderedError())succeed();},1200);
+      };
+      const idleListener=maps.event.addListenerOnce(map,'idle',ready);
+      const tilesListener=maps.event.addListenerOnce(map,'tilesloaded',ready);
       window.addEventListener('travelos-google-map-auth-failed',authError,{once:true});
       // A missing tilesloaded event is not an authentication failure. Slow devices,
       // hidden chat cards and browser privacy features can delay it considerably.
-      timeout=setTimeout(succeed,10000);
-    });
-    if(authFailed)throw Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'});
+      timeout=setTimeout(ready,10000);
+    });}catch(error){destroy(map);throw error;}
+    if(authFailed){destroy(map);throw Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'});}
     objectStore.set(map,[]);
     if(interactive){const traffic=new maps.TrafficLayer();traffic.setMap(map);layerStore.set(map,[traffic]);}
     requestAnimationFrame(()=>{maps.event.trigger(map,'resize');map.setCenter(c);});
@@ -117,6 +140,6 @@
   }
   function clearNavigationPosition(map){const marker=navigationStore.get(map);marker?.setMap?.(null);navigationStore.delete(map);}
   function focus(map,point,zoom=18){const p=validPoint(point);if(!map||!p)return;map.panTo(p);map.setZoom(zoom);}
-  function destroy(map){if(!map)return;clearNavigationPosition(map);clearObjects(map);(layerStore.get(map)||[]).forEach(layer=>layer.setMap?.(null));layerStore.delete(map);window.google?.maps?.event?.clearInstanceListeners?.(map);}
+  function destroy(map){if(!map)return;errorObserverStore.get(map)?.disconnect?.();errorObserverStore.delete(map);clearNavigationPosition(map);clearObjects(map);(layerStore.get(map)||[]).forEach(layer=>layer.setMap?.(null));layerStore.delete(map);window.google?.maps?.event?.clearInstanceListeners?.(map);}
   window.GoogleMapProvider={ensureSdk,createMap,drawNearby,drawRoute,validPoint,clearObjects,focus,setPerspective,updateNavigationPosition,clearNavigationPosition,bearing,destroy};
 })();

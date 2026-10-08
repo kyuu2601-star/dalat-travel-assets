@@ -1,5 +1,5 @@
 (function () {
-  let root=null,map=null,state=null,session=0,loadSession=0;
+  let root=null,map=null,state=null,session=0,loadSession=0,authFailureHandler=null,fallbackInFlight=false;
   const $=(s,r=document)=>r.querySelector(s);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtM=m=>{m=Number(m)||0;return m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;};
@@ -24,7 +24,7 @@
     const maneuver=root&&$('.google-maneuver',root);if(maneuver)maneuver.hidden=true;
   }
   function close(){
-    session++;loadSession++;stopTracking();root?.classList.remove('open');root?.setAttribute('aria-hidden','true');document.documentElement.classList.remove('geo-nav-open');document.body.classList.remove('geo-nav-open');
+    session++;loadSession++;if(authFailureHandler)window.removeEventListener('travelos-google-map-auth-failed',authFailureHandler);authFailureHandler=null;stopTracking();root?.classList.remove('open');root?.setAttribute('aria-hidden','true');document.documentElement.classList.remove('geo-nav-open');document.body.classList.remove('geo-nav-open');
     try{window.GoogleMapProvider?.destroy?.(map);}catch{}map=null;state=null;
   }
   function originFromApp(){const p=window.userPos,lat=Number(p?.lat),lng=Number(p?.lon);return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng,coordSystem:'wgs84'}:null;}
@@ -89,13 +89,23 @@
     const button=$('.google-start-nav',root);button.classList.add('active');button.textContent='■ Dừng dẫn đường';
     state.watchId=navigator.geolocation.watchPosition(position=>{const point={lat:position.coords.latitude,lng:position.coords.longitude};window.userPos={lat:point.lat,lon:point.lng};$('.geo-status',root).classList.add('hidden');updateGuidance(point,position.coords.heading);},error=>{$('.geo-status',root).textContent=error.code===1?'Cần cho phép Location để bắt đầu dẫn đường.':`GPS: ${error.message}`;$('.geo-status',root).classList.remove('hidden');stopTracking();},{enableHighAccuracy:true,maximumAge:1000,timeout:12000});
   }
+  async function fallbackToGeoapify(options,id){
+    if(id!==session||fallbackInFlight||!window.GeoapifyNavigation?.open)return false;
+    fallbackInFlight=true;
+    close();
+    try{await window.GeoapifyNavigation.open({...options,mode:options.mode==='walk'?'walk':'drive'});}
+    finally{fallbackInFlight=false;}
+    return true;
+  }
   async function open(options={}){
     close();const id=++session,info=options.destination||options,destination=window.GoogleMapProvider?.validPoint?.(info),origin=window.GoogleMapProvider?.validPoint?.(options.origin)||originFromApp();
     if(!origin)throw new Error('Chưa có GPS hiện tại. Hãy bật Location rồi thử lại.');if(!destination)throw new Error('Điểm đến không có tọa độ hợp lệ.');
     const r=ensureRoot();r.classList.add('open');r.setAttribute('aria-hidden','false');document.documentElement.classList.add('geo-nav-open');document.body.classList.add('geo-nav-open');$('.google-route-title',r).textContent=info?.name||'Điểm đến';$('.geo-status',r).textContent='Đang tải Google Maps...';$('.geo-status',r).classList.remove('hidden');
     state={origin,destination,info,mode:options.mode==='walk'?'walk':'drive',perspective:options.mode!=='walk',routes:[],selected:0,watchId:null};updateModeUi();
+    authFailureHandler=()=>{void fallbackToGeoapify(options,id);};
+    window.addEventListener('travelos-google-map-auth-failed',authFailureHandler,{once:true});
     try{await window.GoogleMapProvider.ensureSdk();if(id!==session)return;map=await window.GoogleMapProvider.createMap($('.geo-map-canvas',r),origin,true);if(id!==session)return;await loadRoute();}
-    catch(error){if(id!==session)return;if(error?.code==='GOOGLE_MAP_AUTH_FAILED'&&window.GeoapifyNavigation?.open){close();await window.GeoapifyNavigation.open({...options,mode:options.mode==='walk'?'walk':'drive'});return;}$('.geo-status',r).textContent=error.message||'Không mở được Google Navigation.';$('.google-route-summary',r).textContent='Không thể tạo route';}
+    catch(error){if(id!==session)return;if(error?.code==='GOOGLE_MAP_AUTH_FAILED'&&await fallbackToGeoapify(options,id))return;$('.geo-status',r).textContent=error.message||'Không mở được Google Navigation.';$('.google-route-summary',r).textContent='Không thể tạo route';}
   }
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&root?.classList.contains('open'))close();});
   window.GoogleNavigation={open,close};
