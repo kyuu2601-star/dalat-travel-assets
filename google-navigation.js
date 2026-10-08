@@ -29,9 +29,8 @@
   }
   function originFromApp(){const p=window.userPos,lat=Number(p?.lat),lng=Number(p?.lon);return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng,coordSystem:'wgs84'}:null;}
   async function fetchRoutes(origin,destination,country,mode){
-    const endpoint=mapWorker();if(!endpoint)throw new Error('MAP_WORKER_URL chưa được cấu hình.');
-    const response=await fetch(`${endpoint}/route/directions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'google',mode,country,origin,destination,language:'vi-VN'})});
-    const data=await response.json().catch(()=>({}));if(!response.ok||!data?.routes?.length)throw new Error(data?.error||`Google Routes HTTP ${response.status}`);return data;
+    if(!window.TravelDirections?.request)throw new Error('Route service chưa sẵn sàng.');
+    return window.TravelDirections.request({provider:'google',mode,country,origin,destination,language:'vi-VN'});
   }
   function renderSteps(route){
     const node=$('.geo-steps',root),steps=Array.isArray(route?.steps)?route.steps:[];

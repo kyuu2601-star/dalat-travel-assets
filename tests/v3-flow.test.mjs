@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 
 async function importWorker(path) {
   const source = await readFile(new URL(path, import.meta.url), 'utf8');
@@ -122,6 +123,24 @@ test('Map Worker returns traffic-aware driving geometry and turn-by-turn steps',
     assert.ok(data.routes[0].path.length>=2);
     assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải vào QL20');
   } finally { globalThis.fetch=originalFetch; }
+});
+
+test('Browser route service falls back to Geoapify when Worker has no route secrets', async () => {
+  const source=await readFile(new URL('../route-service.js',import.meta.url),'utf8');
+  const calls=[];
+  const context={URLSearchParams,Response,console,window:{CONFIG:{MAP_WORKER_URL:'https://worker.test',GEOAPIFY_BROWSER_KEY:'geo-browser-test'}},fetch:async url=>{
+    calls.push(String(url));
+    if(String(url).startsWith('https://worker.test'))return new Response(JSON.stringify({error:'Worker chưa có secret GEOAPIFY_API_KEY.'}),{status:500,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({features:[{properties:{distance:1800,time:360,legs:[{steps:[{distance:300,time:60,from_index:0,to_index:1,instruction:{text:'Rẽ phải',streets:['QL20']}}]}]},geometry:{coordinates:[[[106.69,10.77],[106.70,10.78]]]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }};
+  vm.runInNewContext(source,context);
+  const data=await context.window.TravelDirections.request({provider:'google',mode:'drive',origin:{lat:10.77,lng:106.69},destination:{lat:10.78,lng:106.70},language:'vi'});
+  assert.equal(calls.length,2);
+  assert.match(calls[1],/api\.geoapify\.com\/v1\/routing/);
+  assert.match(calls[1],/mode=drive/);
+  assert.equal(data.provider,'geoapify');
+  assert.equal(data.meta.browserFallback,true);
+  assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải');
 });
 
 test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {
