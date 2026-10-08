@@ -195,7 +195,7 @@ function durationSeconds(value){return Number(String(value||'').replace(/s$/,'')
 function normalizeGoogleRoute(route, routeIndex) {
   const steps=(Array.isArray(route?.legs)?route.legs:[]).flatMap(leg=>(Array.isArray(leg?.steps)?leg.steps:[])).map((step,index)=>({
     index,instruction:clean(step?.navigationInstruction?.instructions||'',1000),road:'',orientation:'',distance:Number(step?.distanceMeters)||0,
-    duration:durationSeconds(step?.duration),action:clean(step?.navigationInstruction?.maneuver||'',100),assistantAction:'',walkType:'',
+    duration:durationSeconds(step?.staticDuration),action:clean(step?.navigationInstruction?.maneuver||'',100),assistantAction:'',walkType:'',
     path:decodeGooglePolyline(step?.polyline?.encodedPolyline)
   }));
   return {
@@ -212,7 +212,7 @@ async function googleWalkingRoute(body, env, originHeader, origin, destination) 
     travelMode:'WALK',computeAlternativeRoutes:false,languageCode:clean(body?.language,10)||'vi-VN',units:'METRIC',
     polylineQuality:'HIGH_QUALITY',polylineEncoding:'ENCODED_POLYLINE'
   };
-  const fields=['routes.duration','routes.distanceMeters','routes.polyline.encodedPolyline','routes.warnings','routes.legs.steps.distanceMeters','routes.legs.steps.duration','routes.legs.steps.polyline.encodedPolyline','routes.legs.steps.navigationInstruction.instructions','routes.legs.steps.navigationInstruction.maneuver'].join(',');
+  const fields=['routes.duration','routes.distanceMeters','routes.polyline.encodedPolyline','routes.warnings','routes.legs.steps.distanceMeters','routes.legs.steps.staticDuration','routes.legs.steps.polyline.encodedPolyline','routes.legs.steps.navigationInstruction.instructions','routes.legs.steps.navigationInstruction.maneuver'].join(',');
   let googleError='Google Routes không trả tuyến đi bộ.';
   try{
     const result=await fetchJson(GOOGLE_ROUTES_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fields},body:JSON.stringify(payload)});
@@ -272,7 +272,7 @@ async function googleDirectionsRoute(body, env, originHeader, origin, destinatio
     travelMode:driving?'DRIVE':'WALK',computeAlternativeRoutes:driving,languageCode:clean(body?.language,10)||'vi-VN',units:'METRIC',
     polylineQuality:'HIGH_QUALITY',polylineEncoding:'ENCODED_POLYLINE',...(driving?{routingPreference:'TRAFFIC_AWARE'}:{})
   };
-  const fields=['routes.duration','routes.staticDuration','routes.distanceMeters','routes.description','routes.polyline.encodedPolyline','routes.warnings','routes.legs.steps.distanceMeters','routes.legs.steps.duration','routes.legs.steps.polyline.encodedPolyline','routes.legs.steps.navigationInstruction.instructions','routes.legs.steps.navigationInstruction.maneuver'].join(',');
+  const fields=['routes.duration','routes.staticDuration','routes.distanceMeters','routes.description','routes.polyline.encodedPolyline','routes.warnings','routes.legs.steps.distanceMeters','routes.legs.steps.staticDuration','routes.legs.steps.polyline.encodedPolyline','routes.legs.steps.navigationInstruction.instructions','routes.legs.steps.navigationInstruction.maneuver'].join(',');
   const result=await fetchJson(GOOGLE_ROUTES_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fields},body:JSON.stringify(payload)});
   const routes=(Array.isArray(result.data?.routes)?result.data.routes:[]).map(normalizeGoogleRoute).filter(route=>route.path.length||route.distance>0).map(route=>({...route,staticDuration:durationSeconds(result.data?.routes?.[route.routeIndex]?.staticDuration),description:clean(result.data?.routes?.[route.routeIndex]?.description,500)}));
   if(result.ok&&routes.length){

@@ -80,10 +80,12 @@ test('Map Worker uses Google Routes for walking and returns drawable paths', asy
     const fieldMask=init.headers['X-Goog-FieldMask'];
     assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.instructions/);
     assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.maneuver/);
+    assert.match(fieldMask,/routes\.legs\.steps\.staticDuration/);
+    assert.doesNotMatch(fieldMask,/(^|,)routes\.legs\.steps\.duration(,|$)/);
     assert.doesNotMatch(fieldMask,/(^|,)routes\.legs\.steps\.navigationInstruction(,|$)/);
     return new Response(JSON.stringify({routes:[{
       distanceMeters:1200,duration:'900s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC_mqNvxq`@'},warnings:['Walking route beta'],
-      legs:[{steps:[{distanceMeters:300,duration:'180s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Đi thẳng',maneuver:'STRAIGHT'}}]}]
+      legs:[{steps:[{distanceMeters:300,staticDuration:'180s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Đi thẳng',maneuver:'STRAIGHT'}}]}]
     }]}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try {
@@ -97,6 +99,7 @@ test('Map Worker uses Google Routes for walking and returns drawable paths', asy
     assert.equal(data.routes[0].distance,1200);
     assert.ok(data.routes[0].path.length>=2);
     assert.equal(data.routes[0].steps[0].instruction,'Đi thẳng');
+    assert.equal(data.routes[0].steps[0].duration,180);
   } finally { globalThis.fetch=originalFetch; }
 });
 
@@ -112,10 +115,12 @@ test('Map Worker returns traffic-aware driving geometry and turn-by-turn steps',
     const fieldMask=init.headers['X-Goog-FieldMask'];
     assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.instructions/);
     assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.maneuver/);
+    assert.match(fieldMask,/routes\.legs\.steps\.staticDuration/);
+    assert.doesNotMatch(fieldMask,/(^|,)routes\.legs\.steps\.duration(,|$)/);
     assert.doesNotMatch(fieldMask,/(^|,)routes\.legs\.steps\.navigationInstruction(,|$)/);
     return new Response(JSON.stringify({routes:[{
       distanceMeters:8200,duration:'1020s',staticDuration:'900s',description:'QL20',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC_mqNvxq`@'},
-      legs:[{steps:[{distanceMeters:500,duration:'80s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Rẽ phải vào QL20',maneuver:'TURN_RIGHT'}}]}]
+      legs:[{steps:[{distanceMeters:500,staticDuration:'80s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Rẽ phải vào QL20',maneuver:'TURN_RIGHT'}}]}]
     }]}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try {
@@ -130,6 +135,7 @@ test('Map Worker returns traffic-aware driving geometry and turn-by-turn steps',
     assert.equal(data.routes[0].staticDuration,900);
     assert.ok(data.routes[0].path.length>=2);
     assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải vào QL20');
+    assert.equal(data.routes[0].steps[0].duration,80);
   } finally { globalThis.fetch=originalFetch; }
 });
 
