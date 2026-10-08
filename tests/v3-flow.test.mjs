@@ -281,6 +281,19 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.doesNotMatch(index,/src="google-navigation\.js/);
 });
 
+test('AI chat consistently uses tôi and bạn instead of tui and fen', async () => {
+  const [chat,worker,index]=await Promise.all([
+    readFile(new URL('../chat.js',import.meta.url),'utf8'),
+    readFile(new URL('../worker/src/index.js',import.meta.url),'utf8'),
+    readFile(new URL('../index.html',import.meta.url),'utf8')
+  ]);
+  assert.match(chat,/Chào bạn! Tôi là Thổ Địa/);
+  assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
+  assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
+  assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
+  assert.match(index,/chat\.js\?v=20261008-1/);
+});
+
 test('Destination summary combines Google reviews, weather, BestTime and AI copy', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch=globalThis.fetch;

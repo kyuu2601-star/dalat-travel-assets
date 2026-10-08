@@ -138,6 +138,7 @@ async function handleChat() {
         if (data?.candidates?.[0]?.content?.parts) aiMsg = data.candidates[0].content.parts.map(part => part?.text || '').filter(Boolean).join('\n').trim();
         else if (data?.text) aiMsg = data.text;
         else aiMsg = `⚠️ Thiết lập lỗi cấu trúc dữ liệu: ${JSON.stringify(data)}`;
+        aiMsg = normalizeAssistantVoice(aiMsg);
 
         const loadingElement = document.getElementById(loadingId);
         const messageElement = loadingElement?.closest('.msg');
@@ -151,13 +152,21 @@ async function handleChat() {
     } catch (error) {
         console.error(error);
         const loadingElement = document.getElementById(loadingId);
-        if (loadingElement?.closest('.msg')) loadingElement.closest('.msg').textContent = 'Lỗi kết nối rồi fen! Thử lại nha.';
+        if (loadingElement?.closest('.msg')) loadingElement.closest('.msg').textContent = 'Kết nối đang gặp lỗi. Bạn thử lại nhé.';
     } finally {
         if (sendBtn) sendBtn.disabled = false;
         if (voiceBtn) voiceBtn.disabled = false;
         input.disabled = false;
         input.focus();
     }
+}
+
+function normalizeAssistantVoice(text) {
+    return String(text ?? '')
+        .replace(/\bFen\b/g, 'Bạn')
+        .replace(/\bfen\b/g, 'bạn')
+        .replace(/\bTui\b/g, 'Tôi')
+        .replace(/\btui\b/g, 'tôi');
 }
 
 function addMessage(role, content, isHtml = false) {
@@ -202,9 +211,9 @@ function loadChatHistory() {
 
     if (!history || Date.now() - history.timestamp > EXPIRY_TIME) {
         localStorage.removeItem(CHAT_STORAGE_KEY);
-        addMessage('ai', 'Chào fen! Tui là Thổ Địa đây. Fen muốn tìm quán gì hay lên lịch trình đi đâu không?');
+        addMessage('ai', 'Chào bạn! Tôi là Thổ Địa. Bạn muốn tìm quán hay lên lịch trình đi đâu?');
         return;
     }
 
-    history.messages.forEach(msg => addMessage(msg.role, msg.content));
+    history.messages.forEach(msg => addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content));
 }
