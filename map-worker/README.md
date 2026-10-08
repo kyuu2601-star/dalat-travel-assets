@@ -1,6 +1,6 @@
 # TravelOS Map Worker
 
-Provider gateway cho POI, geocoding, place details, walking route và traffic.
+Provider gateway cho POI, geocoding, place details, walking/driving route và traffic.
 Source dùng để deploy là `src/index.js` theo `wrangler.toml`.
 
 Routes:
@@ -9,6 +9,7 @@ Routes:
 - `POST /poi/details`
 - `POST /place/resolve`
 - `POST /route/walking`
+- `POST /route/directions` (`mode: "drive" | "walk"`, có polyline và turn-by-turn)
 - `POST /route/traffic`
 - `GET /health`
 

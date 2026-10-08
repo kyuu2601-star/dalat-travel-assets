@@ -1,6 +1,7 @@
 let fullData = [];
 let userPos = null;
 let selectedCates = new Set();
+let renderedPlaces = [];
 let lastPos = null;
 let isSystemLive = false;
 let radarInterval = null;
@@ -576,8 +577,16 @@ function renderRecommend(text) {
         .replace(/\n/g, '<br>');
 }
 
+function hasValidCoordinates(item) {
+    if (item?.latitude == null || item?.longitude == null || item.latitude === '' || item.longitude === '') return false;
+    const lat = Number(item.latitude);
+    const lng = Number(item.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
 function renderGrid(items) {
     const grid = document.getElementById('results-grid');
+    renderedPlaces = items;
 
     grid.innerHTML = items.map((item, index) => {
         const distance = getDistanceKm(item.latitude, item.longitude);
@@ -608,9 +617,40 @@ function renderGrid(items) {
                 </div>
                 <div class="recommend-box"><span>Recommend / Note:</span><div>${renderRecommend(item.recommend)}</div></div>
                 <div class="road-note-slot">${item.road_note ? `<div class="road-note">⚠️ <span>${escapeHtml(item.road_note)}</span></div>` : ''}</div>
-                ${item.map_link ? `<a href="${escapeAttribute(item.map_link)}" target="_blank" rel="noopener noreferrer" class="route-button">Chỉ Đường</a>` : '<span class="route-button disabled">Chưa có link</span>'}
+                ${hasValidCoordinates(item) ? `<button type="button" class="route-button" onclick="openPlaceNavigation(${index}, event)">Chỉ Đường</button>` : '<span class="route-button disabled">Chưa có tọa độ</span>'}
             </article>`;
     }).join('') || '<p class="empty-state grid-empty">Không có địa điểm phù hợp bộ lọc.</p>';
+}
+
+async function openPlaceNavigation(index, event) {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const item = renderedPlaces[index];
+    if (!item) return;
+    const destination = {
+        name: item.name || 'Điểm đến',
+        country: item.country || '',
+        city: item.city || '',
+        area: item.area || '',
+        lat: Number(item.latitude),
+        lng: Number(item.longitude),
+        coordSystem: item.coordinate_system || 'wgs84'
+    };
+    try {
+        const country = foldLocation(destination.country);
+        const isChina = ['trungquoc', 'china', 'cn'].some(value => country === value || country.includes(value));
+        if (isChina) {
+            if (window.ChinaNavigation?.ensureLoaded) await window.ChinaNavigation.ensureLoaded(destination.city || '');
+            if (!window.TravelNavigation?.open) throw new Error('AMap Navigation chưa sẵn sàng.');
+            await window.TravelNavigation.open({ destination });
+            return;
+        }
+        if (!window.GoogleNavigation?.open) throw new Error('Google Navigation chưa sẵn sàng.');
+        await window.GoogleNavigation.open({ destination, mode: 'drive' });
+    } catch (error) {
+        console.error('[TravelOS place navigation]', error);
+        alert(error.message || 'Không mở được chỉ đường.');
+    }
 }
 
 function selectCard(element) {

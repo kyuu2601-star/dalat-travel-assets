@@ -1,6 +1,7 @@
 (function () {
   const objectStore=new WeakMap();
   const layerStore=new WeakMap();
+  const navigationStore=new WeakMap();
   let sdkPromise=null;
   let authFailed=false;
   const previousAuthFailure=window.gm_authFailure;
@@ -32,12 +33,12 @@
     (objectStore.get(map)||[]).forEach(obj=>{try{obj.setMap?.(null);obj.close?.();}catch{}});
     objectStore.set(map,[]);
   }
-  async function createMap(container,center,interactive=true){
+  async function createMap(container,center,interactive=true,options={}){
     const maps=await ensureSdk(),c=validPoint(center);
     if(!container||!c)throw new Error('Google Map thiếu container/tọa độ.');
     if(authFailed)throw Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'});
     Object.assign(container.style,{position:'absolute',inset:'0',width:'100%',height:'100%'});
-    const map=new maps.Map(container,{center:c,zoom:15,mapTypeControl:false,streetViewControl:Boolean(interactive),fullscreenControl:Boolean(interactive),zoomControl:Boolean(interactive),gestureHandling:interactive?'greedy':'none',keyboardShortcuts:Boolean(interactive),clickableIcons:false});
+    const map=new maps.Map(container,{center:c,zoom:15,mapTypeControl:false,streetViewControl:Boolean(interactive),fullscreenControl:Boolean(interactive),zoomControl:Boolean(interactive),gestureHandling:interactive?'greedy':'none',keyboardShortcuts:Boolean(interactive),clickableIcons:false,...(maps.RenderingType?.VECTOR?{renderingType:maps.RenderingType.VECTOR}:{}),...(options.mapOptions||{})});
     await new Promise((resolve,reject)=>{
       let settled=false,timeout=null;
       const authError=()=>finish(reject)(Object.assign(new Error('Google Maps từ chối browser key. Kiểm tra Website và API restrictions.'),{code:'GOOGLE_MAP_AUTH_FAILED'}));
@@ -84,15 +85,38 @@
     fit(map,points,36);return objects;
   }
   function routePath(route){return(Array.isArray(route?.path)?route.path:[]).map(validPoint).filter(Boolean);}
-  function drawRoute(map,route,origin,destination){
+  function bearing(a,b){
+    const p1=validPoint(a),p2=validPoint(b);if(!p1||!p2)return 0;
+    const y=Math.sin((p2.lng-p1.lng)*Math.PI/180)*Math.cos(p2.lat*Math.PI/180);
+    const x=Math.cos(p1.lat*Math.PI/180)*Math.sin(p2.lat*Math.PI/180)-Math.sin(p1.lat*Math.PI/180)*Math.cos(p2.lat*Math.PI/180)*Math.cos((p2.lng-p1.lng)*Math.PI/180);
+    return(Math.atan2(y,x)*180/Math.PI+360)%360;
+  }
+  function setPerspective(map,point,heading=0,enabled=true){
+    const p=validPoint(point);if(!map||!p)return;
+    if(typeof map.moveCamera==='function')map.moveCamera({center:p,zoom:enabled?18.5:16,tilt:enabled?67.5:0,heading:enabled?heading:0});
+    else{map.setCenter(p);map.setZoom(enabled?18:16);map.setTilt?.(enabled?45:0);map.setHeading?.(enabled?heading:0);}
+  }
+  function drawRoute(map,route,origin,destination,options={}){
     if(!window.google?.maps||!map)return null;clearObjects(map);const path=routePath(route),points=[...path],objects=[];
     if(path.length)objects.push(track(map,new window.google.maps.Polyline({map,path,strokeColor:'#0891b2',strokeOpacity:.95,strokeWeight:6}))); 
     const o=validPoint(origin),d=validPoint(destination);
     if(o){points.push(o);objects.push(marker(map,o,'','Bắt đầu',true));}
     if(d){points.push(d);objects.push(marker(map,d,'✓','Điểm đến'));}
-    fit(map,points,60);return{path,objects};
+    if(options.perspective&&path.length>1)setPerspective(map,validPoint(origin)||path[0],bearing(path[0],path[Math.min(3,path.length-1)]),true);
+    else fit(map,points,60);return{path,objects};
   }
+  function updateNavigationPosition(map,position,heading=0,perspective=true){
+    const p=validPoint(position);if(!map||!p||!window.google?.maps)return null;
+    let marker=navigationStore.get(map);
+    if(!marker){
+      marker=new window.google.maps.Marker({map,zIndex:999,title:'Vị trí hiện tại',icon:{path:window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale:7,fillColor:'#22d3ee',fillOpacity:1,strokeColor:'#082f49',strokeWeight:2,rotation:Number(heading)||0}});
+      navigationStore.set(map,marker);
+    }
+    marker.setPosition(p);const icon=marker.getIcon?.();if(icon&&typeof icon==='object')marker.setIcon({...icon,rotation:Number(heading)||0});
+    if(perspective)setPerspective(map,p,Number(heading)||0,true);return marker;
+  }
+  function clearNavigationPosition(map){const marker=navigationStore.get(map);marker?.setMap?.(null);navigationStore.delete(map);}
   function focus(map,point,zoom=18){const p=validPoint(point);if(!map||!p)return;map.panTo(p);map.setZoom(zoom);}
-  function destroy(map){if(!map)return;clearObjects(map);(layerStore.get(map)||[]).forEach(layer=>layer.setMap?.(null));layerStore.delete(map);window.google?.maps?.event?.clearInstanceListeners?.(map);}
-  window.GoogleMapProvider={ensureSdk,createMap,drawNearby,drawRoute,validPoint,clearObjects,focus,destroy};
+  function destroy(map){if(!map)return;clearNavigationPosition(map);clearObjects(map);(layerStore.get(map)||[]).forEach(layer=>layer.setMap?.(null));layerStore.delete(map);window.google?.maps?.event?.clearInstanceListeners?.(map);}
+  window.GoogleMapProvider={ensureSdk,createMap,drawNearby,drawRoute,validPoint,clearObjects,focus,setPerspective,updateNavigationPosition,clearNavigationPosition,bearing,destroy};
 })();

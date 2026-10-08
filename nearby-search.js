@@ -78,7 +78,7 @@
     try{
       if(provider==='google'){
         if(!window.GoogleNavigation?.open)throw new Error('Google Navigation module chưa sẵn sàng.');
-        await window.GoogleNavigation.open({destination});return;
+        await window.GoogleNavigation.open({destination,mode:'drive'});return;
       }
       if(provider==='geoapify'){
         if(!window.GeoapifyNavigation?.open)throw new Error('Geoapify Navigation module chưa sẵn sàng.');

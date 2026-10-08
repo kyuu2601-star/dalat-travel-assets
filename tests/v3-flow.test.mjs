@@ -95,6 +95,35 @@ test('Map Worker uses Google Routes for walking and returns drawable paths', asy
   } finally { globalThis.fetch=originalFetch; }
 });
 
+test('Map Worker returns traffic-aware driving geometry and turn-by-turn steps', async () => {
+  const { default: worker } = await importWorker('../map-worker/src/index.js');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url,init={}) => {
+    assert.equal(String(url),'https://routes.googleapis.com/directions/v2:computeRoutes');
+    const requestBody=JSON.parse(String(init.body||'{}'));
+    assert.equal(requestBody.travelMode,'DRIVE');
+    assert.equal(requestBody.routingPreference,'TRAFFIC_AWARE');
+    assert.equal(requestBody.computeAlternativeRoutes,true);
+    return new Response(JSON.stringify({routes:[{
+      distanceMeters:8200,duration:'1020s',staticDuration:'900s',description:'QL20',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC_mqNvxq`@'},
+      legs:[{steps:[{distanceMeters:500,duration:'80s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Rẽ phải vào QL20',maneuver:'TURN_RIGHT'}}]}]
+    }]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try {
+    const response=await worker.fetch(new Request('https://travelos-map.test/route/directions',{
+      method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+      body:JSON.stringify({provider:'google',mode:'drive',country:'Việt Nam',origin:{lat:10.77,lng:106.69},destination:{lat:10.80,lng:106.75}})
+    }),{GOOGLE_MAPS_API_KEY:'google-test',GEOAPIFY_API_KEY:'geo-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.mode,'drive');
+    assert.equal(data.meta.trafficAware,true);
+    assert.equal(data.routes[0].staticDuration,900);
+    assert.ok(data.routes[0].path.length>=2);
+    assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải vào QL20');
+  } finally { globalThis.fetch=originalFetch; }
+});
+
 test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;
