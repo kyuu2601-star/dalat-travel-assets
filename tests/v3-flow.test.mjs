@@ -266,3 +266,31 @@ test('AI v3 resolves a venue and distinguishes live BestTime busyness from forec
     assert.equal(data.travelos.sources[1].source,'besttime-live');
   } finally { globalThis.fetch=originalFetch; }
 });
+
+test('AI v3 falls back to current-hour BestTime forecast when live busyness is unavailable', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;
+  let geminiCalls=0,bestTimeCalls=0;
+  globalThis.fetch=async (url,init={})=>{
+    const target=String(url);
+    if(target.includes('generativelanguage.googleapis.com')) {
+      geminiCalls++;
+      const text=geminiCalls===1
+        ? JSON.stringify({goal:'forecast venue busyness',responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[{name:'place_busyness',placeName:'Cafe Test',address:'123 Test, TP.HCM',language:'vi'}]})
+        : 'Cafe Test thường khá đông vào giờ này.';
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    assert.equal(init.method,'POST');bestTimeCalls++;
+    if(target.includes('/forecasts/live')) return new Response(JSON.stringify({status:'Error',message:'No live data available for this venue at this moment.'}),{status:400,headers:{'Content-Type':'application/json'}});
+    assert.match(target,/besttime\.app\/api\/v1\/forecasts\/now\/raw/);
+    return new Response(JSON.stringify({status:'OK',analysis:{hour_analysis:{hour:19,intensity_nr:2,intensity_txt:'Above average'},hour_raw:68},venue_info:{venue_id:'ven-test',venue_name:'Cafe Test',venue_current_localtime_iso:'Thursday 07:20PM'}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try {
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Giờ Cafe Test có đông không?',userLocation:{country:'Việt Nam',city:'TP.HCM'},chatHistory:[]})}),{GEMINI_API_KEY:'test',BESTTIME_PRIVATE_KEY:'besttime-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);assert.equal(geminiCalls,2);assert.equal(bestTimeCalls,2);
+    assert.equal(data.travelos.busyness.basis,'forecast');
+    assert.equal(data.travelos.busyness.score,68);
+    assert.equal(data.travelos.sources[0].source,'besttime-forecast');
+  } finally {globalThis.fetch=originalFetch;}
+});

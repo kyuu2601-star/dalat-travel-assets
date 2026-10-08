@@ -1782,7 +1782,18 @@ async function busynessTool(args, target, env) {
     const response=await fetch(`https://besttime.app/api/v1/forecasts/live?${params.toString()}`,{method:'POST'});
     const payload=await response.json().catch(()=>({}));
     if(!response.ok||String(payload?.status||'').toLowerCase()!=='ok') {
-      return {ok:false,error:clean(payload?.message||payload?.error||payload?.status||`BestTime HTTP ${response.status}`,700),code:'BESTTIME_UNAVAILABLE'};
+      const forecastResponse=await fetch(`https://besttime.app/api/v1/forecasts/now/raw?${params.toString()}`,{method:'POST'});
+      const forecastPayload=await forecastResponse.json().catch(()=>({}));
+      if(forecastResponse.ok&&String(forecastPayload?.status||'').toLowerCase()==='ok') {
+        const forecastAnalysis=forecastPayload?.analysis||{},hourAnalysis=forecastAnalysis?.hour_analysis||{},venue=forecastPayload?.venue_info||{};
+        const score=num(forecastAnalysis.hour_raw),hour=int(hourAnalysis.hour);
+        return {ok:true,source:'besttime-forecast',data:{
+          available:score!=null,basis:score==null?'none':'forecast',score,label:busynessLabel(score),intensity:clean(hourAnalysis.intensity_txt,100),
+          liveAvailable:false,liveScore:null,forecastAvailable:score!=null,forecastScore:score,liveVsForecastDelta:null,hourStart:hour,hourEnd:(hour+1)%24,
+          venue:{id:clean(venue.venue_id,300),name:clean(venue.venue_name||name,300),address:clean(venue.venue_address||address,1000),open:clean(venue.venue_open,50),localTime:clean(venue.venue_current_localtime||venue.venue_current_localtime_iso,100),lat:num(venue.venue_lat),lng:num(venue.venue_lng??venue.venue_lon),dwellMinutes:{min:int(venue.venue_dwell_time_min),max:int(venue.venue_dwell_time_max),average:int(venue.venue_dwell_time_avg)}}
+        }};
+      }
+      return {ok:false,error:clean(forecastPayload?.message||forecastPayload?.error||payload?.message||payload?.error||payload?.status||`BestTime HTTP ${response.status}`,700),code:'BESTTIME_UNAVAILABLE'};
     }
     const analysis=payload?.analysis||{},venue=payload?.venue_info||{};
     const liveAvailable=analysis.venue_live_busyness_available===true;
