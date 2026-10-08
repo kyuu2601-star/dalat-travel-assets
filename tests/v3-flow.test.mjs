@@ -77,6 +77,10 @@ test('Map Worker uses Google Routes for walking and returns drawable paths', asy
     const requestBody=JSON.parse(String(init.body||'{}'));
     assert.equal(requestBody.travelMode,'WALK');
     assert.equal(requestBody.computeAlternativeRoutes,false);
+    const fieldMask=init.headers['X-Goog-FieldMask'];
+    assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.instructions/);
+    assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.maneuver/);
+    assert.doesNotMatch(fieldMask,/(^|,)routes\.legs\.steps\.navigationInstruction(,|$)/);
     return new Response(JSON.stringify({routes:[{
       distanceMeters:1200,duration:'900s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC_mqNvxq`@'},warnings:['Walking route beta'],
       legs:[{steps:[{distanceMeters:300,duration:'180s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Đi thẳng',maneuver:'STRAIGHT'}}]}]
@@ -105,6 +109,10 @@ test('Map Worker returns traffic-aware driving geometry and turn-by-turn steps',
     assert.equal(requestBody.travelMode,'DRIVE');
     assert.equal(requestBody.routingPreference,'TRAFFIC_AWARE');
     assert.equal(requestBody.computeAlternativeRoutes,true);
+    const fieldMask=init.headers['X-Goog-FieldMask'];
+    assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.instructions/);
+    assert.match(fieldMask,/routes\.legs\.steps\.navigationInstruction\.maneuver/);
+    assert.doesNotMatch(fieldMask,/(^|,)routes\.legs\.steps\.navigationInstruction(,|$)/);
     return new Response(JSON.stringify({routes:[{
       distanceMeters:8200,duration:'1020s',staticDuration:'900s',description:'QL20',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC_mqNvxq`@'},
       legs:[{steps:[{distanceMeters:500,duration:'80s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC'},navigationInstruction:{instructions:'Rẽ phải vào QL20',maneuver:'TURN_RIGHT'}}]}]
