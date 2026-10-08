@@ -143,6 +143,30 @@ test('Browser route service falls back to Geoapify when Worker has no route secr
   assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải');
 });
 
+test('Browser route service prefers Google Directions before Geoapify fallback', async () => {
+  const source=await readFile(new URL('../route-service.js',import.meta.url),'utf8');
+  const latLng=(lat,lng)=>({lat:()=>lat,lng:()=>lng});
+  const calls=[];
+  class DirectionsService {
+    route(request,callback){
+      assert.equal(request.travelMode,'DRIVING');
+      assert.ok(request.drivingOptions.departureTime);
+      callback({routes:[{summary:'QL20',overview_path:[latLng(10.77,106.69),latLng(10.78,106.70)],legs:[{distance:{value:1800},duration:{value:420},duration_in_traffic:{value:480},steps:[{instructions:'Rẽ phải vào <b>QL20</b>',distance:{value:300},duration:{value:60},maneuver:'turn-right',path:[latLng(10.77,106.69),latLng(10.78,106.70)]}]}]}]},'OK');
+    }
+  }
+  const context={URLSearchParams,Response,console,Date,window:{CONFIG:{MAP_WORKER_URL:'https://worker.test',GEOAPIFY_BROWSER_KEY:'geo-browser-test'},google:{maps:{DirectionsService,TravelMode:{DRIVING:'DRIVING',WALKING:'WALKING'},UnitSystem:{METRIC:0},TrafficModel:{BEST_GUESS:'bestguess'}}}},fetch:async url=>{
+    calls.push(String(url));
+    return new Response(JSON.stringify({error:'Worker chưa có GOOGLE_MAPS_API_KEY.'}),{status:500,headers:{'Content-Type':'application/json'}});
+  }};
+  vm.runInNewContext(source,context);
+  const data=await context.window.TravelDirections.request({provider:'google',mode:'drive',origin:{lat:10.77,lng:106.69},destination:{lat:10.78,lng:106.70}});
+  assert.equal(calls.length,1);
+  assert.equal(data.provider,'google_directions_js');
+  assert.equal(data.routes[0].duration,480);
+  assert.equal(data.routes[0].staticDuration,420);
+  assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải vào QL20');
+});
+
 test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;

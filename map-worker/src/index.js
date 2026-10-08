@@ -244,7 +244,7 @@ async function geoapifyDirectionsRoute(body, env, originHeader, origin, destinat
   if (!env.GEOAPIFY_API_KEY) return json({ error:'Worker chưa có secret GEOAPIFY_API_KEY.' },500,originHeader);
   const params=new URLSearchParams({
     waypoints:`${origin.lat.toFixed(6)},${origin.lng.toFixed(6)}|${destination.lat.toFixed(6)},${destination.lng.toFixed(6)}`,
-    mode:mode==='drive'?'drive':'walk',units:'metric',lang:clean(body?.language,10)||'vi',details:'instruction_details',apiKey:env.GEOAPIFY_API_KEY
+    mode:mode==='drive'?'drive':'walk',units:'metric',lang:'en',details:'instruction_details',apiKey:env.GEOAPIFY_API_KEY
   });
   const result=await fetchJson(`${GEOAPIFY_ROUTING_URL}?${params.toString()}`);
   if(!result.ok||!result.data) return json({error:result.data?.message||result.data?.error||`Geoapify Routing HTTP ${result.status}`,provider:'geoapify'},502,originHeader);
