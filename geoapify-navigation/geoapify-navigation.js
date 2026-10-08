@@ -66,7 +66,7 @@
   function toggleTracking(){if(state?.watchId!=null){stopTracking();selectRoute(state.selected);return;}startTracking();}
   function googleDirectionsUrl(){
     const params=new URLSearchParams({api:'1',destination:`${state.destination.lat},${state.destination.lng}`,travelmode:'driving',dir_action:'navigate'});
-    if(state?.origin)params.set('origin',`${state.origin.lat},${state.origin.lng}`);
+    const latestOrigin=originFromApp()||state?.origin;if(latestOrigin)params.set('origin',`${latestOrigin.lat},${latestOrigin.lng}`);
     return `https://www.google.com/maps/dir/?${params}`;
   }
   function openGoogleDriving(){
