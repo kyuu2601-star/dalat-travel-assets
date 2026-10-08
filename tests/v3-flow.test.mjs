@@ -69,6 +69,20 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
   } finally { globalThis.fetch=originalFetch; }
 });
 
+test('Map Worker preserves a specific food query instead of widening it to every restaurant', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedBody=null,requestedUrl='';
+  globalThis.fetch=async (url,init={})=>{requestedUrl=String(url);requestedBody=JSON.parse(String(init.body||'{}'));return new Response(JSON.stringify({places:[{id:'chicken-1',displayName:{text:'Gà Rán Test'},formattedAddress:'Tân Phú, TP.HCM',location:{latitude:10.8,longitude:106.63},rating:4.6,userRatingCount:120}]}),{status:200,headers:{'Content-Type':'application/json'}});};
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.8,lng:106.63},country:'Việt Nam',query:'gà rán',keyword:'gà rán',category:'restaurant',limit:6})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(requestedUrl,'https://places.googleapis.com/v1/places:searchText');
+    assert.equal(requestedBody.textQuery,'gà rán');
+    assert.equal(data.pois[0].name,'Gà Rán Test');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker enriches place details by exact Google Place ID for review text', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';
@@ -381,6 +395,41 @@ test('AI v3 plans tools server-side and returns structured nearby evidence', asy
   } finally {
     globalThis.fetch=originalFetch;
   }
+});
+
+test('AI v3 resolves a remote area before searching there instead of using current GPS', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;let geminiCalls=0;const mapPaths=[];
+  globalThis.fetch=async url=>{
+    if(!String(url).includes('generativelanguage.googleapis.com'))throw new Error(`Unexpected fetch ${url}`);
+    geminiCalls++;
+    const text=geminiCalls===1
+      ? JSON.stringify({goal:'tìm gà rán quanh Landmark 81',responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[{name:'resolve_place',query:'Landmark 81, TP.HCM',language:'vi',limit:3},{name:'search_places',query:'gà rán',category:'restaurant',radius:2500,limit:6,language:'vi'}]})
+      : 'Tôi tìm được các quán gà rán quanh Landmark 81 cho bạn.';
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  const env={GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();mapPaths.push(path);
+    if(path==='/place/resolve'){
+      assert.equal(body.query,'Landmark 81, TP.HCM');
+      assert.equal(body.center,null);
+      return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'landmark-81',name:'Landmark 81',address:'Bình Thạnh, TP.HCM',lat:10.7948,lng:106.7218,country:'Việt Nam',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    assert.equal(path,'/poi/nearby');
+    assert.equal(body.query,'gà rán');
+    assert.equal(body.center.lat,10.7948);
+    assert.equal(body.center.lng,106.7218);
+    assert.notEqual(body.center.lat,16.0544);
+    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'chicken-1',name:'Gà Rán Test',address:'Bình Thạnh, TP.HCM',lat:10.795,lng:106.722,distance:80,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán gà rán quanh Landmark 81 giúp tôi',userLocation:{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022,source:'gps'},chatHistory:[]})}),env);
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.deepEqual(mapPaths,['/place/resolve','/poi/nearby']);
+    assert.equal(data.travelos.nearby.pois[0].name,'Gà Rán Test');
+    assert.match(data.text,/Tôi tìm được/);
+  }finally{globalThis.fetch=originalFetch;}
 });
 
 test('AI v3 resolves a venue and distinguishes live BestTime busyness from forecast', async () => {

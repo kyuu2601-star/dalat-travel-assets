@@ -498,10 +498,10 @@ async function googleNearbyPlaces(options, env) {
 }
 
 async function googleNearby(body, env, originHeader, center, keyword, radius, limit, candidateLimit, country) {
-  const info=categoryInfo(keyword,body?.category,body?.name),name=clean(body?.name,120);
+  const info=categoryInfo(keyword,body?.category,body?.name),name=clean(body?.name,120),textQuery=clean(body?.query,300);
   let result,source;
-  if(name||!info.googleType){
-    result=await googleTextPlaces({query:clean(name||body?.query||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
+  if(name||textQuery||!info.googleType){
+    result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
     source='google-places-text-v1';
   }else{
     result=await googleNearbyPlaces({googleType:info.googleType,center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);

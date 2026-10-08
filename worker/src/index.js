@@ -1670,6 +1670,8 @@ Nguyên tắc:
 - Mọi dữ kiện thay đổi theo thời gian hoặc vị trí thực tế phải dùng tool.
 - search_places: tìm POI, cửa hàng, thương hiệu, nhà thuốc, quán ăn, khách sạn, ATM hoặc tiện ích quanh một tọa độ. Giữ riêng category và placeName. Ví dụ Pharmacity => category pharmacy, placeName Pharmacity.
 - resolve_place: đổi tên địa điểm/địa chỉ thành tọa độ, đặc biệt trước route hoặc weather tại một nơi được nêu bằng tên.
+- Nếu user muốn tìm quanh một địa danh/khu vực không phải vị trí hiện tại, luôn xếp resolve_place cho địa danh đó trước search_places. search_places phải dùng tọa độ vừa resolve, không dùng GPS hiện tại. Ví dụ "gà rán quanh Landmark 81" => resolve_place(query="Landmark 81, TP.HCM") rồi search_places(query="gà rán", category="restaurant").
+- Chỉ dùng GPS cho search_places khi user nói "quanh tôi/gần tôi" hoặc không nêu khu vực khác. Không bắt user phải có mặt tại khu vực muốn tìm.
 - place_details: giờ mở cửa, trạng thái hoạt động, điện thoại, website, rating và review. Đặt sau search_places/resolve_place khi có thể.
 - weather: thời tiết hiện tại/dự báo. Nếu user không nêu nơi khác thì hệ thống sẽ dùng GPS.
 - place_busyness: mức độ đông hiện tại hoặc dự báo theo giờ của một quán/địa điểm. Luôn đặt sau search_places/resolve_place/place_details để có đúng tên và địa chỉ, trừ khi user đã cung cấp đủ cả hai.
@@ -1745,6 +1747,7 @@ function compactPoi(poi) {
   return {
     id:clean(poi?.id||poi?.poiId,300),name:clean(poi?.name,300),address:clean(poi?.address,800),
     lat:num(poi?.lat),lng:num(poi?.lng),distance:num(poi?.distance),phone:clean(poi?.phone,300),website:clean(poi?.website,800),
+    country:clean(poi?.country,120),city:clean(poi?.city,200),district:clean(poi?.district,200),
     openNow:typeof poi?.openNow==='boolean'?poi.openNow:null,openTime:clean(poi?.openTime,700),businessStatus:clean(poi?.businessStatus,100),
     rating:num(poi?.rating),userRatingCount:int(poi?.userRatingCount),reviews:Array.isArray(poi?.reviews)?poi.reviews.slice(0,5):[],
     provider:clean(poi?.provider,80),types:Array.isArray(poi?.types)?poi.types.slice(0,12):[]
@@ -1904,9 +1907,10 @@ async function executeV3Tools(plan, userMessage, location, env) {
     let result={ok:false,error:'UNKNOWN_TOOL'};
     try {
       if(args.name==='search_places') {
-        const center=coordFrom(args)||gps;
+        const resolvedCenter=coordFrom(state.lastPlace),center=coordFrom(args)||resolvedCenter||gps;
+        const searchCountry=clean(state.lastPlace?.country||location.country,120);
         if(!center) result={ok:false,error:'GPS_REQUIRED'};
-        else result=await mapTool('/poi/nearby',{center:{...center,country:location.country},country:location.country,query:args.query||args.placeName||args.category,name:args.placeName,keyword:args.query||args.category||args.placeName,category:args.category,radius:args.radius,limit:args.limit,candidateLimit:Math.max(20,args.limit*4),language:args.language},env);
+        else result=await mapTool('/poi/nearby',{center:{...center,country:searchCountry},country:searchCountry,query:args.query||args.placeName||args.category,name:args.placeName,keyword:args.query||args.category||args.placeName,category:args.category,radius:args.radius,limit:args.limit,candidateLimit:Math.max(20,args.limit*4),language:args.language},env);
         if(result.ok) {
           const pois=(result.data?.pois||[]).map(compactPoi);
           result={ok:true,source:result.data?.source||result.data?.provider,data:{...result.data,pois}};
@@ -1914,7 +1918,7 @@ async function executeV3Tools(plan, userMessage, location, env) {
           state.nearby=result.data;
         }
       } else if(args.name==='resolve_place') {
-        result=await mapTool('/place/resolve',{query:args.query||args.placeName||args.address,center:gps,country:location.country,language:args.language,limit:args.limit},env);
+        result=await mapTool('/place/resolve',{query:args.query||args.placeName||args.address,center:coordFrom(args),country:location.country,language:args.language,limit:args.limit},env);
         if(result.ok) {
           const places=(result.data?.places||[]).map(compactPoi);
           result={ok:true,source:result.data?.source||result.data?.provider,data:{...result.data,places}};
