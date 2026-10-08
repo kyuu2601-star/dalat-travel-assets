@@ -291,9 +291,11 @@ test('Geoapify map provider follows live user positions', async () => {
 });
 
 test('Global navigation renders Geoapify, requests Google walking, and tracks GPS', async () => {
-  const [navigation,chinaNavigation,app,nearby,index]=await Promise.all([
+  const [navigation,chinaNavigation,provider,nearbyCss,app,nearby,index]=await Promise.all([
     readFile(new URL('../geoapify-navigation/geoapify-navigation.js',import.meta.url),'utf8'),
     readFile(new URL('../china-navigation/travel-navigation.js',import.meta.url),'utf8'),
+    readFile(new URL('../geoapify-navigation/geoapify-provider.js',import.meta.url),'utf8'),
+    readFile(new URL('../nearby-search.css',import.meta.url),'utf8'),
     readFile(new URL('../app.js',import.meta.url),'utf8'),
     readFile(new URL('../nearby-search.js',import.meta.url),'utf8'),
     readFile(new URL('../index.html',import.meta.url),'utf8')
@@ -313,6 +315,11 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(nearby,/nearby-user-person/);
   assert.match(nearby,/tới điểm tìm/);
   assert.match(nearby,/nearby-pin-center/);
+  assert.match(nearby,/class="nearby-chat-head" role="button" tabindex="0"/);
+  assert.match(nearby,/mapWrap\?\.addEventListener\('click'/);
+  assert.match(provider,/attributionControl\?\.setPrefix/);
+  assert.match(provider,/© <a href="https:\/\/www\.geoapify\.com\//);
+  assert.match(nearbyCss,/nearby-mini-map \.leaflet-control-attribution/);
   assert.match(navigation,/class="geo-back"/);
   assert.match(navigation,/backToList/);
   assert.match(chinaNavigation,/class="tn-back"/);

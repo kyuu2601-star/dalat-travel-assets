@@ -39,9 +39,10 @@
       dragging:Boolean(interactive), touchZoom:Boolean(interactive), scrollWheelZoom:Boolean(interactive),
       doubleClickZoom:Boolean(interactive), boxZoom:Boolean(interactive), keyboard:Boolean(interactive), tap:Boolean(interactive)
     }).setView([c.lat,c.lng],15);
+    map.attributionControl?.setPrefix?.(false);
     L.tileLayer(tileUrl(),{
       apiKey:key(),maxZoom:20,
-      attribution:'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Geoapify</a> | © OpenStreetMap <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">contributors</a>'
+      attribution:'© <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>'
     }).addTo(map);
     objectStore.set(map,[]);
     setTimeout(()=>map.invalidateSize?.(),0);
