@@ -65,7 +65,9 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
     assert.equal(data.pois[0].openTime,'Hôm nay: 06:00–23:30');
     assert.equal(requestedUrl,'https://places.googleapis.com/v1/places:searchText');
     assert.equal(requestedBody.textQuery,'Pharmacity');
-    assert.equal(requestedBody.locationBias.circle.radius,3000);
+    assert.ok(requestedBody.locationRestriction.rectangle.low);
+    assert.ok(requestedBody.locationRestriction.rectangle.high);
+    assert.equal(requestedBody.locationBias,undefined);
   } finally { globalThis.fetch=originalFetch; }
 });
 
@@ -450,6 +452,8 @@ test('AI v3 plans tools server-side and returns structured nearby evidence', asy
         assert.equal(body.category,'pharmacy');
         assert.equal(body.center.lat,10.77);
         assert.equal(body.center.lng,106.69);
+        assert.equal(body.limit,10);
+        assert.equal(body.sortBy,'distance');
         return new Response(JSON.stringify({ ok:true, source:'geoapify-places-v2', provider:'geoapify', center:body.center, pois:[{ id:'p1', name:'Nhà thuốc Pharmacity', address:'123 Test', lat:10.77, lng:106.69, distance:120, provider:'geoapify' }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
       }
     }
@@ -494,6 +498,8 @@ test('AI v3 resolves a remote area before searching there instead of using curre
     assert.equal(body.center.lat,10.7948);
     assert.equal(body.center.lng,106.7218);
     assert.notEqual(body.center.lat,16.0544);
+    assert.equal(body.limit,10);
+    assert.equal(body.sortBy,'distance');
     return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'chicken-1',name:'Gà Rán Test',address:'Bình Thạnh, TP.HCM',lat:10.795,lng:106.722,distance:80,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
   try{
@@ -515,6 +521,8 @@ test('AI v3 handles an explicit remote-area search even when Gemini is unavailab
     assert.equal(body.query,'quán gà rán');
     assert.equal(body.center.lat,10.7951);
     assert.equal(body.center.lng,106.7221);
+    assert.equal(body.limit,10);
+    assert.equal(body.sortBy,'distance');
     return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'chicken-1',name:'Haeduri Chicken',address:'Bình Thạnh, TP.HCM',lat:10.7952,lng:106.7222,distance:344,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
   const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán gà rán quanh Landmark 81 giúp tôi nhé',userLocation:{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022}})}),env);

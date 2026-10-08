@@ -1481,12 +1481,21 @@ function deterministicNearbyText(nearby) {
   return `Tôi tìm được ${pois.length} địa điểm gần bạn nhất:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.`;
 }
 
+function wantsRatingRanking(value) {
+  return /\b(?:rating|review|đánh\s*giá|được\s+đánh\s*giá|xếp\s*hạng)\b/i.test(clean(value,2000));
+}
+
+function requestedPlaceLimit(value) {
+  const text=clean(value,2000),match=text.match(/\b(?:top\s*)?(\d{1,2})\s*(?:quán|tiệm|địa\s*điểm|nơi|kết\s*quả|cửa\s*hàng)\b/i)||text.match(/\btop\s*(\d{1,2})\b/i);
+  return match?clamp(match[1],1,20,10):10;
+}
+
 function remoteAreaSearchIntent(userMessage) {
   const text=clean(userMessage,1000).replace(/[?!.]+$/,'').trim();
   const patterns=[/\s+(?:quanh|xung quanh)\s+(.+)$/i,/\s+(?:gần)\s+(.+)$/i,/\s+(?:ở|tại)\s+(?:khu vực|khu|quận|huyện|phường)?\s*(.+)$/i];
   for(const pattern of patterns){
     const match=text.match(pattern);if(!match||match.index==null)continue;
-    const ranking=/\b(?:rating|review|đánh\s*giá|được\s+đánh\s*giá|xếp\s*hạng)\b/i.test(text)?'rating':'distance';
+    const ranking=wantsRatingRanking(text)?'rating':'distance';
     let query=text.slice(0,match.index).trim(),area=clean(match[1],300);
     area=area
       .replace(/^(?:quanh|gần|ở|tại)?\s*(?:khu\s*vực|khu|chỗ|vùng)\s+/i,'')
@@ -1503,7 +1512,7 @@ function remoteAreaSearchIntent(userMessage) {
       .trim();
     const areaKey=fold(area);
     if(!query||!area||['toi','tui','minh','day','gan day','cho toi','cho minh','nhat'].includes(areaKey))continue;
-    return {query,area,radius:3000,limit:10,sortBy:ranking};
+    return {query,area,radius:3000,limit:requestedPlaceLimit(text),sortBy:ranking};
   }
   return null;
 }
@@ -2143,8 +2152,9 @@ async function executeV3Tools(plan, userMessage, location, env) {
         const searchCountry=clean(state.lastPlace?.country||location.country,120);
         if(!center) result={ok:false,error:'GPS_REQUIRED'};
         else {
+          const resultLimit=requestedPlaceLimit(userMessage),sortBy=wantsRatingRanking(userMessage)?'rating':'distance';
           const originalQuery=args.query||args.placeName||args.category,searchPlan=await semanticPlaceSearch(originalQuery,searchCountry,args.category,env);
-          result=await mapTool('/poi/nearby',{center:{...center,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category:args.category,radius:args.radius,limit:args.limit,candidateLimit:Math.max(20,args.limit*4),language:nearbyLanguage({country:searchCountry})},env);
+          result=await mapTool('/poi/nearby',{center:{...center,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category:args.category,radius:args.radius,limit:resultLimit,candidateLimit:Math.max(20,resultLimit*4),sortBy,language:nearbyLanguage({country:searchCountry})},env);
           if(result.ok&&isFoodPlaceSearch(originalQuery,args.category))result={...result,data:{...result.data,pois:await enrichPlaceNotes(result.data?.pois||[],searchPlan.requestedDish||originalQuery,searchCountry,env)}};
         }
         if(result.ok) {

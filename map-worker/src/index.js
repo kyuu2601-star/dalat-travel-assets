@@ -350,7 +350,7 @@ async function amapNearby(body, env, originHeader, center, keyword, types, radiu
     const response=await fetch(`${AMAP_NEARBY_URL}?${params}`,{signal:controller.signal}),raw=await response.json().catch(()=>null);
     if(!response.ok||!raw) return json({error:`AMap Nearby HTTP ${response.status}`,provider:'amap'},502,originHeader);
     if(String(raw.status)!=='1') return json({error:`AMap Nearby: ${raw.info||'unknown error'}`,infocode:raw.infocode||'',provider:'amap'},502,originHeader);
-    const pois=(Array.isArray(raw.pois)?raw.pois:[]).map(p=>normalizeAmapPoi(p,queryCenter,country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity)).slice(0,limit);
+    const sortBy=clean(body?.sortBy,30).toLowerCase(),pois=(Array.isArray(raw.pois)?raw.pois:[]).map(p=>normalizeAmapPoi(p,queryCenter,country)).filter(Boolean).sort((a,b)=>sortBy==='rating'?(Number(b.rating)||0)-(Number(a.rating)||0)||(a.distance??Infinity)-(b.distance??Infinity):(a.distance??Infinity)-(b.distance??Infinity)).slice(0,limit);
     return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,name:clean(body?.name,120),types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
   }catch(error){return json({error:error?.name==='AbortError'?'AMap Nearby timeout.':`Không gọi được AMap Nearby: ${clean(error?.message,300)}`,provider:'amap'},502,originHeader);}finally{clearTimeout(timer);}
 }
@@ -550,7 +550,7 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
     result={ok:searches.some(search=>search.ok),places,error:searches.map(search=>search.error).filter(Boolean).join(' / ')};
     source='google-places-expanded-text-v1';
   }else if(name||textQuery||!info.googleType){
-    result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
+    result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true},env);
     source='google-places-text-v1';
   }else{
     result=await googleNearbyPlaces({googleType:info.googleType,center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
