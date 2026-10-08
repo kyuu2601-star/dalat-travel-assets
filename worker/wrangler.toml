@@ -2,6 +2,10 @@ name = "ai-test"
 main = "src/index.js"
 compatibility_date = "2026-09-29"
 workers_dev = true
+keep_vars = true
+
+[placement]
+region = "gcp:us-central1"
 
 [[d1_databases]]
 binding = "DB"
