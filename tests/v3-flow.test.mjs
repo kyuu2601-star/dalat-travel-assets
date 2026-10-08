@@ -74,7 +74,7 @@ test('Map Worker enriches place details by exact Google Place ID for review text
   const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';
   globalThis.fetch=async (url,init={})=>{
     requestedUrl=String(url);fieldMask=init.headers['X-Goog-FieldMask'];
-    return new Response(JSON.stringify({id:'ChIJ-test',displayName:{text:'Khu du lịch Thác Datanla'},formattedAddress:'Đà Lạt',location:{latitude:11.9,longitude:108.45},rating:4.4,userRatingCount:25407,reviews:[{rating:5,text:{text:'Cảnh đẹp và trải nghiệm thú vị.'},relativePublishTimeDescription:'1 tuần trước'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({id:'ChIJ-test',displayName:{text:'Khu du lịch Thác Datanla'},formattedAddress:'Đà Lạt',location:{latitude:11.9,longitude:108.45},rating:4.4,userRatingCount:25407,reviews:[{rating:5,text:{text:'Cảnh đẹp và trải nghiệm thú vị.'},relativePublishTimeDescription:'1 tuần trước',publishTime:'2026-10-01T00:00:00Z'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/details',{
@@ -85,8 +85,25 @@ test('Map Worker enriches place details by exact Google Place ID for review text
     assert.equal(response.status,200);
     assert.equal(data.source,'google-place-details-v1');
     assert.equal(data.place.reviews[0].text,'Cảnh đẹp và trải nghiệm thú vị.');
+    assert.equal(data.place.reviews[0].publishTime,'2026-10-01T00:00:00Z');
     assert.match(requestedUrl,/places\/ChIJ-test\?languageCode=vi/);
     assert.match(fieldMask,/(^|,)reviews(,|$)/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker returns normalized Google Weather current conditions', async () => {
+  const { default: worker } = await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='';
+  globalThis.fetch=async url=>{requestedUrl=String(url);return new Response(JSON.stringify({currentTime:'2026-10-08T09:00:00Z',timeZone:{id:'Asia/Ho_Chi_Minh'},weatherCondition:{type:'PARTLY_CLOUDY',description:{text:'Có mây rải rác'}},temperature:{degrees:27.4},feelsLikeTemperature:{degrees:29.1},relativeHumidity:74,uvIndex:3,precipitation:{probability:{percent:25},qpf:{quantity:0}},wind:{speed:{value:8}}}),{status:200,headers:{'Content-Type':'application/json'}});};
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/weather/current',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({location:{lat:10.8,lng:106.7},language:'vi'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'google-weather-v1');
+    assert.equal(data.weather.current.temperature,27.4);
+    assert.equal(data.weather.current.condition,'Có mây rải rác');
+    assert.match(requestedUrl,/weather\.googleapis\.com\/v1\/currentConditions:lookup/);
+    assert.match(requestedUrl,/location\.latitude=10\.8/);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -282,10 +299,12 @@ test('Destination summary combines Google reviews, weather, BestTime and AI copy
   const env={
     ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',BESTTIME_PRIVATE_KEY:'private-test',GEMINI_API_KEY:'gemini-test',
     MAP_WORKER:{fetch:async request=>{
-      assert.equal(new URL(request.url).pathname,'/poi/details');
+      const path=new URL(request.url).pathname;
+      if(path==='/weather/current')return new Response(JSON.stringify({ok:true,source:'google-weather-v1',weather:{coordinates:{lat:11.94,lng:108.44},timezone:'Asia/Ho_Chi_Minh',current:{temperature:26.2,condition:'Có mây'}}}),{status:200,headers:{'Content-Type':'application/json'}});
+      assert.equal(path,'/poi/details');
       return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',place:{
         id:'place-1',name:'Bếp Nhà Tully',address:'Đà Lạt',lat:11.94,lng:108.44,rating:4.7,userRatingCount:321,
-        reviews:[{rating:5,text:'Món ngon, nhân viên rất thân thiện.'},{rating:4,text:'Không gian đẹp và phục vụ tốt.'}],provider:'google_places'
+        reviews:[{rating:5,text:'Món ngon, nhân viên rất thân thiện.',publishTime:new Date().toISOString()},{rating:4,text:'Không gian đẹp và phục vụ tốt.',publishTime:new Date().toISOString()}],provider:'google_places'
       }}),{status:200,headers:{'Content-Type':'application/json'}});
     }}
   };
@@ -298,10 +317,11 @@ test('Destination summary combines Google reviews, weather, BestTime and AI copy
     assert.equal(response.status,200);
     assert.equal(data.ok,true);
     assert.equal(data.place.rating,4.7);
+    assert.equal(data.place.recentReviewCount,2);
+    assert.equal(data.place.recentRating,4.5);
     assert.equal(data.weather.current.temperature,26.2);
     assert.equal(data.busyness.label,'khá đông');
     assert.match(data.reviewSummary,/món ăn ngon/i);
-    assert.ok(external.some(url=>url.startsWith('https://api.open-meteo.com/')));
     assert.ok(external.some(url=>url.startsWith('https://besttime.app/')));
     assert.ok(external.some(url=>url.startsWith('https://generativelanguage.googleapis.com/')));
   }finally{globalThis.fetch=originalFetch;}

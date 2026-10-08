@@ -8,6 +8,7 @@ const GOOGLE_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchTe
 const GOOGLE_NEARBY_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 const GOOGLE_PLACE_URL = 'https://places.googleapis.com/v1/places';
 const GOOGLE_ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+const GOOGLE_WEATHER_URL = 'https://weather.googleapis.com/v1/currentConditions:lookup';
 const AMAP_DRIVING_URL = 'https://restapi.amap.com/v5/direction/driving';
 const REQUEST_BUDGET_MS = 9500;
 
@@ -422,7 +423,7 @@ function normalizeGooglePlace(place, center, country) {
   const lat=Number(place?.location?.latitude),lng=Number(place?.location?.longitude);
   if(!Number.isFinite(lat)||!Number.isFinite(lng)) return null;
   const reviews=(Array.isArray(place?.reviews)?place.reviews:[]).slice(0,5).map(review=>({
-    rating:Number(review?.rating)||null,text:clean(review?.text?.text,1000),relativeTime:clean(review?.relativePublishTimeDescription,120),author:clean(review?.authorAttribution?.displayName,200)
+    rating:Number(review?.rating)||null,text:clean(review?.text?.text,1000),relativeTime:clean(review?.relativePublishTimeDescription,120),publishTime:clean(review?.publishTime,80),author:clean(review?.authorAttribution?.displayName,200)
   }));
   const todayOpening=openingHoursForToday(place);
   return {
@@ -527,11 +528,48 @@ async function googlePlaceDetails(body, env, originHeader) {
   if(!result.ok) return json({error:result.error,provider:'google_places'},502,originHeader);
   const places=result.places;
   let place=places[0]||null,source='google-places-text-v1';
-  if(place?.id){
+  if(place?.id&&body?.includeReviews!==false){
     const direct=await googlePlaceById(place.id,{center,language:body?.language,country:body?.country},env);
     if(direct.ok&&direct.place){place=direct.place;source='google-place-details-v1';}
   }
   return json({ok:true,source,provider:'google_places',query,places:place?[place,...places.filter(item=>item.id!==place.id)]:places,place},200,originHeader);
+}
+
+function normalizeGoogleWeather(data, coord) {
+  return {coordinates:coord,timezone:clean(data?.timeZone?.id,100),current:{
+    time:clean(data?.currentTime,80),temperature:Number(data?.temperature?.degrees),apparentTemperature:Number(data?.feelsLikeTemperature?.degrees),
+    precipitation:Number(data?.precipitation?.qpf?.quantity)||0,precipitationProbability:Number(data?.precipitation?.probability?.percent)||0,
+    windSpeed:Number(data?.wind?.speed?.value),weatherCode:clean(data?.weatherCondition?.type,100),condition:clean(data?.weatherCondition?.description?.text,200),
+    relativeHumidity:Number(data?.relativeHumidity),uvIndex:Number(data?.uvIndex),isDaytime:data?.isDaytime===true
+  }};
+}
+
+async function openMeteoCurrent(coord) {
+  const params=new URLSearchParams({latitude:String(coord.lat),longitude:String(coord.lng),timezone:'auto',current:'temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,relative_humidity_2m'});
+  const result=await fetchJson(`https://api.open-meteo.com/v1/forecast?${params.toString()}`,{},5000);
+  if(!result.ok)return null;
+  const current=result.data?.current||{};
+  const labels={0:'Trời quang',1:'Chủ yếu quang',2:'Có mây rải rác',3:'Nhiều mây',45:'Sương mù',48:'Sương mù đóng băng',51:'Mưa phùn nhẹ',53:'Mưa phùn',55:'Mưa phùn dày',61:'Mưa nhẹ',63:'Mưa vừa',65:'Mưa lớn',80:'Mưa rào nhẹ',81:'Mưa rào',82:'Mưa rào lớn',95:'Dông',96:'Dông kèm mưa đá nhẹ',99:'Dông kèm mưa đá'};
+  return {coordinates:coord,timezone:clean(result.data?.timezone,100),current:{time:clean(current.time,80),temperature:Number(current.temperature_2m),apparentTemperature:Number(current.apparent_temperature),precipitation:Number(current.precipitation)||0,windSpeed:Number(current.wind_speed_10m),weatherCode:Number(current.weather_code),condition:labels[Number(current.weather_code)]||'Thời tiết hiện tại',relativeHumidity:Number(current.relative_humidity_2m)}};
+}
+
+async function weatherCurrent(request, env, originHeader) {
+  let body;try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
+  const coord=finiteCoord(body?.location||body?.center||body);if(!coord)return json({error:'location không hợp lệ.'},400,originHeader);
+  let googleError='';
+  if(env.GOOGLE_MAPS_API_KEY){
+    const params=new URLSearchParams({key:env.GOOGLE_MAPS_API_KEY,'location.latitude':String(coord.lat),'location.longitude':String(coord.lng),languageCode:clean(body?.language,10)||'vi',unitsSystem:'METRIC'});
+    try{
+      const result=await fetchJson(`${GOOGLE_WEATHER_URL}?${params.toString()}`,{},5000);
+      if(result.ok)return json({ok:true,source:'google-weather-v1',provider:'google_weather',weather:normalizeGoogleWeather(result.data,coord)},200,originHeader);
+      googleError=clean(result.data?.error?.message||`Google Weather HTTP ${result.status}`,500);
+    }catch(error){googleError=clean(error?.message,500);}
+  }else googleError='GOOGLE_MAPS_API_KEY_NOT_CONFIGURED';
+  try{
+    const fallback=await openMeteoCurrent(coord);
+    if(fallback)return json({ok:true,source:'open-meteo-fallback',provider:'open_meteo',weather:fallback,fallbackFrom:'google_weather',googleError},200,originHeader);
+  }catch{}
+  return json({error:googleError||'Không lấy được thời tiết.',provider:'google_weather'},502,originHeader);
 }
 
 async function placeDetails(request, env, originHeader) {
@@ -584,6 +622,7 @@ export default {
     if(request.method==='POST'&&url.pathname==='/poi/nearby') return nearbySearch(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/poi/details') return placeDetails(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/place/resolve') return resolvePlace(request,env,origin);
+    if(request.method==='POST'&&url.pathname==='/weather/current') return weatherCurrent(request,env,origin);
     return json({error:'Not found'},404,origin);
   }
 };

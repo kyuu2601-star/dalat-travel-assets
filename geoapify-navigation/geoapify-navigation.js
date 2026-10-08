@@ -75,33 +75,43 @@
     if(!state)return;const link=document.createElement('a');link.href=googleDirectionsUrl(travelMode);link.target='_blank';link.rel='noopener noreferrer';document.body.appendChild(link);link.click();link.remove();
   }
   function snapshotFallback(info){
-    const rating=Number(info?.rating),count=Number(info?.userRatingCount)||0,ratingText=Number.isFinite(rating)&&rating>0?`${rating.toFixed(1)}/5${count?` · ${count.toLocaleString('vi-VN')} đánh giá`:''}`:'Chưa có dữ liệu';
-    return `<div class="destination-snapshot-title">Tổng quan điểm đến</div><div class="destination-snapshot-grid"><div><small>🌤 Thời tiết</small><strong>Chưa có</strong><span>Thử lại sau</span></div><div><small>👥 Độ đông</small><strong>Chưa có</strong><span>Dữ liệu live</span></div><div><small>★ Google</small><strong>${esc(ratingText)}</strong><span>Rating</span></div></div><p>${esc(info?.address||'Thông tin live của điểm đến tạm thời chưa tải được.')}</p>`;
+    return `<div class="destination-snapshot-title">Tổng quan điểm đến</div><div class="destination-snapshot-grid"><div><small>🌤 Thời tiết</small><strong>Đang tải</strong><span>Google Weather</span></div><div><small>👥 Độ đông</small><strong>Đang tải</strong><span>BestTime live</span></div><div><small>★ Google</small><strong>Đang tải</strong><span>Review ≤ 3 tháng</span></div></div><p>${esc(info?.address||'Đang xác minh thông tin điểm đến...')}</p>`;
   }
   function renderDestinationSnapshot(data,info){
     const weather=data?.weather?.current||{},busyness=data?.busyness||{},place=data?.place||info||{};
-    const temperature=Number(weather.temperature),rating=Number(place.rating),count=Number(place.userRatingCount)||0,score=Number(busyness.score);
+    const temperature=Number(weather.temperature),rating=Number(place.recentRating),count=Number(place.recentReviewCount)||0,score=Number(busyness.score);
     const weatherStrong=Number.isFinite(temperature)?`${Math.round(temperature)}°C`:'Chưa có';
     const weatherSub=weather.condition||'Thời tiết hiện tại';
     const crowdStrong=busyness.available?(busyness.label||`${Math.round(score)}%`):'Chưa có';
     const crowdSub=busyness.available?(busyness.basis==='live'?'Hiện tại':'Dự báo theo giờ'):'BestTime chưa có dữ liệu';
     const ratingStrong=Number.isFinite(rating)&&rating>0?`${rating.toFixed(1)}/5`:'Chưa có';
-    const ratingSub=count?`${count.toLocaleString('vi-VN')} đánh giá`:'Google rating';
+    const ratingSub=count?`${count} review · ≤ 3 tháng`:'Chưa có mẫu ≤ 3 tháng';
     const summary=data?.reviewSummary||fallbackReviewSummary(place);
     $('#geo-note',root).innerHTML=`<div class="destination-snapshot-title">Tổng quan điểm đến</div><div class="destination-snapshot-grid"><div><small>🌤 Thời tiết</small><strong>${esc(weatherStrong)}</strong><span>${esc(weatherSub)}</span></div><div><small>👥 Độ đông</small><strong>${esc(crowdStrong)}</strong><span>${esc(crowdSub)}</span></div><div><small>★ Google</small><strong>${esc(ratingStrong)}</strong><span>${esc(ratingSub)}</span></div></div><p>${esc(summary)}</p>`;
   }
   function fallbackReviewSummary(place){
-    const rating=Number(place?.rating),count=Number(place?.userRatingCount)||0;
-    if(Number.isFinite(rating)&&rating>0)return `Được chấm ${rating.toFixed(1)}/5${count?` từ ${count.toLocaleString('vi-VN')} lượt đánh giá`:''} trên Google.`;
-    return place?.address||'Chưa có đủ review Google để tóm tắt điểm đến này.';
+    const rating=Number(place?.recentRating),count=Number(place?.recentReviewCount)||0;
+    if(Number.isFinite(rating)&&rating>0&&count)return `${count} review Google trong 3 tháng gần đây đạt trung bình ${rating.toFixed(1)}/5.`;
+    return place?.address||'Google chưa trả review nào trong 3 tháng gần đây.';
+  }
+  async function fastDestinationSnapshot(info,signal){
+    const endpoint=mapWorker();if(!endpoint)return null;const body={name:info.name,address:info.address,country:info.country,placeId:info.poiId,center:{lat:info.lat,lng:info.lng},language:'vi',radius:3000,includeReviews:false};
+    const request=(path,payload)=>fetch(`${endpoint}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal}).then(async response=>({response,data:await response.json().catch(()=>({}))}));
+    const [placeResult,weatherResult]=await Promise.allSettled([request('/poi/details',body),request('/weather/current',{location:{lat:info.lat,lng:info.lng},language:'vi'})]);
+    const place=placeResult.status==='fulfilled'&&placeResult.value.response.ok?placeResult.value.data?.place:null;
+    const weather=weatherResult.status==='fulfilled'&&weatherResult.value.response.ok?weatherResult.value.data?.weather:null;
+    return place||weather?{ok:true,place:place?{...place,recentRating:null,recentReviewCount:0}:info,weather,busyness:null,reviewSummary:place?.address||info.address||''}:null;
   }
   async function loadDestinationSnapshot(info,id){
-    const endpoint=aiWorker();if(!endpoint){$('#geo-note',root).innerHTML=snapshotFallback(info);return;}
-    summaryAbort?.abort();summaryAbort=new AbortController();const timer=setTimeout(()=>summaryAbort?.abort(),16000);
+    const endpoint=aiWorker();summaryAbort?.abort();summaryAbort=new AbortController();const controller=summaryAbort,timer=setTimeout(()=>controller.abort(),30000);
+    $('#geo-note',root).innerHTML=snapshotFallback(info);
+    const fastPromise=fastDestinationSnapshot(info,controller.signal).catch(()=>null);
+    const fullPromise=endpoint?fetch(`${endpoint}/destination-summary`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination:info}),signal:controller.signal}).then(async response=>({response,data:await response.json().catch(()=>({}))})).catch(()=>null):Promise.resolve(null);
+    let fast=null;
     try{
-      const response=await fetch(`${endpoint}/destination-summary`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination:info}),signal:summaryAbort.signal});
-      const data=await response.json().catch(()=>({}));if(id!==session)return;if(!response.ok||!data?.ok)throw new Error(data?.error||`HTTP ${response.status}`);renderDestinationSnapshot(data,info);
-    }catch(error){if(id!==session||error?.name==='AbortError'&&summaryAbort?.signal?.aborted&&id!==session)return;$('#geo-note',root).innerHTML=snapshotFallback(info);console.warn('[Destination snapshot]',error);}
+      fast=await fastPromise;if(id!==session)return;if(fast)renderDestinationSnapshot(fast,info);
+      const full=await fullPromise;if(id!==session)return;if(full?.response?.ok&&full.data?.ok)renderDestinationSnapshot({...full.data,weather:fast?.weather||full.data.weather},info);
+    }catch(error){if(error?.name!=='AbortError')console.warn('[Destination snapshot]',error);}
     finally{clearTimeout(timer);if(id===session)summaryAbort=null;}
   }
   async function open(options={}){
