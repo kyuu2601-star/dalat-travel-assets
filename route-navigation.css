@@ -1,4 +1,4 @@
-.google-mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 12px 0; }
+.google-mode-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px 12px 0; }
 .google-mode-switch button { padding: 10px; border: 1px solid #334155; border-radius: 12px; background: #0b1525; color: #94a3b8; font: 800 12px system-ui; cursor: pointer; }
 .google-mode-switch button[aria-pressed="true"] { border-color: #22d3ee; background: rgba(34,211,238,.14); color: #cffafe; }
 .google-view-toggle { position: absolute; right: 14px; bottom: 14px; z-index: 550; min-width: 48px; padding: 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 13px; background: rgba(2,6,23,.88); color: #fff; font: 900 12px system-ui; box-shadow: 0 8px 28px rgba(0,0,0,.35); cursor: pointer; }

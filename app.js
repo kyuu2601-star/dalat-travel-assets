@@ -632,6 +632,7 @@ async function openPlaceNavigation(index, event) {
         country: item.country || '',
         city: item.city || '',
         area: item.area || '',
+        address: [item.area, item.city, item.country].filter(Boolean).join(', '),
         lat: Number(item.latitude),
         lng: Number(item.longitude),
         coordSystem: item.coordinate_system || 'wgs84'

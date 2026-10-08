@@ -232,11 +232,58 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(navigation,/provider:'google',mode:'walk'/);
   assert.match(navigation,/navigator\.geolocation\.watchPosition/);
   assert.match(navigation,/dir_action:'navigate'/);
-  assert.match(navigation,/travelmode:'driving'/);
+  assert.match(navigation,/data-mode="motorbike"/);
+  assert.match(navigation,/openGoogleDirections\('two-wheeler'\)/);
+  assert.match(navigation,/openGoogleDirections\('driving'\)/);
+  assert.match(navigation,/destination-summary/);
+  assert.doesNotMatch(navigation,/Google tính tuyến và hướng dẫn/);
   assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
   assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk'\}\)/);
   assert.doesNotMatch(index,/src="google-maps-provider\.js/);
   assert.doesNotMatch(index,/src="google-navigation\.js/);
+});
+
+test('Destination summary combines Google reviews, weather, BestTime and AI copy', async () => {
+  const { default: worker } = await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;
+  const external=[];
+  globalThis.fetch=async (url,init={})=>{
+    external.push(String(url));
+    if(String(url).startsWith('https://api.open-meteo.com/')) return new Response(JSON.stringify({
+      timezone:'Asia/Ho_Chi_Minh',current:{temperature_2m:26.2,apparent_temperature:27,precipitation:0,rain:0,weather_code:1,wind_speed_10m:8},current_units:{temperature_2m:'°C'},hourly:{},daily:{}
+    }),{status:200,headers:{'Content-Type':'application/json'}});
+    if(String(url).startsWith('https://besttime.app/')) return new Response(JSON.stringify({
+      status:'OK',analysis:{venue_live_busyness_available:true,venue_live_busyness:68,venue_forecast_busyness_available:true,venue_forecasted_busyness:55,hour_start:16,hour_end:17},venue_info:{venue_name:'Bếp Nhà Tully',venue_address:'Đà Lạt'}
+    }),{status:200,headers:{'Content-Type':'application/json'}});
+    if(String(url).startsWith('https://generativelanguage.googleapis.com/')) return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Khách thường khen món ăn ngon và nhân viên thân thiện.'}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    throw new Error(`Unexpected fetch ${url} ${init.method||'GET'}`);
+  };
+  const env={
+    ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',BESTTIME_PRIVATE_KEY:'private-test',GEMINI_API_KEY:'gemini-test',
+    MAP_WORKER:{fetch:async request=>{
+      assert.equal(new URL(request.url).pathname,'/poi/details');
+      return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',place:{
+        id:'place-1',name:'Bếp Nhà Tully',address:'Đà Lạt',lat:11.94,lng:108.44,rating:4.7,userRatingCount:321,
+        reviews:[{rating:5,text:'Món ngon, nhân viên rất thân thiện.'},{rating:4,text:'Không gian đẹp và phục vụ tốt.'}],provider:'google_places'
+      }}),{status:200,headers:{'Content-Type':'application/json'}});
+    }}
+  };
+  try{
+    const response=await worker.fetch(new Request('https://ai-test.test/destination-summary',{
+      method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+      body:JSON.stringify({destination:{name:'Bếp Nhà Tully',address:'Đà Lạt',lat:11.94,lng:108.44,country:'Việt Nam'}})
+    }),env);
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.ok,true);
+    assert.equal(data.place.rating,4.7);
+    assert.equal(data.weather.current.temperature,26.2);
+    assert.equal(data.busyness.label,'khá đông');
+    assert.match(data.reviewSummary,/món ăn ngon/i);
+    assert.ok(external.some(url=>url.startsWith('https://api.open-meteo.com/')));
+    assert.ok(external.some(url=>url.startsWith('https://besttime.app/')));
+    assert.ok(external.some(url=>url.startsWith('https://generativelanguage.googleapis.com/')));
+  }finally{globalThis.fetch=originalFetch;}
 });
 
 test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {

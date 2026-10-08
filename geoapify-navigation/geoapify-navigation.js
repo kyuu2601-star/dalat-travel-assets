@@ -1,15 +1,16 @@
 (function () {
-  let root=null,map=null,state=null,session=0;
+  let root=null,map=null,state=null,session=0,summaryAbort=null;
   const $=(s,r=document)=>r.querySelector(s);
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmtM(m){m=Number(m)||0;return m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;}
   function fmtT(s){s=Number(s)||0;const min=Math.max(1,Math.round(s/60));return min<60?`${min} phút`:`${Math.floor(min/60)} giờ ${min%60} phút`;}
   function mapWorker(){return String(window.CONFIG?.MAP_WORKER_URL||'').replace(/\/+$/,'');}
+  function aiWorker(){return String(window.CONFIG?.WORKER_URL||'').replace(/\/+$/,'');}
   function ensureRoot(){
     if(root?.isConnected)return root;
     root=document.createElement('div');root.className='geo-nav-modal';root.setAttribute('aria-hidden','true');
-    root.innerHTML=`<div class="geo-shell"><div class="geo-map-wrap"><div id="geo-map"></div><div id="geo-status">Đang tải bản đồ...</div><div class="google-maneuver" hidden><span class="google-maneuver-icon">↑</span><div><strong>Tiếp tục</strong><small>--</small></div></div></div><aside class="geo-side"><header class="geo-head"><div><span id="geo-provider">GOOGLE WALKING · GEOAPIFY MAP</span><h2 id="geo-title">Điểm đến</h2><p id="geo-summary">Đang tính đường...</p></div><button type="button" class="geo-close" aria-label="Đóng">×</button></header><div class="google-mode-switch" role="group" aria-label="Phương tiện"><button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button><button type="button" data-mode="drive" aria-pressed="false">🚗 Ô tô</button></div><div id="geo-note" class="geo-note">Google tính tuyến và hướng dẫn; Geoapify chỉ hiển thị bản đồ 2D.</div><div id="geo-routes" class="geo-routes"></div><div id="geo-steps" class="geo-steps"></div><div class="google-nav-actions"><button type="button" class="google-start-nav">📍 Bắt đầu theo dõi vị trí</button></div></aside></div>`;
-    document.body.appendChild(root);$('.geo-close',root).onclick=close;$('.google-start-nav',root).onclick=toggleTracking;$('[data-mode="drive"]',root).onclick=openGoogleDriving;return root;
+    root.innerHTML=`<div class="geo-shell"><div class="geo-map-wrap"><div id="geo-map"></div><div id="geo-status">Đang tải bản đồ...</div><div class="google-maneuver" hidden><span class="google-maneuver-icon">↑</span><div><strong>Tiếp tục</strong><small>--</small></div></div></div><aside class="geo-side"><header class="geo-head"><div><span id="geo-provider">GOOGLE WALKING · GEOAPIFY MAP</span><h2 id="geo-title">Điểm đến</h2><p id="geo-summary">Đang tính đường...</p></div><button type="button" class="geo-close" aria-label="Đóng">×</button></header><div class="google-mode-switch" role="group" aria-label="Phương tiện"><button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button><button type="button" data-mode="motorbike" aria-pressed="false">🛵 Xe máy</button><button type="button" data-mode="drive" aria-pressed="false">🚗 Ô tô</button></div><section id="geo-note" class="geo-note destination-snapshot" aria-live="polite"><div class="destination-snapshot-loading"><span></span><div><strong>Thông tin điểm đến</strong><small>Đang lấy thời tiết, độ đông và review...</small></div></div></section><div id="geo-routes" class="geo-routes"></div><div id="geo-steps" class="geo-steps"></div><div class="google-nav-actions"><button type="button" class="google-start-nav">📍 Bắt đầu theo dõi vị trí</button></div></aside></div>`;
+    document.body.appendChild(root);$('.geo-close',root).onclick=close;$('.google-start-nav',root).onclick=toggleTracking;$('[data-mode="motorbike"]',root).onclick=()=>openGoogleDirections('two-wheeler');$('[data-mode="drive"]',root).onclick=()=>openGoogleDirections('driving');return root;
   }
   function stopTracking(){
     if(state?.watchId!=null&&navigator.geolocation)navigator.geolocation.clearWatch(state.watchId);
@@ -18,7 +19,7 @@
     const button=root&&$('.google-start-nav',root);if(button){button.classList.remove('active');button.textContent='📍 Bắt đầu theo dõi vị trí';}
     const maneuver=root&&$('.google-maneuver',root);if(maneuver)maneuver.hidden=true;
   }
-  function close(){session++;stopTracking();root?.classList.remove('open');root?.setAttribute('aria-hidden','true');document.documentElement.classList.remove('geo-nav-open');document.body.classList.remove('geo-nav-open');try{window.GeoapifyMapProvider?.destroy?.(map);}catch{}map=null;state=null;}
+  function close(){session++;summaryAbort?.abort();summaryAbort=null;stopTracking();root?.classList.remove('open');root?.setAttribute('aria-hidden','true');document.documentElement.classList.remove('geo-nav-open');document.body.classList.remove('geo-nav-open');try{window.GeoapifyMapProvider?.destroy?.(map);}catch{}map=null;state=null;}
   function originFromApp(){const p=window.userPos,lat=Number(p?.lat),lng=Number(p?.lon);return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng,coordSystem:'wgs84'}:null;}
   async function fetchRoutes(origin,destination,country,mode){
     if(!window.TravelDirections?.request)throw new Error('Route service chưa sẵn sàng.');
@@ -64,26 +65,58 @@
     state.watchId=navigator.geolocation.watchPosition(position=>{const point={lat:position.coords.latitude,lng:position.coords.longitude};window.userPos={lat:point.lat,lon:point.lng};$('#geo-status',root).classList.add('hidden');updateGuidance(point);},error=>{$('#geo-status',root).textContent=error.code===1?'Cần cho phép Location để theo dõi vị trí.':`GPS: ${error.message}`;$('#geo-status',root).classList.remove('hidden');stopTracking();},{enableHighAccuracy:true,maximumAge:1000,timeout:12000});
   }
   function toggleTracking(){if(state?.watchId!=null){stopTracking();selectRoute(state.selected);return;}startTracking();}
-  function googleDirectionsUrl(){
-    const params=new URLSearchParams({api:'1',destination:`${state.destination.lat},${state.destination.lng}`,travelmode:'driving',dir_action:'navigate'});
+  function googleDirectionsUrl(travelMode='driving'){
+    const params=new URLSearchParams({api:'1',destination:`${state.destination.lat},${state.destination.lng}`,travelmode:travelMode,dir_action:'navigate'});
     const latestOrigin=originFromApp()||state?.origin;if(latestOrigin)params.set('origin',`${latestOrigin.lat},${latestOrigin.lng}`);
+    if(state?.destination?.poiId&&state.destination.provider==='google_places')params.set('destination_place_id',state.destination.poiId);
     return `https://www.google.com/maps/dir/?${params}`;
   }
-  function openGoogleDriving(){
-    if(!state)return;const link=document.createElement('a');link.href=googleDirectionsUrl();link.target='_blank';link.rel='noopener noreferrer';document.body.appendChild(link);link.click();link.remove();
+  function openGoogleDirections(travelMode){
+    if(!state)return;const link=document.createElement('a');link.href=googleDirectionsUrl(travelMode);link.target='_blank';link.rel='noopener noreferrer';document.body.appendChild(link);link.click();link.remove();
+  }
+  function snapshotFallback(info){
+    const rating=Number(info?.rating),count=Number(info?.userRatingCount)||0,ratingText=Number.isFinite(rating)&&rating>0?`${rating.toFixed(1)}/5${count?` · ${count.toLocaleString('vi-VN')} đánh giá`:''}`:'Chưa có dữ liệu';
+    return `<div class="destination-snapshot-title">Tổng quan điểm đến</div><div class="destination-snapshot-grid"><div><small>🌤 Thời tiết</small><strong>Chưa có</strong><span>Thử lại sau</span></div><div><small>👥 Độ đông</small><strong>Chưa có</strong><span>Dữ liệu live</span></div><div><small>★ Google</small><strong>${esc(ratingText)}</strong><span>Rating</span></div></div><p>${esc(info?.address||'Thông tin live của điểm đến tạm thời chưa tải được.')}</p>`;
+  }
+  function renderDestinationSnapshot(data,info){
+    const weather=data?.weather?.current||{},busyness=data?.busyness||{},place=data?.place||info||{};
+    const temperature=Number(weather.temperature),rating=Number(place.rating),count=Number(place.userRatingCount)||0,score=Number(busyness.score);
+    const weatherStrong=Number.isFinite(temperature)?`${Math.round(temperature)}°C`:'Chưa có';
+    const weatherSub=weather.condition||'Thời tiết hiện tại';
+    const crowdStrong=busyness.available?(busyness.label||`${Math.round(score)}%`):'Chưa có';
+    const crowdSub=busyness.available?(busyness.basis==='live'?'Hiện tại':'Dự báo theo giờ'):'BestTime chưa có dữ liệu';
+    const ratingStrong=Number.isFinite(rating)&&rating>0?`${rating.toFixed(1)}/5`:'Chưa có';
+    const ratingSub=count?`${count.toLocaleString('vi-VN')} đánh giá`:'Google rating';
+    const summary=data?.reviewSummary||fallbackReviewSummary(place);
+    $('#geo-note',root).innerHTML=`<div class="destination-snapshot-title">Tổng quan điểm đến</div><div class="destination-snapshot-grid"><div><small>🌤 Thời tiết</small><strong>${esc(weatherStrong)}</strong><span>${esc(weatherSub)}</span></div><div><small>👥 Độ đông</small><strong>${esc(crowdStrong)}</strong><span>${esc(crowdSub)}</span></div><div><small>★ Google</small><strong>${esc(ratingStrong)}</strong><span>${esc(ratingSub)}</span></div></div><p>${esc(summary)}</p>`;
+  }
+  function fallbackReviewSummary(place){
+    const rating=Number(place?.rating),count=Number(place?.userRatingCount)||0;
+    if(Number.isFinite(rating)&&rating>0)return `Được chấm ${rating.toFixed(1)}/5${count?` từ ${count.toLocaleString('vi-VN')} lượt đánh giá`:''} trên Google.`;
+    return place?.address||'Chưa có đủ review Google để tóm tắt điểm đến này.';
+  }
+  async function loadDestinationSnapshot(info,id){
+    const endpoint=aiWorker();if(!endpoint){$('#geo-note',root).innerHTML=snapshotFallback(info);return;}
+    summaryAbort?.abort();summaryAbort=new AbortController();const timer=setTimeout(()=>summaryAbort?.abort(),16000);
+    try{
+      const response=await fetch(`${endpoint}/destination-summary`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination:info}),signal:summaryAbort.signal});
+      const data=await response.json().catch(()=>({}));if(id!==session)return;if(!response.ok||!data?.ok)throw new Error(data?.error||`HTTP ${response.status}`);renderDestinationSnapshot(data,info);
+    }catch(error){if(id!==session||error?.name==='AbortError'&&summaryAbort?.signal?.aborted&&id!==session)return;$('#geo-note',root).innerHTML=snapshotFallback(info);console.warn('[Destination snapshot]',error);}
+    finally{clearTimeout(timer);if(id===session)summaryAbort=null;}
   }
   async function open(options={}){
     close();const id=++session,info=options.destination||options;
     const destination=window.GeoapifyMapProvider?.validPoint?.(info),origin=window.GeoapifyMapProvider?.validPoint?.(options.origin)||originFromApp();
     if(!origin)throw new Error('Chưa có GPS hiện tại. Hãy bật Location rồi thử lại.');if(!destination)throw new Error('Điểm đến không có tọa độ hợp lệ.');
     const r=ensureRoot();r.classList.add('open');r.setAttribute('aria-hidden','false');document.documentElement.classList.add('geo-nav-open');document.body.classList.add('geo-nav-open');
-    $('#geo-title',r).textContent=info?.name||'Điểm đến';$('#geo-provider',r).textContent='GOOGLE WALKING · GEOAPIFY MAP';$('#geo-note',r).textContent='Google tính tuyến và hướng dẫn; Geoapify chỉ hiển thị bản đồ 2D. Vị trí của bạn sẽ được theo dõi khi tuyến tải xong.';$('#geo-status',r).textContent='Đang tải bản đồ...';$('#geo-status',r).classList.remove('hidden');
+    $('#geo-title',r).textContent=info?.name||'Điểm đến';$('#geo-provider',r).textContent='GOOGLE WALKING · GEOAPIFY MAP';$('#geo-note',r).innerHTML='<div class="destination-snapshot-loading"><span></span><div><strong>Thông tin điểm đến</strong><small>Đang lấy thời tiết, độ đông và review...</small></div></div>';$('#geo-status',r).textContent='Đang tải bản đồ...';$('#geo-status',r).classList.remove('hidden');
+    void loadDestinationSnapshot({...info,...destination},id);
     try{
       await window.GeoapifyMapProvider.ensureSdk();if(id!==session)return;
       map=await window.GeoapifyMapProvider.createMap($('#geo-map',r),origin,true);if(id!==session)return;
       const data=await fetchRoutes(origin,{...destination,country:info?.country||''},info?.country||document.getElementById('selectCountry')?.value||'Việt Nam','walk');if(id!==session)return;
-      state={origin,destination,routes:data.routes,selected:0,mode:'walk',watchId:null};
-      if(data.provider==='geoapify'){$('#geo-provider',r).textContent='GEOAPIFY ROUTE FALLBACK';$('#geo-note',r).textContent='Google Routes tạm không khả dụng; đang dùng tuyến Geoapify và bản đồ 2D.';}
+      state={origin,destination:{...info,...destination},routes:data.routes,selected:0,mode:'walk',watchId:null};
+      if(data.provider==='geoapify')$('#geo-provider',r).textContent='GEOAPIFY ROUTE FALLBACK';
       renderChoices();selectRoute(0);$('#geo-status',r).classList.add('hidden');startTracking();
     }catch(error){if(id!==session)return;$('#geo-status',r).textContent=error.message||'Không mở được Geoapify Navigation.';$('#geo-summary',r).textContent='Không thể tạo route';}
   }

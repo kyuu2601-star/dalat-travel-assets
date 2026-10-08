@@ -7,7 +7,7 @@
   function providerOf(payload){const raw=String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase();return raw.includes('google')?'google':raw==='geoapify'?'geoapify':'amap';}
   function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Places · Geoapify Map':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
   function currentCity(payload){return payload?.pois?.[0]?.city||document.getElementById('selectCity')?.value||'';}
-  function poiDestination(poi,payload){const p=validPoint(poi);return p?{name:poi.name||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:poi.coordSystem||'wgs84',poiId:poi.poiId||poi.id||''}:null;}
+  function poiDestination(poi,payload){const p=validPoint(poi);return p?{name:poi.name||'',address:poi.address||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:poi.coordSystem||'wgs84',poiId:poi.poiId||poi.id||'',provider:poi.provider||payload?.provider||'',rating:poi.rating||null,userRatingCount:poi.userRatingCount||0,reviews:Array.isArray(poi.reviews)?poi.reviews.slice(0,5):[]}:null;}
   async function ensureProvider(payload){
     const provider=providerOf(payload);
     if(provider==='google'){
