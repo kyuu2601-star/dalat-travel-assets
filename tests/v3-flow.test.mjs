@@ -207,6 +207,38 @@ test('Google map provider rejects the rendered authorization error screen', asyn
   assert.equal(observers[0].disconnected,true);
 });
 
+test('Geoapify map provider follows live user positions', async () => {
+  const source=await readFile(new URL('../geoapify-navigation/geoapify-provider.js',import.meta.url),'utf8');
+  const marker={positions:[],addTo(){return this;},setLatLng(point){this.positions.push(point);}};
+  const map={pans:[],panTo(point,options){this.pans.push({point,options});},removeLayer(){}};
+  const context={window:{CONFIG:{GEOAPIFY_BROWSER_KEY:'geo-test'},L:{Browser:{retina:false},divIcon:options=>options,marker:()=>marker}},setTimeout,console};
+  vm.runInNewContext(source,context);
+  const first=context.window.GeoapifyMapProvider.updateNavigationPosition(map,{lat:10.77,lng:106.69},true);
+  const second=context.window.GeoapifyMapProvider.updateNavigationPosition(map,{lat:10.78,lng:106.70},true);
+  assert.equal(first,marker);
+  assert.equal(second,marker);
+  assert.deepEqual(JSON.parse(JSON.stringify(marker.positions)),[[10.78,106.7]]);
+  assert.equal(map.pans.length,2);
+  assert.deepEqual(JSON.parse(JSON.stringify(map.pans[1].point)),[10.78,106.7]);
+});
+
+test('Global navigation renders Geoapify, requests Google walking, and tracks GPS', async () => {
+  const [navigation,app,nearby,index]=await Promise.all([
+    readFile(new URL('../geoapify-navigation/geoapify-navigation.js',import.meta.url),'utf8'),
+    readFile(new URL('../app.js',import.meta.url),'utf8'),
+    readFile(new URL('../nearby-search.js',import.meta.url),'utf8'),
+    readFile(new URL('../index.html',import.meta.url),'utf8')
+  ]);
+  assert.match(navigation,/provider:'google',mode:'walk'/);
+  assert.match(navigation,/navigator\.geolocation\.watchPosition/);
+  assert.match(navigation,/dir_action:'navigate'/);
+  assert.match(navigation,/travelmode:'driving'/);
+  assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
+  assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk'\}\)/);
+  assert.doesNotMatch(index,/src="google-maps-provider\.js/);
+  assert.doesNotMatch(index,/src="google-navigation\.js/);
+});
+
 test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;

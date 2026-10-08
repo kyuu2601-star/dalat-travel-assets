@@ -5,14 +5,14 @@
   function distanceText(v){const m=Number(v);if(!Number.isFinite(m)||m<0)return'';return m<1000?`${Math.max(1,Math.round(m))} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;}
   function queryLabel(payload){const q=payload?.query;if(typeof q==='string')return q;return q?.name||q?.keyword||q?.googleType||'Nearby';}
   function providerOf(payload){const raw=String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase();return raw.includes('google')?'google':raw==='geoapify'?'geoapify':'amap';}
-  function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Maps Live':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
+  function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Places · Geoapify Map':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
   function currentCity(payload){return payload?.pois?.[0]?.city||document.getElementById('selectCity')?.value||'';}
   function poiDestination(poi,payload){const p=validPoint(poi);return p?{name:poi.name||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:poi.coordSystem||'wgs84',poiId:poi.poiId||poi.id||''}:null;}
   async function ensureProvider(payload){
     const provider=providerOf(payload);
     if(provider==='google'){
-      if(!window.GoogleMapProvider?.ensureSdk) throw new Error('Google Maps module chưa sẵn sàng.');
-      await window.GoogleMapProvider.ensureSdk(); return 'google';
+      if(!window.GeoapifyMapProvider?.ensureSdk) throw new Error('Geoapify map module chưa sẵn sàng.');
+      await window.GeoapifyMapProvider.ensureSdk(); return 'geoapify';
     }
     if(provider==='geoapify'){
       if(!window.GeoapifyMapProvider?.ensureSdk) throw new Error('Geoapify map module chưa sẵn sàng.');
@@ -27,18 +27,6 @@
   async function mountMap(container,payload,interactive){
     if(!container||!Array.isArray(payload?.pois))return null;
     const provider=await ensureProvider(payload);
-    if(provider==='google'){
-      const center=validPoint(payload.center)||validPoint(payload.pois[0]);if(!center)throw new Error('Nearby map thiếu tọa độ.');
-      try{
-        const map=await window.GoogleMapProvider.createMap(container,center,interactive);map.__travelosProvider='google';
-        window.GoogleMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;
-      }catch(error){
-        console.warn('[TravelNearby Google map fallback]',error);
-        if(!window.GeoapifyMapProvider?.ensureSdk)throw error;
-        container.replaceChildren();await window.GeoapifyMapProvider.ensureSdk();const map=await window.GeoapifyMapProvider.createMap(container,center,interactive);map.__travelosProvider='geoapify';
-        window.GeoapifyMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload));return map;
-      }
-    }
     if(provider==='geoapify'){
       const center=validPoint(payload.center)||validPoint(payload.pois[0]); if(!center)throw new Error('Nearby map thiếu tọa độ.');
       const map=await window.GeoapifyMapProvider.createMap(container,center,interactive);
@@ -76,13 +64,9 @@
   async function openRoute(poi,payload=fullPayload){
     const destination=poiDestination(poi,payload);if(!destination)return;const provider=providerOf(payload);closeFull();
     try{
-      if(provider==='google'){
-        if(!window.GoogleNavigation?.open)throw new Error('Google Navigation module chưa sẵn sàng.');
-        await window.GoogleNavigation.open({destination,mode:'drive'});return;
-      }
-      if(provider==='geoapify'){
+      if(provider==='google'||provider==='geoapify'){
         if(!window.GeoapifyNavigation?.open)throw new Error('Geoapify Navigation module chưa sẵn sàng.');
-        await window.GeoapifyNavigation.open({destination});return;
+        await window.GeoapifyNavigation.open({destination,mode:'walk'});return;
       }
       if(window.ChinaNavigation?.ensureLoaded)await window.ChinaNavigation.ensureLoaded(destination.city||'');
       if(!window.TravelNavigation?.open)throw new Error('AMap Navigation module chưa sẵn sàng.');

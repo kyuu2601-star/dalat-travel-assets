@@ -645,8 +645,8 @@ async function openPlaceNavigation(index, event) {
             await window.TravelNavigation.open({ destination });
             return;
         }
-        if (!window.GoogleNavigation?.open) throw new Error('Google Navigation chưa sẵn sàng.');
-        await window.GoogleNavigation.open({ destination, mode: 'drive' });
+        if (!window.GeoapifyNavigation?.open) throw new Error('Điều hướng đi bộ chưa sẵn sàng.');
+        await window.GeoapifyNavigation.open({ destination, mode: 'walk' });
     } catch (error) {
         console.error('[TravelOS place navigation]', error);
         alert(error.message || 'Không mở được chỉ đường.');

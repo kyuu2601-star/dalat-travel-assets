@@ -1,5 +1,6 @@
 (function () {
   const objectStore = new WeakMap();
+  const navigationStore = new WeakMap();
   let sdkPromise = null;
 
   function key() { return String(window.CONFIG?.GEOAPIFY_BROWSER_KEY || '').trim(); }
@@ -67,6 +68,15 @@
     if(d){points.push(d);objects.push(track(map,L.marker([d.lat,d.lng],{icon:divIcon('✓'),title:'Điểm đến'}).addTo(map)));}
     fit(map,points,60);return{path,objects};
   }
-  function destroy(map){if(!map)return;try{clearObjects(map);map.remove();}catch{}}
-  window.GeoapifyMapProvider={ensureSdk,createMap,drawNearby,drawRoute,validPoint,clearObjects,destroy};
+  function updateNavigationPosition(map,position,follow=true){
+    const p=validPoint(position);if(!window.L||!map||!p)return null;
+    let marker=navigationStore.get(map);
+    if(!marker){marker=window.L.marker([p.lat,p.lng],{icon:divIcon('●',true),title:'Vị trí hiện tại',zIndexOffset:1200}).addTo(map);navigationStore.set(map,marker);}
+    else marker.setLatLng([p.lat,p.lng]);
+    if(follow)map.panTo([p.lat,p.lng],{animate:true,duration:.45});
+    return marker;
+  }
+  function clearNavigationPosition(map){const marker=navigationStore.get(map);if(marker){try{map.removeLayer(marker);}catch{}navigationStore.delete(map);}}
+  function destroy(map){if(!map)return;try{clearNavigationPosition(map);clearObjects(map);map.remove();}catch{}}
+  window.GeoapifyMapProvider={ensureSdk,createMap,drawNearby,drawRoute,updateNavigationPosition,clearNavigationPosition,validPoint,clearObjects,destroy};
 })();
