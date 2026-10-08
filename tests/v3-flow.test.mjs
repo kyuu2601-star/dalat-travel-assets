@@ -69,6 +69,27 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
   } finally { globalThis.fetch=originalFetch; }
 });
 
+test('Map Worker enriches place details by exact Google Place ID for review text', async () => {
+  const { default: worker } = await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';
+  globalThis.fetch=async (url,init={})=>{
+    requestedUrl=String(url);fieldMask=init.headers['X-Goog-FieldMask'];
+    return new Response(JSON.stringify({id:'ChIJ-test',displayName:{text:'Khu du lịch Thác Datanla'},formattedAddress:'Đà Lạt',location:{latitude:11.9,longitude:108.45},rating:4.4,userRatingCount:25407,reviews:[{rating:5,text:{text:'Cảnh đẹp và trải nghiệm thú vị.'},relativePublishTimeDescription:'1 tuần trước'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/details',{
+      method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+      body:JSON.stringify({placeId:'ChIJ-test',name:'Thác Datanla',center:{lat:11.9,lng:108.45},country:'Việt Nam'})
+    }),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'google-place-details-v1');
+    assert.equal(data.place.reviews[0].text,'Cảnh đẹp và trải nghiệm thú vị.');
+    assert.match(requestedUrl,/places\/ChIJ-test\?languageCode=vi/);
+    assert.match(fieldMask,/(^|,)reviews(,|$)/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker uses Google Routes for walking and returns drawable paths', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch = globalThis.fetch;

@@ -6,6 +6,7 @@ const GEOAPIFY_GEOCODING_URL = 'https://api.geoapify.com/v1/geocode/search';
 const GEOAPIFY_DETAILS_URL = 'https://api.geoapify.com/v2/place-details';
 const GOOGLE_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
 const GOOGLE_NEARBY_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchNearby';
+const GOOGLE_PLACE_URL = 'https://places.googleapis.com/v1/places';
 const GOOGLE_ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const AMAP_DRIVING_URL = 'https://restapi.amap.com/v5/direction/driving';
 const REQUEST_BUDGET_MS = 9500;
@@ -469,6 +470,16 @@ async function googleTextPlaces(options, env) {
   return {ok:true,places};
 }
 
+async function googlePlaceById(placeId, options, env) {
+  if(!env.GOOGLE_MAPS_API_KEY) return {ok:false,error:'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED',place:null};
+  const id=clean(placeId,500);if(!id)return {ok:false,error:'PLACE_ID_REQUIRED',place:null};
+  const fields=['id','displayName','formattedAddress','location','currentOpeningHours','utcOffsetMinutes','businessStatus','rating','userRatingCount','nationalPhoneNumber','internationalPhoneNumber','websiteUri','reviews'].join(',');
+  const params=new URLSearchParams({languageCode:clean(options?.language,10)||'vi'});
+  const result=await fetchJson(`${GOOGLE_PLACE_URL}/${encodeURIComponent(id)}?${params.toString()}`,{headers:{'X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fields}});
+  if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Place Details HTTP ${result.status}`,place:null};
+  return {ok:true,place:normalizeGooglePlace(result.data,finiteCoord(options?.center),options?.country)};
+}
+
 async function googleNearbyPlaces(options, env) {
   if(!env.GOOGLE_MAPS_API_KEY) return {ok:false,error:'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED',places:[]};
   const center=finiteCoord(options?.center),googleType=clean(options?.googleType,100);
@@ -506,11 +517,21 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
 async function googlePlaceDetails(body, env, originHeader) {
   if(!env.GOOGLE_MAPS_API_KEY) return null;
   const center=finiteCoord(body?.center||body?.location),query=clean(body?.query||[body?.name,body?.address].filter(Boolean).join(' '),300);
+  const requestedId=clean(body?.placeId||body?.id,500);
+  if(requestedId){
+    const direct=await googlePlaceById(requestedId,{center,language:body?.language,country:body?.country},env);
+    if(direct.ok&&direct.place)return json({ok:true,source:'google-place-details-v1',provider:'google_places',query:requestedId,places:[direct.place],place:direct.place},200,originHeader);
+  }
   if(!query) return json({error:'query/name là bắt buộc.'},400,originHeader);
   const result=await googleTextPlaces({query,center,radius:body?.radius,limit:5,language:body?.language,country:body?.country},env);
   if(!result.ok) return json({error:result.error,provider:'google_places'},502,originHeader);
   const places=result.places;
-  return json({ok:true,source:'google-places-text-v1',provider:'google_places',query,places,place:places[0]||null},200,originHeader);
+  let place=places[0]||null,source='google-places-text-v1';
+  if(place?.id){
+    const direct=await googlePlaceById(place.id,{center,language:body?.language,country:body?.country},env);
+    if(direct.ok&&direct.place){place=direct.place;source='google-place-details-v1';}
+  }
+  return json({ok:true,source,provider:'google_places',query,places:place?[place,...places.filter(item=>item.id!==place.id)]:places,place},200,originHeader);
 }
 
 async function placeDetails(request, env, originHeader) {
