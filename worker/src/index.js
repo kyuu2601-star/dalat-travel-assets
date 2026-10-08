@@ -1764,6 +1764,7 @@ async function weatherTool(args, fallbackCoord) {
 }
 
 function busynessLabel(score) {
+  if(score==null||score==='') return '';
   const value=Number(score);
   if(!Number.isFinite(value)) return '';
   if(value<20) return 'rất vắng';
