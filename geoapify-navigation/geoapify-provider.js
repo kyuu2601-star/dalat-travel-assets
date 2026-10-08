@@ -49,13 +49,14 @@
   }
   function track(map,obj){const list=objectStore.get(map)||[];list.push(obj);objectStore.set(map,list);return obj;}
   function clearObjects(map){if(!map)return;(objectStore.get(map)||[]).forEach(obj=>{try{map.removeLayer(obj);}catch{}});objectStore.set(map,[]);}
-  function pinHtml(label,user=false){return user?'<div class="nearby-pin nearby-pin-user"><span>●</span></div>':`<div class="nearby-pin"><span>${label}</span></div>`;}
-  function divIcon(label,user=false){return window.L.divIcon({className:'travelos-leaflet-pin',html:pinHtml(label,user),iconSize:user?[24,24]:[30,36],iconAnchor:user?[12,12]:[15,34]});}
+  function personHtml(){return '<div class="nearby-user-person" aria-label="Vị trí hiện tại"><svg viewBox="0 0 24 30" aria-hidden="true"><circle cx="12" cy="5" r="4"></circle><path d="M8 11h8c2 0 3 1.5 3 3.2V19h-3v10h-3V20h-2v9H8V19H5v-4.8C5 12.5 6 11 8 11z"></path></svg></div>';}
+  function pinHtml(label,user=false,center=false){return user?personHtml():`<div class="nearby-pin${center?' nearby-pin-center':''}"><span>${label}</span></div>`;}
+  function divIcon(label,user=false,center=false){return window.L.divIcon({className:'travelos-leaflet-pin',html:pinHtml(label,user,center),iconSize:user?[28,34]:[30,36],iconAnchor:user?[14,30]:[15,34]});}
   function fit(map,points,pad=40){if(!points.length)return;if(points.length===1){map.setView([points[0].lat,points[0].lng],16);return;}map.fitBounds(points.map(p=>[p.lat,p.lng]),{padding:[pad,pad],maxZoom:17});}
   function drawNearby(map,payload,onPoiClick){
     if(!window.L||!map)return[];const L=window.L;clearObjects(map);const points=[],objects=[];
     const center=validPoint(payload?.center);
-    if(center){points.push(center);objects.push(track(map,L.marker([center.lat,center.lng],{icon:divIcon('◎'),title:'Tâm khu vực tìm kiếm',zIndexOffset:500}).addTo(map)));}
+    if(center){points.push(center);objects.push(track(map,L.marker([center.lat,center.lng],{icon:divIcon('●',false,true),title:'Địa điểm được dùng làm tâm tìm kiếm',zIndexOffset:500}).addTo(map)));}
     (payload?.pois||[]).forEach((poi,index)=>{const p=validPoint(poi);if(!p)return;points.push(p);const marker=L.marker([p.lat,p.lng],{icon:divIcon(index+1),title:String(poi.name||'')}).addTo(map);if(typeof onPoiClick==='function')marker.on('click',()=>onPoiClick(poi,index));objects.push(track(map,marker));});
     fit(map,points,36);return objects;
   }

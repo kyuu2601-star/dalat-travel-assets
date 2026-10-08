@@ -310,6 +310,9 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk',onBack:/);
   assert.match(nearby,/navigator\.geolocation\.watchPosition/);
   assert.match(nearby,/Vị trí của bạn/);
+  assert.match(nearby,/nearby-user-person/);
+  assert.match(nearby,/tới điểm tìm/);
+  assert.match(nearby,/nearby-pin-center/);
   assert.match(navigation,/class="geo-back"/);
   assert.match(navigation,/backToList/);
   assert.match(chinaNavigation,/class="tn-back"/);
