@@ -423,13 +423,33 @@ test('AI v3 resolves a remote area before searching there instead of using curre
     return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'chicken-1',name:'Gà Rán Test',address:'Bình Thạnh, TP.HCM',lat:10.795,lng:106.722,distance:80,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
   try{
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán gà rán quanh Landmark 81 giúp tôi',userLocation:{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022,source:'gps'},chatHistory:[]})}),env);
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Khu vực mục tiêu là Landmark 81; hãy tìm giúp tôi các nơi bán gà rán',userLocation:{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022,source:'gps'},chatHistory:[]})}),env);
     const data=await response.json();
     assert.equal(response.status,200);
     assert.deepEqual(mapPaths,['/place/resolve','/poi/nearby']);
     assert.equal(data.travelos.nearby.pois[0].name,'Gà Rán Test');
     assert.match(data.text,/Tôi tìm được/);
   }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 handles an explicit remote-area search even when Gemini is unavailable', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const paths=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();paths.push(path);
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'landmark-81',name:'Landmark 81',address:'Bình Thạnh, TP.HCM',lat:10.7951,lng:106.7221,country:'Việt Nam',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.equal(body.query,'quán gà rán');
+    assert.equal(body.center.lat,10.7951);
+    assert.equal(body.center.lng,106.7221);
+    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'chicken-1',name:'Haeduri Chicken',address:'Bình Thạnh, TP.HCM',lat:10.7952,lng:106.7222,distance:344,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán gà rán quanh Landmark 81 giúp tôi nhé',userLocation:{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022}})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.deepEqual(paths,['/place/resolve','/poi/nearby']);
+  assert.equal(data.travelos.remoteSearch.resolvedArea.name,'Landmark 81');
+  assert.equal(data.travelos.nearby.pois[0].name,'Haeduri Chicken');
+  assert.match(data.text,/Tôi hiểu khu vực cần tìm/);
 });
 
 test('AI v3 resolves a venue and distinguishes live BestTime busyness from forecast', async () => {

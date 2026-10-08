@@ -1481,6 +1481,34 @@ function deterministicNearbyText(nearby) {
   return `Tôi tìm được ${pois.length} địa điểm gần bạn nhất:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.`;
 }
 
+function remoteAreaSearchIntent(userMessage) {
+  const text=clean(userMessage,1000).replace(/[?!.]+$/,'').trim();
+  const patterns=[/\s+(?:quanh|xung quanh)\s+(.+)$/i,/\s+(?:gần)\s+(.+)$/i,/\s+(?:ở|tại)\s+(?:khu vực|khu|quận|huyện|phường)?\s*(.+)$/i];
+  for(const pattern of patterns){
+    const match=text.match(pattern);if(!match||match.index==null)continue;
+    let query=text.slice(0,match.index).trim(),area=clean(match[1],300).replace(/\s+(?:giúp|cho)\s+(?:tôi|tui|mình)(?:\s+(?:với|nhé|nha))?$/i,'').trim();
+    query=query.replace(/^(?:hãy\s+)?(?:tìm|kiếm|tìm kiếm|tìm giúp|kiếm giúp)(?:\s+(?:cho\s+)?(?:tôi|mình))?\s+/i,'').replace(/\s+(?:giúp|cho)\s+(?:tôi|mình)$/i,'').trim();
+    const areaKey=fold(area);
+    if(!query||!area||['toi','tui','minh','day','gan day','cho toi','cho minh','nhat'].includes(areaKey))continue;
+    return {query,area,radius:3000,limit:8};
+  }
+  return null;
+}
+
+async function handleRemoteAreaSearch(intent, request, env, location) {
+  const resolved=await mapTool('/place/resolve',{query:intent.area,center:null,country:location.country,language:'vi',limit:5},env);
+  const candidates=resolved.ok?(resolved.data?.places||[]).map(compactPoi):[];
+  const area=candidates[0],center=coordFrom(area);
+  if(!center)return json({text:`Tôi chưa xác định được khu vực “${intent.area}”. Bạn thêm quận, thành phố hoặc một địa danh cụ thể hơn nhé.`,travelos:{version:3,sources:[{tool:'resolve_place',ok:false,source:clean(resolved.source||resolved.provider,100),error:clean(resolved.error,500)}]}},200,request,env);
+  const country=area.country||location.country;
+  const searched=await mapTool('/poi/nearby',{center:{...center,country},country,query:intent.query,keyword:intent.query,radius:intent.radius,limit:intent.limit,candidateLimit:Math.max(20,intent.limit*4),language:'vi'},env);
+  const pois=searched.ok?(searched.data?.pois||[]).map(compactPoi):[];
+  const nearby=searched.ok?{...searched.data,query:`${intent.query} quanh ${area.name||intent.area}`,center:{...center,country},pois}:null;
+  if(!pois.length)return json({text:`Tôi đã xác định “${area.name||intent.area}” nhưng chưa tìm thấy ${intent.query} quanh khu vực này. Bạn có thể tăng bán kính hoặc thử tên món/quán khác.`,travelos:{version:3,nearby:nearby||undefined,sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:false,source:clean(searched.data?.source||searched.source,100),error:clean(searched.error,500)}]}},200,request,env);
+  const lines=pois.slice(0,5).map((poi,index)=>{const detail=[formatNearbyDistance(poi.distance),poi.address].filter(Boolean).join(' · ');return `- ${index+1}. ${poi.name}${detail?` — ${detail}`:''}.`;});
+  return json({text:`Tôi hiểu khu vực cần tìm là **${area.name||intent.area}**. Tôi tìm được ${pois.length} kết quả ${intent.query} gần đó:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem và mở chỉ đường.`,travelos:{version:3,nearby,remoteSearch:{query:intent.query,requestedArea:intent.area,resolvedArea:area},sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:true,source:clean(searched.data?.source||searched.source,100)}]}},200,request,env);
+}
+
 function validNearbyAnswer(text, nearby) {
   const answer = fold(text);
   const pois = Array.isArray(nearby?.pois) ? nearby.pois : [];
@@ -1984,6 +2012,8 @@ async function handleAiV3(request, env) {
   const history=Array.isArray(body?.chatHistory)?body.chatHistory.slice(-8):[];
   const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
   try {
+    const remoteIntent=remoteAreaSearchIntent(userMessage);
+    if(remoteIntent)return handleRemoteAreaSearch(remoteIntent,request,env,location);
     const plan=await planV3(userMessage,history,location,env);
     if(plan.needsClarification) {
       return json({text:plan.clarificationQuestion||'Bạn cho tôi thêm địa điểm hoặc thời gian cụ thể để kiểm tra chính xác nhé.',travelos:{version:3,plan,sources:[]}},200,request,env);
