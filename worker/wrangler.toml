@@ -1,0 +1,21 @@
+name = "ai-test"
+main = "src/index.js"
+compatibility_date = "2026-09-29"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "travelos"
+database_id = "b8497615-d222-47b7-b5bd-7bb0efd17516"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "travelos-images"
+
+[[services]]
+binding = "MAP_WORKER"
+service = "travelos-map"
+
+[vars]
+ALLOWED_ORIGINS = "https://kyuu2601-star.github.io"
+MAP_WORKER_URL = "https://travelos-map.kyuu2601.workers.dev"

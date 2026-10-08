@@ -223,3 +223,46 @@ test('AI v3 plans tools server-side and returns structured nearby evidence', asy
     globalThis.fetch=originalFetch;
   }
 });
+
+test('AI v3 resolves a venue and distinguishes live BestTime busyness from forecast', async () => {
+  const { default: worker } = await importWorker('../worker/src/index.js');
+  const originalFetch = globalThis.fetch;
+  let geminiCalls=0,bestTimeCalls=0;
+  globalThis.fetch=async (url,init={}) => {
+    const target=String(url);
+    if(target.includes('generativelanguage.googleapis.com')) {
+      geminiCalls++;
+      const text=geminiCalls===1
+        ? JSON.stringify({goal:'check live venue busyness',responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[{name:'resolve_place',query:'Cafe Test',placeName:'Cafe Test',language:'vi'},{name:'place_busyness',placeName:'Cafe Test',language:'vi'}]})
+        : 'Cafe Test hiện đang khá đông.';
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    assert.match(target,/besttime\.app\/api\/v1\/forecasts\/live/);
+    assert.equal(init.method,'POST');
+    bestTimeCalls++;
+    const parsed=new URL(target);
+    assert.equal(parsed.searchParams.get('venue_name'),'Cafe Test');
+    assert.equal(parsed.searchParams.get('venue_address'),'123 Test, TP.HCM');
+    assert.equal(parsed.searchParams.get('api_key_private'),'besttime-test');
+    return new Response(JSON.stringify({status:'OK',analysis:{venue_forecasted_busyness:58,venue_forecast_busyness_available:true,venue_live_busyness:72,venue_live_busyness_available:true,venue_live_forecasted_delta:14,hour_start:11,hour_end:12},venue_info:{venue_id:'ven-test',venue_name:'Cafe Test',venue_address:'123 Test, TP.HCM',venue_open:'Open',venue_current_localtime:'Thursday 11:20AM',venue_lat:10.77,venue_lon:106.69,venue_dwell_time_min:30,venue_dwell_time_max:60,venue_dwell_time_avg:45}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  const env={
+    GEMINI_API_KEY:'test',BESTTIME_PRIVATE_KEY:'besttime-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',
+    MAP_WORKER:{fetch:async request=>{
+      const body=await request.json();
+      assert.equal(body.query,'Cafe Test');
+      return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',places:[{id:'google-place-test',name:'Cafe Test',address:'123 Test, TP.HCM',lat:10.77,lng:106.69,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }}
+  };
+  try {
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Giờ Cafe Test có đông không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69},chatHistory:[]})}),env);
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(bestTimeCalls,1);
+    assert.equal(geminiCalls,2);
+    assert.equal(data.travelos.busyness.basis,'live');
+    assert.equal(data.travelos.busyness.score,72);
+    assert.equal(data.travelos.busyness.label,'khá đông');
+    assert.equal(data.travelos.sources[1].source,'besttime-live');
+  } finally { globalThis.fetch=originalFetch; }
+});

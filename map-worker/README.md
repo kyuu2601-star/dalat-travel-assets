@@ -22,7 +22,7 @@ wrangler secret put GOOGLE_MAPS_API_KEY
 wrangler deploy
 ```
 
-`GOOGLE_MAPS_API_KEY` là server key, dùng cho Places API (New) và Routes API. Giữ key này trong Cloudflare Secret; không đưa vào frontend.
+`GOOGLE_MAPS_API_KEY` là server key, dùng cho Places API (New), Routes API, Roads API và Weather API. Giữ key này trong Cloudflare Secret; không đưa vào frontend. Browser key chỉ cần Maps JavaScript API.
 
 Frontend dùng một key riêng tại `CONFIG.GOOGLE_MAPS_BROWSER_KEY`. Browser key chỉ bật Maps JavaScript API và phải giới hạn HTTP referrer theo domain GitHub Pages.
 

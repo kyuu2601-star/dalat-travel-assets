@@ -19,6 +19,7 @@ Setup outline:
    ```bash
    wrangler secret put GEMINI_API_KEY
    wrangler secret put ADMIN_KEY
+   wrangler secret put BESTTIME_PRIVATE_KEY
    wrangler deploy
    ```
 
@@ -32,6 +33,7 @@ The frontend Add Place form becomes visible only when D1 is enabled.
 
 - `search_places`, `resolve_place`, `place_details`
 - `weather`
+- `place_busyness` dùng BestTime live/forecast và luôn phân biệt dữ liệu live với dự báo
 - `walking_route`, `traffic_route`
 - `curated_places` cho recommendation/lịch trình từ D1
 

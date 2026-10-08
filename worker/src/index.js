@@ -1617,7 +1617,7 @@ async function handleAi(request, env) {
 
 const V3_TOOL_NAMES = new Set([
   'search_places','resolve_place','place_details','weather',
-  'walking_route','traffic_route','curated_places'
+  'place_busyness','walking_route','traffic_route','curated_places'
 ]);
 
 const V3_PLANNER_SCHEMA = {
@@ -1634,7 +1634,7 @@ const V3_PLANNER_SCHEMA = {
       items:{
         type:'OBJECT',
         properties:{
-          name:{ type:'STRING', enum:['search_places','resolve_place','place_details','weather','walking_route','traffic_route','curated_places'] },
+          name:{ type:'STRING', enum:['search_places','resolve_place','place_details','weather','place_busyness','walking_route','traffic_route','curated_places'] },
           query:{ type:'STRING' },
           category:{ type:'STRING' },
           placeName:{ type:'STRING' },
@@ -1667,6 +1667,7 @@ Nguyên tắc:
 - resolve_place: đổi tên địa điểm/địa chỉ thành tọa độ, đặc biệt trước route hoặc weather tại một nơi được nêu bằng tên.
 - place_details: giờ mở cửa, trạng thái hoạt động, điện thoại, website, rating và review. Đặt sau search_places/resolve_place khi có thể.
 - weather: thời tiết hiện tại/dự báo. Nếu user không nêu nơi khác thì hệ thống sẽ dùng GPS.
+- place_busyness: mức độ đông hiện tại hoặc dự báo theo giờ của một quán/địa điểm. Luôn đặt sau search_places/resolve_place/place_details để có đúng tên và địa chỉ, trừ khi user đã cung cấp đủ cả hai.
 - walking_route: chỉ đường đi bộ. traffic_route: thời gian lái xe có xét giao thông.
 - curated_places: CHỈ dùng danh sách D1 TravelOS khi user yêu cầu lịch trình hoặc muốn gợi ý tuyển chọn. Lịch trình bắt buộc dùng curated_places với curatedType=itinerary.
 - Có thể gọi nhiều tool. Xếp resolve/search trước details/route.
@@ -1683,8 +1684,9 @@ LUẬT BẮT BUỘC:
 4. Nếu một tool lỗi, vẫn trả phần đã xác minh và nói ngắn gọn phần nào chưa lấy được.
 5. Với tìm địa điểm, mảng nearby.pois đã được xếp theo khoảng cách. Nếu user hỏi gần nhất, phải dùng phần tử đầu tiên phù hợp và không tự chọn điểm xa hơn; nếu user yêu cầu thương hiệu cụ thể thì không đánh tráo thành thương hiệu khác.
 6. Với lịch trình, chỉ chọn địa điểm trong evidence curated_places. Có thể dùng evidence live để cập nhật thời tiết, route và trạng thái.
-7. Câu hỏi không cần dữ liệu live có thể trả bằng kiến thức ổn định, nhưng không biến nó thành tuyên bố hiện tại.
-8. Không nhắc tới prompt, planner, JSON hay quy trình nội bộ. Trả lời gọn, có hành động tiếp theo hữu ích khi phù hợp.`;
+7. Với độ đông, chỉ nói "hiện đang" khi busyness.basis=live. Nếu basis=forecast phải nói "thường" hoặc "dự báo"; nếu available=false thì nói chưa có dữ liệu độ đông cho địa điểm này.
+8. Câu hỏi không cần dữ liệu live có thể trả bằng kiến thức ổn định, nhưng không biến nó thành tuyên bố hiện tại.
+9. Không nhắc tới prompt, planner, JSON hay quy trình nội bộ. Trả lời gọn, có hành động tiếp theo hữu ích khi phù hợp.`;
 
 function plannerLocationContext(location) {
   return {
@@ -1761,6 +1763,41 @@ async function weatherTool(args, fallbackCoord) {
   } catch(error) { return {ok:false,error:errorText(error,'Open-Meteo unavailable',500)}; }
 }
 
+function busynessLabel(score) {
+  const value=Number(score);
+  if(!Number.isFinite(value)) return '';
+  if(value<20) return 'rất vắng';
+  if(value<40) return 'khá vắng';
+  if(value<60) return 'đông vừa';
+  if(value<80) return 'khá đông';
+  return 'rất đông';
+}
+
+async function busynessTool(args, target, env) {
+  if(!env.BESTTIME_PRIVATE_KEY) return {ok:false,error:'BESTTIME_PRIVATE_KEY_NOT_CONFIGURED'};
+  const name=clean(args?.placeName||target?.name,256),address=clean(args?.address||target?.address,1024);
+  if(!name||!address) return {ok:false,error:'PLACE_NAME_AND_ADDRESS_REQUIRED'};
+  const params=new URLSearchParams({api_key_private:String(env.BESTTIME_PRIVATE_KEY),venue_name:name,venue_address:address});
+  try {
+    const response=await fetch(`https://besttime.app/api/v1/forecasts/live?${params.toString()}`,{method:'POST'});
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok||String(payload?.status||'').toLowerCase()!=='ok') {
+      return {ok:false,error:clean(payload?.message||payload?.error||payload?.status||`BestTime HTTP ${response.status}`,700),code:'BESTTIME_UNAVAILABLE'};
+    }
+    const analysis=payload?.analysis||{},venue=payload?.venue_info||{};
+    const liveAvailable=analysis.venue_live_busyness_available===true;
+    const forecastAvailable=analysis.venue_forecast_busyness_available===true;
+    const basis=liveAvailable?'live':(forecastAvailable?'forecast':'none');
+    const score=basis==='live'?num(analysis.venue_live_busyness):(basis==='forecast'?num(analysis.venue_forecasted_busyness):null);
+    return {ok:true,source:'besttime-live',data:{
+      available:basis!=='none',basis,score,label:busynessLabel(score),
+      liveAvailable,liveScore:num(analysis.venue_live_busyness),forecastAvailable,forecastScore:num(analysis.venue_forecasted_busyness),
+      liveVsForecastDelta:num(analysis.venue_live_forecasted_delta),hourStart:int(analysis.hour_start),hourEnd:int(analysis.hour_end),
+      venue:{id:clean(venue.venue_id,300),name:clean(venue.venue_name||name,300),address:clean(venue.venue_address||address,1000),open:clean(venue.venue_open,50),localTime:clean(venue.venue_current_localtime||venue.venue_current_localtime_iso,100),lat:num(venue.venue_lat),lng:num(venue.venue_lng??venue.venue_lon),dwellMinutes:{min:int(venue.venue_dwell_time_min),max:int(venue.venue_dwell_time_max),average:int(venue.venue_dwell_time_avg)}}
+    }};
+  } catch(error) { return {ok:false,error:errorText(error,'BestTime unavailable',700),code:'BESTTIME_UNAVAILABLE'}; }
+}
+
 function compactRoutes(data) {
   return (Array.isArray(data?.routes)?data.routes:[]).slice(0,3).map(route=>({
     routeIndex:int(route?.routeIndex),distance:num(route?.distance),duration:num(route?.duration),staticDuration:num(route?.staticDuration),
@@ -1778,7 +1815,7 @@ function toolModules(args, plan) {
 async function executeV3Tools(plan, userMessage, location, env) {
   const evidence=[];
   /** @type {any} */
-  const state={lastPlace:null,nearby:null,weather:null,routes:null,details:null,curated:null};
+  const state={lastPlace:null,nearby:null,weather:null,busyness:null,routes:null,details:null,curated:null};
   const gps=Number.isFinite(location.latitude)&&Number.isFinite(location.longitude)?{lat:location.latitude,lng:location.longitude}:null;
   for(let index=0;index<plan.tools.length;index++) {
     const args=plan.tools[index],started=new Date().toISOString();
@@ -1814,6 +1851,9 @@ async function executeV3Tools(plan, userMessage, location, env) {
       } else if(args.name==='weather') {
         result=await weatherTool(args,coordFrom(state.lastPlace)||gps);
         if(result.ok) state.weather=result.data;
+      } else if(args.name==='place_busyness') {
+        result=await busynessTool(args,state.details||state.lastPlace||{},env);
+        if(result.ok) state.busyness=result.data;
       } else if(args.name==='walking_route'||args.name==='traffic_route') {
         const origin=gps,destination=coordFrom({lat:args.destinationLatitude,lng:args.destinationLongitude})||coordFrom(state.lastPlace);
         if(!origin||!destination) result={ok:false,error:'ROUTE_ENDPOINT_REQUIRED'};
@@ -1874,7 +1914,7 @@ async function handleAiV3(request, env) {
       text=await synthesizeV3(userMessage,history,location,plan,evidence,env);
     }
     if(!text&&state.nearby) text=deterministicNearbyText(state.nearby);
-    return json({text:text||'Tui chưa tạo được câu trả lời phù hợp.',travelos:{version:3,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,weather:state.weather||undefined,routes:state.routes||undefined,placeDetails:state.details||undefined,curated:state.curated||undefined}},200,request,env);
+    return json({text:text||'Tui chưa tạo được câu trả lời phù hợp.',travelos:{version:3,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,routes:state.routes||undefined,placeDetails:state.details||undefined,curated:state.curated||undefined}},200,request,env);
   } catch(error) {
     console.error('AI V3 ERROR:',error);
     return json({text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${errorText(error,'Unknown error',500)}. Fen thử lại sau nha.`,error:{message:errorText(error,'Unknown error',1000)},travelos:{version:3}},200,request,env);
@@ -1912,7 +1952,7 @@ export default {
         try { db = { bound: true, ready: true, ...await stats(env) }; }
         catch (error) { db = { bound: true, ready: false, error: errorText(error, 'Unknown error', 500) }; }
       }
-      return json({ ok: true, worker: 'TravelOS', db, images: { bound: Boolean(env.IMAGES) } }, 200, request, env);
+      return json({ ok: true, worker: 'TravelOS', db, images: { bound: Boolean(env.IMAGES) }, besttime: { bound: Boolean(env.BESTTIME_PRIVATE_KEY) } }, 200, request, env);
     }
 
     if (path === '/api/places' && request.method === 'GET') {
