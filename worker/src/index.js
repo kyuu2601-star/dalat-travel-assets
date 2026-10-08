@@ -1474,9 +1474,9 @@ function deterministicNearbyText(nearby) {
   if (!pois.length) return 'Hiện tại tôi chưa lấy được địa điểm live đã kiểm chứng quanh vị trí của bạn. Bạn thử lại sau một chút nha.';
   const lines = pois.map((poi, index) => {
     const distance = formatNearbyDistance(poi?.distance);
-    const address = clean(poi?.address, 500);
+    const address = clean(poi?.localizedAddress||poi?.address, 500);
     const detail = [distance, address].filter(Boolean).join(' · ');
-    return `- ${index + 1}. ${clean(poi?.name, 300) || 'Địa điểm'}${detail ? ` — ${detail}` : ''}.`;
+    return `- ${index + 1}. ${clean(poi?.localizedName||poi?.name, 300) || 'Địa điểm'}${detail ? ` — ${detail}` : ''}.`;
   });
   return `Tôi tìm được ${pois.length} địa điểm gần bạn nhất:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.`;
 }
@@ -1509,16 +1509,17 @@ function remoteAreaSearchIntent(userMessage) {
 }
 
 async function handleRemoteAreaSearch(intent, request, env, location) {
-  const resolved=await mapTool('/place/resolve',{query:intent.area,center:null,country:location.country,language:'vi',limit:5},env);
+  const resolved=await mapTool('/place/resolve',{query:intent.area,center:null,country:location.country,language:nearbyLanguage(location),limit:5},env);
   const candidates=resolved.ok?(resolved.data?.places||[]).map(compactPoi):[];
   const area=candidates[0],center=coordFrom(area);
   if(!center)return json({text:`Tôi chưa xác định được khu vực “${intent.area}”. Bạn thêm quận, thành phố hoặc một địa danh cụ thể hơn nhé.`,travelos:{version:3,sources:[{tool:'resolve_place',ok:false,source:clean(resolved.source||resolved.provider,100),error:clean(resolved.error,500)}]}},200,request,env);
-  const country=area.country||location.country;
-  const searched=await mapTool('/poi/nearby',{center:{...center,country},country,query:intent.query,keyword:intent.query,radius:intent.radius,limit:intent.limit,candidateLimit:Math.max(20,intent.limit*4),sortBy:intent.sortBy,language:'vi'},env);
-  const pois=searched.ok?(searched.data?.pois||[]).map(compactPoi):[];
+  const country=area.country||location.country,category=inferredPlaceCategory(intent.query);
+  const searchPlan=await semanticPlaceSearch(intent.query,country,category,env);
+  const searched=await mapTool('/poi/nearby',{center:{...center,country},country,query:searchPlan.providerQuery,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category,radius:intent.radius,limit:intent.limit,candidateLimit:Math.max(20,intent.limit*4),sortBy:intent.sortBy,language:nearbyLanguage({country})},env);
+  const rawPois=searched.ok?(searched.data?.pois||[]).map(compactPoi):[],pois=isFoodPlaceSearch(intent.query,category)?await enrichPlaceNotes(rawPois,searchPlan.requestedDish||intent.query,country,env):rawPois;
   const nearby=searched.ok?{...searched.data,query:`${intent.query} quanh ${area.name||intent.area}`,center:{...center,country},pois}:null;
   if(!pois.length)return json({text:`Tôi đã xác định “${area.name||intent.area}” nhưng chưa tìm thấy ${intent.query} quanh khu vực này. Bạn có thể tăng bán kính hoặc thử tên món/quán khác.`,travelos:{version:3,nearby:nearby||undefined,sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:false,source:clean(searched.data?.source||searched.source,100),error:clean(searched.error,500)}]}},200,request,env);
-  const lines=pois.slice(0,5).map((poi,index)=>{const rating=intent.sortBy==='rating'&&poi.rating?`⭐ ${poi.rating.toFixed(1)}${poi.userRatingCount?` (${poi.userRatingCount} đánh giá)`:''}`:'';const detail=[rating,formatNearbyDistance(poi.distance),poi.address].filter(Boolean).join(' · ');return `- ${index+1}. ${poi.name}${detail?` — ${detail}`:''}.`;});
+  const lines=pois.slice(0,5).map((poi,index)=>{const rating=intent.sortBy==='rating'&&poi.rating?`⭐ ${poi.rating.toFixed(1)}${poi.userRatingCount?` (${poi.userRatingCount} đánh giá)`:''}`:'';const detail=[rating,formatNearbyDistance(poi.distance),poi.localizedAddress||poi.address].filter(Boolean).join(' · ');return `- ${index+1}. ${poi.localizedName||poi.name}${detail?` — ${detail}`:''}.`;});
   return json({text:`Tôi hiểu khu vực cần tìm là **${area.name||intent.area}**. Tôi tìm được ${pois.length} kết quả ${intent.query} gần đó:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem và mở chỉ đường.`,travelos:{version:3,nearby,remoteSearch:{query:intent.query,requestedArea:intent.area,resolvedArea:area},sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:true,source:clean(searched.data?.source||searched.source,100)}]}},200,request,env);
 }
 
@@ -1787,12 +1788,202 @@ function coordFrom(value) {
 function compactPoi(poi) {
   return {
     id:clean(poi?.id||poi?.poiId,300),name:clean(poi?.name,300),address:clean(poi?.address,800),
+    localizedName:clean(poi?.localizedName,300),localizedAddress:clean(poi?.localizedAddress,800),
     lat:num(poi?.lat),lng:num(poi?.lng),distance:num(poi?.distance),phone:clean(poi?.phone,300),website:clean(poi?.website,800),
     country:clean(poi?.country,120),city:clean(poi?.city,200),district:clean(poi?.district,200),
     openNow:typeof poi?.openNow==='boolean'?poi.openNow:null,openTime:clean(poi?.openTime,700),businessStatus:clean(poi?.businessStatus,100),
     rating:num(poi?.rating),userRatingCount:int(poi?.userRatingCount),reviews:Array.isArray(poi?.reviews)?poi.reviews.slice(0,5):[],
-    provider:clean(poi?.provider,80),types:Array.isArray(poi?.types)?poi.types.slice(0,12):[]
+    provider:clean(poi?.provider,80),primaryType:clean(poi?.primaryType,120),types:Array.isArray(poi?.types)?poi.types.slice(0,12):[],
+    tag:clean(poi?.tag,500),cost:clean(poi?.cost,80),businessArea:clean(poi?.businessArea,200),alias:clean(poi?.alias,300),
+    note:clean(poi?.note,220),noteConfidence:clean(poi?.noteConfidence,30)
   };
+}
+
+const FOOD_SEARCH_TERMS=['quan an','mon an','an uong','food','restaurant','cafe','coffee','pho','bun','com','ga','bo','heo','lau','nuong','banh','che','mi','hu tieu','chao','sushi','ramen','pizza','burger','dim sum','hotpot','bbq','chicken','noodle','tea'];
+const SEARCH_QUERY_SCHEMA={type:'OBJECT',properties:{providerQuery:{type:'STRING'},queryVariants:{type:'ARRAY',items:{type:'STRING'}},requestedDish:{type:'STRING'}},required:['providerQuery','queryVariants','requestedDish']};
+const PLACE_NOTES_SCHEMA={type:'OBJECT',properties:{items:{type:'ARRAY',items:{type:'OBJECT',properties:{id:{type:'STRING'},localizedName:{type:'STRING'},localizedAddress:{type:'STRING'},note:{type:'STRING'},confidence:{type:'STRING',enum:['confirmed','likely','limited']}},required:['id','localizedName','localizedAddress','note','confidence']}}},required:['items']};
+
+function isFoodPlaceSearch(query, category='') {
+  const q=` ${fold(query)} `;
+  return ['restaurant','cafe'].includes(clean(category,80).toLowerCase())||FOOD_SEARCH_TERMS.some(term=>q.includes(` ${term} `));
+}
+
+function inferredPlaceCategory(query) {
+  const q=` ${fold(query)} `;
+  if([' ca phe ',' cafe ',' coffee ',' tra sua '].some(term=>q.includes(term)))return'cafe';
+  return isFoodPlaceSearch(query)?'restaurant':'';
+}
+
+function semanticSearchKey(value) {
+  return clean(value,500).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,' ').trim();
+}
+
+function chinaDishFallback(query) {
+  const q=fold(query),rules=[
+    [['ga ran','fried chicken'],'炸鸡'],[['lau','hotpot'],'火锅'],[['nuong','bbq','barbecue'],'烧烤'],[['dim sum'],'点心'],
+    [['vit quay'],'烤鸭'],[['tra sua'],'奶茶'],[['ca phe','coffee'],'咖啡'],[['pho'],'越南河粉'],[['sushi'],'寿司'],[['ramen'],'拉面']
+  ];
+  return rules.find(([aliases])=>aliases.some(alias=>q.includes(alias)))?.[1]||clean(query,300);
+}
+
+async function semanticPlaceSearch(query, country, category, env) {
+  const original=clean(query,300),china=nearbyLanguage({country})==='zh';
+  if(!original||!isFoodPlaceSearch(original,category))return{providerQuery:original,queryVariants:[],requestedDish:original};
+  const fallback={providerQuery:china?chinaDishFallback(original):original,queryVariants:[],requestedDish:original};
+  if(!env.GEMINI_API_KEY)return fallback;
+  const prompt=`Bạn chuẩn hóa truy vấn tìm món ăn cho API bản đồ. Chỉ trả JSON theo schema.\n- requestedDish: tên món/kiểu ẩm thực ngắn bằng tiếng Việt.\n- Nếu country là Trung Quốc: providerQuery và queryVariants phải là tiếng Trung giản thể tự nhiên để AMap hiểu.\n- Ngoài Trung Quốc: giữ providerQuery theo ngôn ngữ gốc; queryVariants tối đa 2 từ đồng nghĩa hữu ích, có thể gồm tên tiếng Anh.\n- Không thêm địa điểm, địa chỉ hoặc thương hiệu không liên quan. Không dịch tên thương hiệu.`;
+  try{
+    const result=await callGeminiJson(prompt,buildContents([],JSON.stringify({query:original,country:clean(country,120),category:clean(category,80)})),SEARCH_QUERY_SCHEMA,env);
+    const providerQuery=clean(result?.providerQuery,300)||fallback.providerQuery,seen=new Set([semanticSearchKey(providerQuery)]),queryVariants=[];
+    (Array.isArray(result?.queryVariants)?result.queryVariants:[]).forEach(value=>{const item=clean(value,300),key=semanticSearchKey(item);if(item&&key&&!seen.has(key)&&queryVariants.length<2){seen.add(key);queryVariants.push(item);}});
+    return{providerQuery,queryVariants,requestedDish:clean(result?.requestedDish,160)||original};
+  }catch{return fallback;}
+}
+
+const REVIEW_HIGHLIGHTS=[
+  {label:'món ngon',terms:['ngon','đậm vị','vừa miệng','delicious','tasty','flavorful']},
+  {label:'đồ ăn giòn',terms:['giòn','crispy','crunchy']},
+  {label:'phục vụ tốt',terms:['phục vụ','nhân viên','nhiệt tình','thân thiện','service','staff','friendly']},
+  {label:'lên món nhanh',terms:['nhanh','fast','quick']},
+  {label:'không gian sạch',terms:['sạch','clean']},
+  {label:'không gian ổn',terms:['không gian','atmosphere','ambience','cozy']},
+  {label:'giá hợp lý',terms:['giá hợp lý','đáng tiền','affordable','reasonable','good value']},
+  {label:'phần ăn đầy đặn',terms:['phần nhiều','đầy đặn','portion','generous']}
+];
+
+function recentReviewHighlights(place) {
+  const cutoff=Date.now()-93*24*60*60*1000,texts=(Array.isArray(place?.reviews)?place.reviews:[]).filter(review=>{
+    const published=Date.parse(review?.publishTime||'');
+    return Number(review?.rating)>=4&&Number.isFinite(published)&&published>=cutoff;
+  }).map(review=>fold(review?.text)).filter(Boolean),found=[];
+  for(const aspect of REVIEW_HIGHLIGHTS)if(texts.some(text=>aspect.terms.some(term=>text.includes(fold(term)))))found.push(aspect.label);
+  return found.slice(0,2);
+}
+
+function requestedDishLabel(query) {
+  return clean(query,120)
+    .replace(/^(?:quán|nhà hàng|tiệm|chỗ bán)\s+/i,'')
+    .replace(/\s+(?:ngon|rating cao|đánh giá cao|tốt nhất)$/i,'')
+    .trim();
+}
+
+function fallbackPlaceNote(place, query='') {
+  const rating=num(place?.rating),count=int(place?.userRatingCount),cost=clean(place?.cost,80);
+  const recentHighlights=recentReviewHighlights(place);
+  const translatedTags=translateChinaTags(place?.tag).slice(0,2);
+  const highlight=translatedTags.length?`Nổi bật: ${translatedTags.join(', ')}`:'';
+  if(recentHighlights.length&&rating)return `Khách gần đây khen ${recentHighlights.join(', ')} · ${rating.toFixed(1)}/5.`;
+  if(recentHighlights.length)return `Khách gần đây khen ${recentHighlights.join(', ')}.`;
+  if(highlight&&rating&&cost)return `${highlight} · ${rating.toFixed(1)}/5 · khoảng ¥${cost}/người.`;
+  if(highlight&&rating)return `${highlight} · ${rating.toFixed(1)}/5 trên AMap.`;
+  if(highlight)return `${highlight}${cost?` · khoảng ¥${cost}/người`:''}.`;
+  const dish=requestedDishLabel(query),types=Array.isArray(place?.types)?place.types:[],name=fold(place?.name),googleHighlights=[];
+  if(dish)googleHighlights.push(dish);
+  if(types.includes('meal_takeaway'))googleHighlights.push('tiện mua mang đi');
+  else if(types.includes('fast_food_restaurant')||/(?:kfc|jollibee|lotteria|popeyes|chicken plus)/.test(name))googleHighlights.push('phù hợp ăn nhanh');
+  if(googleHighlights.length&&rating&&count)return `Nổi bật: ${googleHighlights.slice(0,2).join(', ')} · ${rating.toFixed(1)}/5 từ ${count.toLocaleString('vi-VN')} lượt.`;
+  if(rating&&count)return `Được đánh giá ${rating.toFixed(1)}/5 từ ${count.toLocaleString('vi-VN')} lượt.`;
+  if(rating&&cost)return `AMap chấm ${rating.toFixed(1)}/5 · khoảng ¥${cost}/người.`;
+  if(rating)return `Được đánh giá ${rating.toFixed(1)}/5 trên ${place?.provider==='amap'?'AMap':'Google'}.`;
+  if(cost)return `Giá tham khảo khoảng ¥${cost}/người trên AMap.`;
+  return 'Chưa có đủ dữ liệu đánh giá để tóm tắt điểm nổi bật.';
+}
+
+const CHINA_FOOD_TAGS=[
+  ['重庆火锅','lẩu Trùng Khánh'],['四川火锅','lẩu Tứ Xuyên'],['火锅','lẩu'],['炸鸡','gà rán'],['烤鸭','vịt quay'],
+  ['烧烤','đồ nướng'],['烤肉','thịt nướng'],['麻辣小龙虾','tôm hùm đất cay'],['小龙虾','tôm hùm đất'],['海鲜','hải sản'],
+  ['牛肉','thịt bò'],['羊肉','thịt cừu'],['猪肉','thịt heo'],['鸡肉','thịt gà'],['鸭肉','thịt vịt'],['鸭肝','gan vịt'],
+  ['点心','dim sum'],['饺子','sủi cảo'],['拉面','mì ramen'],['面条','mì'],['米饭','cơm'],['咖啡','cà phê'],['奶茶','trà sữa'],
+  ['家常菜','món gia đình'],['双人餐','set 2 người'],['单人餐','set 1 người'],['自助餐','buffet'],['川菜','món Tứ Xuyên'],
+  ['粤菜','món Quảng Đông'],['湘菜','món Hồ Nam'],['淮扬菜','món Hoài Dương'],['甜点','món ngọt'],['蛋挞','bánh tart trứng']
+];
+
+function translateChinaTags(value) {
+  const source=clean(value,1000),found=[];
+  if(!source)return found;
+  for(const [zh,vi] of CHINA_FOOD_TAGS){
+    if(!source.includes(zh)||found.includes(vi))continue;
+    if(vi==='lẩu'&&found.some(item=>item.startsWith('lẩu ')))continue;
+    found.push(vi);
+  }
+  return found;
+}
+
+function coordDistanceMeters(a,b) {
+  const rad=value=>Number(value)*Math.PI/180,earth=6371000;
+  const dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),lat1=rad(a.lat),lat2=rad(b.lat);
+  const value=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+  return earth*2*Math.atan2(Math.sqrt(value),Math.sqrt(1-value));
+}
+
+const CHINA_AREA_NAMES={
+  '北京市':'Bắc Kinh','上海市':'Thượng Hải','重庆市':'Trùng Khánh','广州市':'Quảng Châu','深圳市':'Thâm Quyến',
+  '成都市':'Thành Đô','杭州市':'Hàng Châu','西安市':'Tây An','南京市':'Nam Kinh','苏州市':'Tô Châu','武汉市':'Vũ Hán',
+  '东城区':'Quận Đông Thành','西城区':'Quận Tây Thành','朝阳区':'Quận Triều Dương','海淀区':'Quận Hải Điến',
+  '丰台区':'Quận Phong Đài','石景山区':'Quận Thạch Cảnh Sơn','浦东新区':'Phố Đông','黄浦区':'Quận Hoàng Phố'
+};
+
+function chinaFallbackName(place) {
+  const name=clean(place?.name,300),source=`${name} ${clean(place?.tag,500)}`,tags=translateChinaTags(place?.tag);
+  let kind='Quán ăn';
+  if(/火锅|涮肉/.test(source))kind='Quán lẩu';
+  else if(/牛肉面/.test(source))kind='Quán mì bò';
+  else if(/烤鸭/.test(source))kind='Quán vịt quay';
+  else if(/烧烤|烤肉/.test(source))kind='Quán đồ nướng';
+  else if(/海鲜/.test(source))kind='Nhà hàng hải sản';
+  else if(/咖啡/.test(source))kind='Quán cà phê';
+  const specialties=tags.filter(tag=>!['lẩu','đồ nướng'].includes(tag)).slice(0,2);
+  return `${kind}${specialties.length?` ${specialties.join(' & ')}`:''}${name?` (${name})`:''}`;
+}
+
+function chinaFallbackAddress(place) {
+  const areas=[CHINA_AREA_NAMES[clean(place?.district,100)],CHINA_AREA_NAMES[clean(place?.city,100)]].filter(Boolean);
+  const prefix=[...new Set(areas)].join(', ')||'Trung Quốc',address=clean(place?.address,800);
+  return `${prefix}${address?` · địa chỉ gốc: ${address}`:''}`;
+}
+
+async function localizeChinaPlaces(pois, country, env) {
+  const source=(Array.isArray(pois)?pois:[]).slice(0,10).map(compactPoi);
+  if(nearbyLanguage({country})!=='zh'||!source.length)return source;
+  const localized=await Promise.all(source.map(async place=>{
+    const center=coordFrom(place);
+    if(!center||!place.name)return place;
+    try{
+      const result=await mapTool('/place/resolve',{query:`${place.name} ${place.city||place.district||''}`.trim(),center,country,language:'vi',limit:1},env);
+      const match=result.ok?compactPoi(result.data?.places?.[0]):null,matchCoord=coordFrom(match);
+      if(!match||!matchCoord||coordDistanceMeters(center,matchCoord)>300)return{...place,localizedName:chinaFallbackName(place),localizedAddress:chinaFallbackAddress(place)};
+      const localizedName=match.name&&match.name!==place.name?match.name:'';
+      const localizedAddress=match.address&&match.address!==place.address?match.address:'';
+      return{...place,localizedName:localizedName||place.localizedName||chinaFallbackName(place),localizedAddress:(localizedAddress&&!/[\u3400-\u9fff]/.test(localizedAddress)?localizedAddress:'')||place.localizedAddress||chinaFallbackAddress(place)};
+    }catch{return{...place,localizedName:chinaFallbackName(place),localizedAddress:chinaFallbackAddress(place)};}
+  }));
+  return localized;
+}
+
+async function loadGoogleReviewEvidence(pois, country, env) {
+  const source=(Array.isArray(pois)?pois:[]).slice(0,10).map(compactPoi);
+  return Promise.all(source.map(async place=>{
+    if(place.provider!=='google_places'||!place.id||!place.rating)return place;
+    try{
+      const result=await mapTool('/poi/details',{placeId:place.id,name:place.name,center:coordFrom(place),country,language:'vi'},env);
+      const details=result.ok?compactPoi(result.data?.place||result.data?.places?.[0]):null;
+      return details?{...place,reviews:details.reviews,rating:details.rating??place.rating,userRatingCount:details.userRatingCount||place.userRatingCount}:place;
+    }catch{return place;}
+  }));
+}
+
+async function enrichPlaceNotes(pois, query, country, env) {
+  const raw=(Array.isArray(pois)?pois:[]).slice(0,10).map(compactPoi);
+  const source=env.GEMINI_API_KEY?raw:(nearbyLanguage({country})==='zh'?await localizeChinaPlaces(raw,country,env):await loadGoogleReviewEvidence(raw,country,env));
+  if(!source.length)return source;
+  const fallback=source.map(place=>({...place,note:place.note||fallbackPlaceNote(place,query),noteConfidence:place.noteConfidence||'limited'}));
+  if(!env.GEMINI_API_KEY)return fallback;
+  const evidence=source.map(place=>({id:place.id,name:place.name,address:place.address,provider:place.provider,types:place.types,primaryType:place.primaryType,tag:place.tag,cost:place.cost,rating:place.rating,userRatingCount:place.userRatingCount,reviews:place.reviews.map(review=>({rating:num(review?.rating),text:clean(review?.text,500)})).filter(review=>review.text)}));
+  const prompt=`Bạn tạo ghi chú ngắn có căn cứ cho danh sách địa điểm ăn uống. Chỉ trả JSON theo schema.\n- Mọi localizedName, localizedAddress và note đều bằng tiếng Việt. Nếu nguồn là tiếng Trung, dịch sang tiếng Việt nhưng giữ tên gốc trong ngoặc khi hữu ích. Không dịch sai tên thương hiệu.\n- note tối đa 100 ký tự, nêu 1-2 điểm tốt cụ thể từ tag/type/review/rating/cost. Không quảng cáo và không bịa món hay trải nghiệm.\n- confirmed khi tag/review/type nêu rõ món cần tìm; likely khi API tìm thấy nhưng bằng chứng gián tiếp; limited khi chỉ có rating/giá.\n- Nếu thiếu bằng chứng, dùng câu trung tính về rating/giá hoặc nói chưa đủ dữ liệu.`;
+  try{
+    const result=await callGeminiJson(prompt,buildContents([],JSON.stringify({requestedDish:clean(query,200),country:clean(country,120),places:evidence})),PLACE_NOTES_SCHEMA,env),byId=new Map((result?.items||[]).map(item=>[clean(item?.id,300),item]));
+    return fallback.map(place=>{const item=byId.get(place.id);if(!item)return place;return{...place,localizedName:clean(item.localizedName,300)||place.localizedName,localizedAddress:clean(item.localizedAddress,800)||place.localizedAddress,note:clean(item.note,220)||place.note,noteConfidence:['confirmed','likely','limited'].includes(item.confidence)?item.confidence:place.noteConfidence};});
+  }catch{return fallback;}
 }
 
 function weatherCodeLabel(code) {
@@ -1951,7 +2142,11 @@ async function executeV3Tools(plan, userMessage, location, env) {
         const resolvedCenter=coordFrom(state.lastPlace),center=coordFrom(args)||resolvedCenter||gps;
         const searchCountry=clean(state.lastPlace?.country||location.country,120);
         if(!center) result={ok:false,error:'GPS_REQUIRED'};
-        else result=await mapTool('/poi/nearby',{center:{...center,country:searchCountry},country:searchCountry,query:args.query||args.placeName||args.category,name:args.placeName,keyword:args.query||args.category||args.placeName,category:args.category,radius:args.radius,limit:args.limit,candidateLimit:Math.max(20,args.limit*4),language:args.language},env);
+        else {
+          const originalQuery=args.query||args.placeName||args.category,searchPlan=await semanticPlaceSearch(originalQuery,searchCountry,args.category,env);
+          result=await mapTool('/poi/nearby',{center:{...center,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category:args.category,radius:args.radius,limit:args.limit,candidateLimit:Math.max(20,args.limit*4),language:nearbyLanguage({country:searchCountry})},env);
+          if(result.ok&&isFoodPlaceSearch(originalQuery,args.category))result={...result,data:{...result.data,pois:await enrichPlaceNotes(result.data?.pois||[],searchPlan.requestedDish||originalQuery,searchCountry,env)}};
+        }
         if(result.ok) {
           const pois=(result.data?.pois||[]).map(compactPoi);
           result={ok:true,source:result.data?.source||result.data?.provider,data:{...result.data,pois}};

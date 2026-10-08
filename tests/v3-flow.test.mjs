@@ -117,6 +117,26 @@ test('Map Worker ranks Google Place candidates by rating when requested', async 
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker sends translated dish variants to AMap and keeps food evidence', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='';
+  globalThis.fetch=async url=>{
+    requestedUrl=String(url);
+    return new Response(JSON.stringify({status:'1',info:'OK',count:'1',pois:[{id:'amap-hotpot',name:'海底捞火锅',address:'王府井大街88号',location:'116.411,39.914',type:'餐饮服务;中餐厅;火锅店',typecode:'050117',cityname:'北京市',adname:'东城区',business:{tag:'四川火锅;服务热情',rating:'4.8',cost:'128',business_area:'王府井',opentime_today:'10:00-24:00'}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:39.914,lng:116.411},country:'Trung Quốc',query:'火锅',keyword:'火锅',queryVariants:['重庆火锅'],category:'restaurant',radius:3000,limit:10})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),url=new URL(requestedUrl);
+    assert.equal(response.status,200);
+    assert.equal(url.hostname,'restapi.amap.com');
+    assert.equal(url.searchParams.get('keywords'),'火锅|重庆火锅');
+    assert.equal(url.searchParams.get('show_fields'),'business,navi');
+    assert.equal(data.pois[0].tag,'四川火锅;服务热情');
+    assert.equal(data.pois[0].cost,'128');
+    assert.equal(data.pois[0].rating,'4.8');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker enriches place details by exact Google Place ID for review text', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';
@@ -335,9 +355,12 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(nearby,/nearby-pin-center/);
   assert.match(nearby,/class="nearby-chat-head" role="button" tabindex="0"/);
   assert.match(nearby,/mapWrap\?\.addEventListener\('click'/);
+  assert.match(nearby,/poi\.localizedName\|\|poi\.name/);
+  assert.match(nearby,/nearby-poi-note/);
   assert.match(provider,/attributionControl\?\.setPrefix/);
   assert.match(provider,/© <a href="https:\/\/www\.geoapify\.com\//);
   assert.match(nearbyCss,/nearby-mini-map \.leaflet-control-attribution/);
+  assert.match(nearbyCss,/\.nearby-poi-note/);
   assert.match(navigation,/class="geo-back"/);
   assert.match(navigation,/backToList/);
   assert.match(chinaNavigation,/class="tn-back"/);
@@ -501,6 +524,65 @@ test('AI v3 handles an explicit remote-area search even when Gemini is unavailab
   assert.equal(data.travelos.remoteSearch.resolvedArea.name,'Landmark 81');
   assert.equal(data.travelos.nearby.pois[0].name,'Haeduri Chicken');
   assert.match(data.text,/Tôi hiểu khu vực cần tìm/);
+});
+
+test('AI v3 translates a China dish query and returns Vietnamese AMap notes', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,calls=[];
+  globalThis.fetch=async (url,init={})=>{
+    if(!String(url).includes('generativelanguage.googleapis.com'))throw new Error(`Unexpected fetch ${url}`);
+    const payload=JSON.parse(String(init.body||'{}')),prompt=payload.systemInstruction?.parts?.[0]?.text||'';
+    const text=prompt.includes('chuẩn hóa truy vấn')
+      ? JSON.stringify({providerQuery:'火锅',queryVariants:['重庆火锅','四川火锅'],requestedDish:'lẩu'})
+      : JSON.stringify({items:[{id:'amap-hotpot',localizedName:'Haidilao Hot Pot (海底捞火锅)',localizedAddress:'88 phố Vương Phủ Tỉnh, Bắc Kinh',note:'Nổi bật với lẩu Tứ Xuyên và dịch vụ nhiệt tình.',confidence:'confirmed'}]});
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  const env={GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'wangfujing',name:'王府井',address:'北京市东城区',lat:39.914,lng:116.411,country:'Trung Quốc',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.equal(body.query,'火锅');
+    assert.deepEqual(body.queryVariants,['重庆火锅','四川火锅']);
+    assert.equal(body.language,'zh');
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'amap-hotpot',name:'海底捞火锅',address:'王府井大街88号',lat:39.9142,lng:116.4112,distance:40,rating:'4.8',tag:'四川火锅;服务热情',cost:'128',provider:'amap',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán lẩu quanh Vương Phủ Tỉnh',userLocation:{country:'Trung Quốc',city:'Bắc Kinh'}})}),env);
+    const data=await response.json(),poi=data.travelos.nearby.pois[0];
+    assert.equal(response.status,200);
+    assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby']);
+    assert.equal(poi.localizedName,'Haidilao Hot Pot (海底捞火锅)');
+    assert.equal(poi.localizedAddress,'88 phố Vương Phủ Tỉnh, Bắc Kinh');
+    assert.equal(poi.note,'Nổi bật với lẩu Tứ Xuyên và dịch vụ nhiệt tình.');
+    assert.equal(poi.noteConfidence,'confirmed');
+    assert.match(data.text,/Haidilao Hot Pot/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 localizes AMap places and translates food tags without a Gemini key', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve'&&body.query==='Vương Phủ Tỉnh')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'wangfujing',name:'王府井大街',address:'北京市东城区',lat:39.914,lng:116.411,country:'Trung Quốc',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    if(path==='/poi/nearby'){
+      assert.equal(body.query,'火锅');
+      assert.equal(body.language,'zh');
+      return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'amap-hotpot',name:'海底捞火锅',address:'王府井大街88号',lat:39.9142,lng:116.4112,distance:40,rating:'4.8',tag:'四川火锅;牛肉;服务热情',cost:'128',provider:'amap',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    assert.equal(path,'/place/resolve');
+    assert.match(body.query,/海底捞火锅/);
+    assert.equal(body.language,'vi');
+    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'google-hotpot',name:'Haidilao Hot Pot',address:'88 Wangfujing Street, Bắc Kinh, Trung Quốc',lat:39.91421,lng:116.41121,country:'Trung Quốc',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán lẩu quanh Vương Phủ Tỉnh',userLocation:{country:'Trung Quốc',city:'Bắc Kinh'}})}),env);
+  const data=await response.json(),poi=data.travelos.nearby.pois[0];
+  assert.equal(response.status,200);
+  assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby','/place/resolve']);
+  assert.equal(poi.localizedName,'Haidilao Hot Pot');
+  assert.equal(poi.localizedAddress,'88 Wangfujing Street, Bắc Kinh, Trung Quốc');
+  assert.match(poi.note,/lẩu Tứ Xuyên/);
+  assert.match(poi.note,/thịt bò/);
+  assert.match(data.text,/Haidilao Hot Pot/);
 });
 
 test('AI v3 cleans casual remote-area wording and requests ten highest-rated places', async () => {

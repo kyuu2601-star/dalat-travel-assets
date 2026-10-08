@@ -330,14 +330,19 @@ function expandedSearchQuery(value='') {
   const q=fold(value);
   return SEARCH_EXPANSIONS.find(rule=>rule.aliases.some(alias=>q.includes(alias)))?.query||'';
 }
+function uniqueSearchQueries(...values) {
+  const seen=new Set(),queries=[];
+  values.flat().forEach(value=>{const query=clean(value,300),key=fold(query);if(!query||!key||seen.has(key))return;seen.add(key);queries.push(query);});
+  return queries.slice(0,3);
+}
 function normalizeAmapPoi(poi, center, country) {
   const point=parseLngLat(poi?.location); if(!point) return null; const {lng,lat}=point;
   const business=poi?.business&&typeof poi.business==='object'?poi.business:{};
-  return {id:clean(poi?.id,160),poiId:clean(poi?.id,160),name:clean(poi?.name,300),address:clean(poi?.address,1000),lat,lng,distance:num(poi?.distance)||haversineMeters(center,{lat,lng}),type:clean(poi?.type,500),typecode:clean(poi?.typecode,100),city:clean(poi?.cityname,200),district:clean(poi?.adname,200),province:clean(poi?.pname,200),phone:clean(business?.tel||poi?.tel,300),openTime:clean(business?.opentime_today,500),rating:clean(business?.rating,50),coordSystem:'gcj02',provider:'amap',country:clean(country,120)};
+  return {id:clean(poi?.id,160),poiId:clean(poi?.id,160),name:clean(poi?.name,300),address:clean(poi?.address,1000),lat,lng,distance:num(poi?.distance)||haversineMeters(center,{lat,lng}),type:clean(poi?.type,500),typecode:clean(poi?.typecode,100),city:clean(poi?.cityname,200),district:clean(poi?.adname,200),province:clean(poi?.pname,200),phone:clean(business?.tel||poi?.tel,300),openTime:clean(business?.opentime_today,500),rating:clean(business?.rating,50),tag:clean(business?.tag,500),cost:clean(business?.cost,80),businessArea:clean(business?.business_area,200),alias:clean(business?.alias,300),coordSystem:'gcj02',provider:'amap',country:clean(country,120)};
 }
 async function amapNearby(body, env, originHeader, center, keyword, types, radius, limit, candidateLimit, country) {
   if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const queryCenter=toAmapPoint(center), info=categoryInfo(keyword,body?.category,body?.name), amapKeyword=info.amapKeyword||keyword;
+  const queryCenter=toAmapPoint(center), info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),categoryFallback=specificChineseFood?'':info.amapKeyword,amapQueries=uniqueSearchQueries(keyword,body?.queryVariants,categoryFallback),amapKeyword=amapQueries.join('|').slice(0,80);
   const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(candidateLimit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
   if(amapKeyword) params.set('keywords',amapKeyword); if(types) params.set('types',types);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
@@ -536,15 +541,13 @@ async function googleNearbyPlaces(options, env) {
 async function googleNearby(body, env, originHeader, center, keyword, radius, limit, candidateLimit, country) {
   const info=categoryInfo(keyword,body?.category,body?.name),name=clean(body?.name,120),textQuery=clean(body?.query,300);
   const expansion=!name&&textQuery?expandedSearchQuery(textQuery):'';
+  const textQueries=!name?uniqueSearchQueries(textQuery,body?.queryVariants,expansion):[];
   let result,source;
-  if(expansion){
+  if(textQueries.length>1){
     const options={center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true};
-    const [direct,expanded]=await Promise.all([
-      googleTextPlaces({...options,query:textQuery},env),
-      googleTextPlaces({...options,query:expansion},env)
-    ]);
-    const places=mergeGooglePlaces(direct.places||[],expanded.places||[]).filter(place=>(place.distance??Infinity)<=radius);
-    result={ok:direct.ok||expanded.ok,places,error:[direct.error,expanded.error].filter(Boolean).join(' / ')};
+    const searches=await Promise.all(textQueries.map(query=>googleTextPlaces({...options,query},env)));
+    const places=mergeGooglePlaces(...searches.map(search=>search.places||[])).filter(place=>(place.distance??Infinity)<=radius);
+    result={ok:searches.some(search=>search.ok),places,error:searches.map(search=>search.error).filter(Boolean).join(' / ')};
     source='google-places-expanded-text-v1';
   }else if(name||textQuery||!info.googleType){
     result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
