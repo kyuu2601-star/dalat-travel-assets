@@ -69,17 +69,33 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
   } finally { globalThis.fetch=originalFetch; }
 });
 
-test('Map Worker preserves a specific food query instead of widening it to every restaurant', async () => {
+test('Map Worker expands fried-chicken intent to brands and excludes results outside the requested radius', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
-  const originalFetch=globalThis.fetch;let requestedBody=null,requestedUrl='';
-  globalThis.fetch=async (url,init={})=>{requestedUrl=String(url);requestedBody=JSON.parse(String(init.body||'{}'));return new Response(JSON.stringify({places:[{id:'chicken-1',displayName:{text:'Gà Rán Test'},formattedAddress:'Tân Phú, TP.HCM',location:{latitude:10.8,longitude:106.63},rating:4.6,userRatingCount:120}]}),{status:200,headers:{'Content-Type':'application/json'}});};
+  const originalFetch=globalThis.fetch,requests=[];
+  globalThis.fetch=async (url,init={})=>{
+    const body=JSON.parse(String(init.body||'{}'));requests.push({url:String(url),body});
+    const places=body.textQuery==='gà rán'?[
+      {id:'local',displayName:{text:'Gà Rán Test'},formattedAddress:'Tân Phú, TP.HCM',location:{latitude:10.8005,longitude:106.63},rating:4.9,userRatingCount:120},
+      {id:'too-far',displayName:{text:'Gà Rán Xa'},formattedAddress:'Quá xa',location:{latitude:10.86,longitude:106.63},rating:5,userRatingCount:500}
+    ]:[
+      {id:'kfc',displayName:{text:'KFC'},formattedAddress:'Gần đây',location:{latitude:10.801,longitude:106.63},rating:4.8,userRatingCount:1200,primaryType:'fast_food_restaurant',types:['fast_food_restaurant','restaurant']},
+      {id:'jollibee',displayName:{text:'Jollibee'},formattedAddress:'Gần đây',location:{latitude:10.802,longitude:106.63},rating:4.6,userRatingCount:900},
+      {id:'chicken-plus',displayName:{text:'Chicken Plus'},formattedAddress:'Gần đây',location:{latitude:10.803,longitude:106.63},rating:4.5,userRatingCount:500}
+    ];
+    return new Response(JSON.stringify({places}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.8,lng:106.63},country:'Việt Nam',query:'gà rán',keyword:'gà rán',category:'restaurant',limit:6})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
     assert.equal(response.status,200);
-    assert.equal(requestedUrl,'https://places.googleapis.com/v1/places:searchText');
-    assert.equal(requestedBody.textQuery,'gà rán');
-    assert.equal(data.pois[0].name,'Gà Rán Test');
+    assert.equal(data.source,'google-places-expanded-text-v1');
+    assert.deepEqual(requests.map(item=>item.body.textQuery),['gà rán','fried chicken KFC Jollibee Chicken Plus Lotteria Popeyes Texas Chicken']);
+    assert.ok(requests.every(item=>item.url==='https://places.googleapis.com/v1/places:searchText'));
+    assert.ok(requests.every(item=>item.body.locationRestriction?.rectangle));
+    assert.ok(requests.every(item=>!item.body.locationBias));
+    assert.deepEqual(new Set(data.pois.map(item=>item.id)),new Set(['local','kfc','jollibee','chicken-plus']));
+    assert.ok(!data.pois.some(item=>item.id==='too-far'));
+    assert.equal(data.pois.find(item=>item.id==='kfc').primaryType,'fast_food_restaurant');
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -88,7 +104,8 @@ test('Map Worker ranks Google Place candidates by rating when requested', async 
   const originalFetch=globalThis.fetch;
   globalThis.fetch=async()=>new Response(JSON.stringify({places:[
     {id:'near-low',displayName:{text:'Gà gần'},formattedAddress:'100 m',location:{latitude:10.8005,longitude:106.63},rating:4.2,userRatingCount:900},
-    {id:'far-high',displayName:{text:'Gà rating cao'},formattedAddress:'500 m',location:{latitude:10.8045,longitude:106.63},rating:4.9,userRatingCount:120}
+    {id:'far-high',displayName:{text:'Gà rating cao'},formattedAddress:'500 m',location:{latitude:10.8045,longitude:106.63},rating:4.9,userRatingCount:120},
+    {id:'perfect-low-confidence',displayName:{text:'Gà mới mở'},formattedAddress:'200 m',location:{latitude:10.8015,longitude:106.63},rating:5,userRatingCount:2}
   ]}),{status:200,headers:{'Content-Type':'application/json'}});
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.8,lng:106.63},country:'Việt Nam',query:'gà rán',limit:10,candidateLimit:20,sortBy:'rating'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
@@ -96,6 +113,7 @@ test('Map Worker ranks Google Place candidates by rating when requested', async 
     assert.equal(response.status,200);
     assert.equal(data.pois[0].id,'far-high');
     assert.equal(data.pois[1].id,'near-low');
+    assert.equal(data.pois[2].id,'perfect-low-confidence');
   }finally{globalThis.fetch=originalFetch;}
 });
 

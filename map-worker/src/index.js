@@ -312,6 +312,12 @@ const SEARCH_RULES=[
   {aliases:['hotel','khach san'],geo:['accommodation.hotel','accommodation.guest_house'],google:'hotel',amap:'酒店'},
   {aliases:['parking','bai do xe','giu xe'],geo:['parking'],google:'parking',amap:'停车场'}
 ];
+const SEARCH_EXPANSIONS=[
+  {
+    aliases:['ga ran','fried chicken','fried-chicken'],
+    query:'fried chicken KFC Jollibee Chicken Plus Lotteria Popeyes Texas Chicken'
+  }
+];
 function categoryInfo(keyword, category='', name='') {
   const q=fold(`${category} ${keyword}`);
   for(const rule of SEARCH_RULES) if(rule.aliases.some(x=>q.includes(fold(x)))) {
@@ -319,6 +325,10 @@ function categoryInfo(keyword, category='', name='') {
   }
   const freeText=clean(name||keyword,120);
   return {geoCategories:['commercial','service','healthcare','catering','tourism','entertainment','accommodation'],googleType:'',amapKeyword:freeText,name:freeText};
+}
+function expandedSearchQuery(value='') {
+  const q=fold(value);
+  return SEARCH_EXPANSIONS.find(rule=>rule.aliases.some(alias=>q.includes(alias)))?.query||'';
 }
 function normalizeAmapPoi(poi, center, country) {
   const point=parseLngLat(poi?.location); if(!point) return null; const {lng,lat}=point;
@@ -432,8 +442,30 @@ function normalizeGooglePlace(place, center, country) {
     openNow:typeof place?.currentOpeningHours?.openNow==='boolean'?place.currentOpeningHours.openNow:null,
     openTime:todayOpening,
     businessStatus:clean(place?.businessStatus,80),rating:Number(place?.rating)||null,userRatingCount:Number(place?.userRatingCount)||0,reviews,
+    primaryType:clean(place?.primaryType,120),types:Array.isArray(place?.types)?place.types.slice(0,20).map(type=>clean(type,120)).filter(Boolean):[],
     provider:'google_places',coordSystem:'wgs84',country:clean(country,120)
   };
+}
+
+function restrictionRectangle(center, radius) {
+  const meters=Math.min(50000,Math.max(100,Number(radius)||3000));
+  const latDelta=meters/111320,cosine=Math.max(.2,Math.cos(center.lat*Math.PI/180)),lngDelta=meters/(111320*cosine);
+  return {low:{latitude:Math.max(-90,center.lat-latDelta),longitude:Math.max(-180,center.lng-lngDelta)},high:{latitude:Math.min(90,center.lat+latDelta),longitude:Math.min(180,center.lng+lngDelta)}};
+}
+
+function mergeGooglePlaces(...groups) {
+  const merged=new Map();
+  groups.flat().forEach(place=>{
+    if(!place)return;const key=place.id||`${fold(place.name)}:${Number(place.lat).toFixed(5)},${Number(place.lng).toFixed(5)}`,previous=merged.get(key);
+    if(!previous){merged.set(key,place);return;}
+    merged.set(key,{...previous,...place,types:[...new Set([...(previous.types||[]),...(place.types||[])])],reviews:(place.reviews||[]).length?place.reviews:previous.reviews});
+  });
+  return [...merged.values()];
+}
+
+function trustedRating(place) {
+  const rating=Number(place?.rating)||0,count=Math.max(0,Number(place?.userRatingCount)||0),prior=4,weight=50;
+  return rating>0?(count/(count+weight))*rating+(weight/(count+weight))*prior:0;
 }
 
 function openingHoursForToday(place) {
@@ -463,11 +495,15 @@ async function googleTextPlaces(options, env) {
   const center=finiteCoord(options?.center),query=clean(options?.query,300);
   if(!query) return {ok:false,error:'EMPTY_QUERY',places:[]};
   const payload={textQuery:query,languageCode:clean(options?.language,10)||'vi',pageSize:clampInt(options?.limit,1,20,8)};
-  if(center) payload.locationBias={circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(50000,Math.max(100,Number(options?.radius)||3000))}};
-  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.utcOffsetMinutes','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri','places.reviews'].join(',');
+  if(center){
+    if(options?.restrictArea) payload.locationRestriction={rectangle:restrictionRectangle(center,options?.radius)};
+    else payload.locationBias={circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(50000,Math.max(100,Number(options?.radius)||3000))}};
+  }
+  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.utcOffsetMinutes','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri','places.reviews','places.primaryType','places.types'].join(',');
   const result=await fetchJson(GOOGLE_TEXT_SEARCH_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fieldMask},body:JSON.stringify(payload)});
   if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Places HTTP ${result.status}`,places:[]};
-  const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
+  const radius=Math.min(50000,Math.max(100,Number(options?.radius)||3000));
+  const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(place=>place&&(!center||!options?.restrictArea||place.distance<=radius)).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
   return {ok:true,places};
 }
 
@@ -499,8 +535,18 @@ async function googleNearbyPlaces(options, env) {
 
 async function googleNearby(body, env, originHeader, center, keyword, radius, limit, candidateLimit, country) {
   const info=categoryInfo(keyword,body?.category,body?.name),name=clean(body?.name,120),textQuery=clean(body?.query,300);
+  const expansion=!name&&textQuery?expandedSearchQuery(textQuery):'';
   let result,source;
-  if(name||textQuery||!info.googleType){
+  if(expansion){
+    const options={center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true};
+    const [direct,expanded]=await Promise.all([
+      googleTextPlaces({...options,query:textQuery},env),
+      googleTextPlaces({...options,query:expansion},env)
+    ]);
+    const places=mergeGooglePlaces(direct.places||[],expanded.places||[]).filter(place=>(place.distance??Infinity)<=radius);
+    result={ok:direct.ok||expanded.ok,places,error:[direct.error,expanded.error].filter(Boolean).join(' / ')};
+    source='google-places-expanded-text-v1';
+  }else if(name||textQuery||!info.googleType){
     result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
     source='google-places-text-v1';
   }else{
@@ -510,7 +556,7 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
   if(result.ok&&result.places.length){
     const sortBy=clean(body?.sortBy,30).toLowerCase();
     const ranked=result.places.slice().sort((a,b)=>sortBy==='rating'
-      ? (Number(b.rating)||0)-(Number(a.rating)||0)||(Number(b.userRatingCount)||0)-(Number(a.userRatingCount)||0)||(a.distance??Infinity)-(b.distance??Infinity)
+      ? trustedRating(b)-trustedRating(a)||(Number(b.rating)||0)-(Number(a.rating)||0)||(Number(b.userRatingCount)||0)-(Number(a.userRatingCount)||0)||(a.distance??Infinity)-(b.distance??Infinity)
       : (a.distance??Infinity)-(b.distance??Infinity));
     const pois=ranked.slice(0,limit);
     return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:result.places.length}},200,originHeader);
