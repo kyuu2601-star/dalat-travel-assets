@@ -7,6 +7,34 @@ let isSystemLive = false;
 let radarInterval = null;
 let currentIntervalTime = 0;
 let wakeLock = null;
+let bootStarted = false;
+
+function setLoadingStatus(message, isError = false) {
+    const node = document.getElementById('loading-status');
+    if (!node) return;
+    node.textContent = message;
+    node.classList.toggle('error', isError);
+}
+
+function withBootTimeout(promise, timeoutMs, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} tải quá lâu.`)), timeoutMs))
+    ]);
+}
+
+function finishBoot(failures = []) {
+    isSystemLive = true;
+    window.isSystemLive = true;
+    const loading = document.getElementById('loading-screen');
+    if (!loading) return;
+    if (failures.length) setLoadingStatus(`${failures.join(' · ')} · Vẫn có thể tiếp tục`, true);
+    else setLoadingStatus('TravelOS đã sẵn sàng');
+    setTimeout(() => {
+        loading.classList.add('hide');
+        setTimeout(() => loading.remove(), 1000);
+    }, failures.length ? 900 : 250);
+}
 
 const GEO_CACHE_KEY = 'travelos_detected_location_v1';
 const GEO_CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
@@ -801,6 +829,8 @@ async function requestNotificationPermission() {
 }
 
 async function initTravelOS() {
+    if (bootStarted) return;
+    bootStarted = true;
     const savedState = localStorage.getItem('vibrateEnabled');
 
     if (savedState !== null) {
@@ -813,7 +843,14 @@ async function initTravelOS() {
         !(CONFIG.D1_ENABLED && CONFIG.DATA_API_URL)
     );
 
-    try {
+    setLoadingStatus('Đang tải địa điểm và kết nối trợ lý...');
+    const ready = { places: false, bot: false };
+    const updateProgress = () => {
+        if (ready.places && !ready.bot) setLoadingStatus('Đã có địa điểm · đang kết nối trợ lý...');
+        else if (!ready.places && ready.bot) setLoadingStatus('Trợ lý đã sẵn sàng · đang tải địa điểm...');
+    };
+
+    const placesTask = withBootTimeout((async () => {
         fullData = await TravelData.loadPlaces();
         window.fullData = fullData;
 
@@ -827,13 +864,30 @@ async function initTravelOS() {
         }
 
         checkRadarStatus();
-    } catch (error) {
+        ready.places = true;
+        updateProgress();
+        return fullData;
+    })(), 16000, 'Dữ liệu địa điểm');
+
+    const botTask = withBootTimeout((async () => {
+        if (typeof initBot !== 'function') throw new Error('Module trợ lý chưa sẵn sàng.');
+        const health = await initBot();
+        ready.bot = true;
+        updateProgress();
+        return health;
+    })(), 12000, 'Trợ lý');
+
+    const [placesResult, botResult] = await Promise.allSettled([placesTask, botTask]);
+    const failures = [];
+    if (placesResult.status === 'rejected') {
+        const error = placesResult.reason;
         const banner = document.getElementById('data-source-banner');
         banner.textContent = `Không tải được data: ${error.message}`;
         banner.classList.remove('hidden');
+        failures.push('Chưa tải được địa điểm');
     }
-
-    if (typeof initBot === 'function') initBot();
+    if (botResult.status === 'rejected') failures.push('Trợ lý đang kết nối lại');
+    finishBoot(failures);
 }
 
 window.addEventListener('travelos:data-source', event => {
@@ -855,18 +909,6 @@ navigator.geolocation.watchPosition(pos => {
 
     window.userPos = newPos;
 
-    if (!isSystemLive) {
-        const loading = document.getElementById('loading-screen');
-
-        if (loading) {
-            loading.classList.add('hide');
-            setTimeout(() => loading.remove(), 1000);
-        }
-
-        isSystemLive = true;
-        window.isSystemLive = true;
-    }
-
     if (
         !lastPos ||
         Math.abs(newPos.lat - lastPos.lat) > 0.00001 ||
@@ -881,12 +923,8 @@ navigator.geolocation.watchPosition(pos => {
         maybeDetectGpsLocation(newPos);
     }
 }, () => {
-    const statusNode = document.getElementById('loading-status');
-
-    if (statusNode) {
-        statusNode.textContent = 'GPS ERROR: PLEASE ENABLE LOCATION';
-        statusNode.classList.add('error');
-    }
+    const gpsNode = document.getElementById('gps-coords');
+    if (gpsNode) gpsNode.textContent = 'GPS chưa bật';
 }, {
     enableHighAccuracy: true,
     maximumAge: 3000,
@@ -900,4 +938,5 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-window.addEventListener('load', initTravelOS);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initTravelOS, { once: true });
+else initTravelOS();

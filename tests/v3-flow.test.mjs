@@ -381,7 +381,22 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261008-1/);
+  assert.match(index,/chat\.js\?v=20261008-2/);
+});
+
+test('App keeps onboarding visible until places and bot readiness settle', async () => {
+  const [app,chat,index]=await Promise.all([
+    readFile(new URL('../app.js',import.meta.url),'utf8'),
+    readFile(new URL('../chat.js',import.meta.url),'utf8'),
+    readFile(new URL('../index.html',import.meta.url),'utf8')
+  ]);
+  assert.match(app,/Promise\.allSettled\(\[placesTask, botTask\]\)/);
+  assert.match(app,/DOMContentLoaded/);
+  assert.match(app,/window\.isSystemLive = true/);
+  assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
+  assert.match(chat,/\/api\/health/);
+  assert.match(index,/Đang khởi động TravelOS/);
+  assert.match(index,/app\.js\?v=20261008-4/);
 });
 
 test('Destination summary combines Google reviews, weather, BestTime and AI copy', async () => {

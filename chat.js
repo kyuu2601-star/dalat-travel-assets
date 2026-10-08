@@ -58,6 +58,21 @@ function getStructuredUserLocation() {
 
 async function initBot() {
     loadChatHistory();
+    const workerBase = String(window.CONFIG?.WORKER_URL || '').replace(/\/+$/, '');
+    if (!workerBase) throw new Error('Thiếu WORKER_URL cho trợ lý.');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+        const response = await fetch(`${workerBase}/api/health`, {
+            cache: 'no-store',
+            signal: controller.signal
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || `Bot health HTTP ${response.status}`);
+        return payload;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 async function handleChat() {
