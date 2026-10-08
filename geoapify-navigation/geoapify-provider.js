@@ -55,7 +55,7 @@
   function drawNearby(map,payload,onPoiClick){
     if(!window.L||!map)return[];const L=window.L;clearObjects(map);const points=[],objects=[];
     const center=validPoint(payload?.center);
-    if(center){points.push(center);objects.push(track(map,L.marker([center.lat,center.lng],{icon:divIcon('●',true),title:'Bạn đang ở đây',zIndexOffset:999}).addTo(map)));}
+    if(center){points.push(center);objects.push(track(map,L.marker([center.lat,center.lng],{icon:divIcon('◎'),title:'Tâm khu vực tìm kiếm',zIndexOffset:500}).addTo(map)));}
     (payload?.pois||[]).forEach((poi,index)=>{const p=validPoint(poi);if(!p)return;points.push(p);const marker=L.marker([p.lat,p.lng],{icon:divIcon(index+1),title:String(poi.name||'')}).addTo(map);if(typeof onPoiClick==='function')marker.on('click',()=>onPoiClick(poi,index));objects.push(track(map,marker));});
     fit(map,points,36);return objects;
   }

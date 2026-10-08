@@ -508,7 +508,11 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
     source='google-places-nearby-v1';
   }
   if(result.ok&&result.places.length){
-    const pois=result.places.slice(0,limit);
+    const sortBy=clean(body?.sortBy,30).toLowerCase();
+    const ranked=result.places.slice().sort((a,b)=>sortBy==='rating'
+      ? (Number(b.rating)||0)-(Number(a.rating)||0)||(Number(b.userRatingCount)||0)-(Number(a.userRatingCount)||0)||(a.distance??Infinity)-(b.distance??Infinity)
+      : (a.distance??Infinity)-(b.distance??Infinity));
+    const pois=ranked.slice(0,limit);
     return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:result.places.length}},200,originHeader);
   }
   if(env.GEOAPIFY_API_KEY) return geoapifyNearby(body,env,originHeader,center,keyword,radius,limit,candidateLimit,country);

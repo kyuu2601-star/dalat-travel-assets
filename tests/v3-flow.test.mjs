@@ -83,6 +83,22 @@ test('Map Worker preserves a specific food query instead of widening it to every
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker ranks Google Place candidates by rating when requested', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(JSON.stringify({places:[
+    {id:'near-low',displayName:{text:'Gà gần'},formattedAddress:'100 m',location:{latitude:10.8005,longitude:106.63},rating:4.2,userRatingCount:900},
+    {id:'far-high',displayName:{text:'Gà rating cao'},formattedAddress:'500 m',location:{latitude:10.8045,longitude:106.63},rating:4.9,userRatingCount:120}
+  ]}),{status:200,headers:{'Content-Type':'application/json'}});
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.8,lng:106.63},country:'Việt Nam',query:'gà rán',limit:10,candidateLimit:20,sortBy:'rating'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.pois[0].id,'far-high');
+    assert.equal(data.pois[1].id,'near-low');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker enriches place details by exact Google Place ID for review text', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';
@@ -275,8 +291,9 @@ test('Geoapify map provider follows live user positions', async () => {
 });
 
 test('Global navigation renders Geoapify, requests Google walking, and tracks GPS', async () => {
-  const [navigation,app,nearby,index]=await Promise.all([
+  const [navigation,chinaNavigation,app,nearby,index]=await Promise.all([
     readFile(new URL('../geoapify-navigation/geoapify-navigation.js',import.meta.url),'utf8'),
+    readFile(new URL('../china-navigation/travel-navigation.js',import.meta.url),'utf8'),
     readFile(new URL('../app.js',import.meta.url),'utf8'),
     readFile(new URL('../nearby-search.js',import.meta.url),'utf8'),
     readFile(new URL('../index.html',import.meta.url),'utf8')
@@ -290,7 +307,13 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(navigation,/destination-summary/);
   assert.doesNotMatch(navigation,/Google tính tuyến và hướng dẫn/);
   assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
-  assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk'\}\)/);
+  assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk',onBack:/);
+  assert.match(nearby,/navigator\.geolocation\.watchPosition/);
+  assert.match(nearby,/Vị trí của bạn/);
+  assert.match(navigation,/class="geo-back"/);
+  assert.match(navigation,/backToList/);
+  assert.match(chinaNavigation,/class="tn-back"/);
+  assert.match(chinaNavigation,/backToList/);
   assert.doesNotMatch(index,/src="google-maps-provider\.js/);
   assert.doesNotMatch(index,/src="google-navigation\.js/);
 });
@@ -450,6 +473,27 @@ test('AI v3 handles an explicit remote-area search even when Gemini is unavailab
   assert.equal(data.travelos.remoteSearch.resolvedArea.name,'Landmark 81');
   assert.equal(data.travelos.nearby.pois[0].name,'Haeduri Chicken');
   assert.match(data.text,/Tôi hiểu khu vực cần tìm/);
+});
+
+test('AI v3 cleans casual remote-area wording and requests ten highest-rated places', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'emart-pvt',name:'Emart Phan Văn Trị',address:'Gò Vấp, TP.HCM',lat:10.8273,lng:106.6785,country:'Việt Nam',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'top-rated',name:'Gà Rán Rating Cao',address:'Gò Vấp, TP.HCM',lat:10.8275,lng:106.6787,distance:80,rating:4.9,userRatingCount:321,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Có quán gà rán nào rating cao ở quanh khu vực Emart PVT k'})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(calls[0].path,'/place/resolve');
+  assert.equal(calls[0].body.query,'Emart PVT');
+  assert.equal(calls[1].path,'/poi/nearby');
+  assert.equal(calls[1].body.query,'quán gà rán');
+  assert.equal(calls[1].body.limit,10);
+  assert.equal(calls[1].body.sortBy,'rating');
+  assert.match(data.text,/⭐ 4\.9/);
+  assert.equal(data.travelos.remoteSearch.requestedArea,'Emart PVT');
 });
 
 test('AI v3 resolves a venue and distinguishes live BestTime busyness from forecast', async () => {

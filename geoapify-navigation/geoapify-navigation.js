@@ -1,5 +1,5 @@
 (function () {
-  let root=null,map=null,state=null,session=0,summaryAbort=null;
+  let root=null,map=null,state=null,session=0,summaryAbort=null,backAction=null;
   const $=(s,r=document)=>r.querySelector(s);
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmtM(m){m=Number(m)||0;return m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;}
@@ -9,8 +9,8 @@
   function ensureRoot(){
     if(root?.isConnected)return root;
     root=document.createElement('div');root.className='geo-nav-modal';root.setAttribute('aria-hidden','true');
-    root.innerHTML=`<div class="geo-shell"><div class="geo-map-wrap"><div id="geo-map"></div><div id="geo-status">Đang tải bản đồ...</div><div class="google-maneuver" hidden><span class="google-maneuver-icon">↑</span><div><strong>Tiếp tục</strong><small>--</small></div></div></div><aside class="geo-side"><header class="geo-head"><div><span id="geo-provider">GOOGLE WALKING · GEOAPIFY MAP</span><h2 id="geo-title">Điểm đến</h2><p id="geo-summary">Đang tính đường...</p></div><button type="button" class="geo-close" aria-label="Đóng">×</button></header><div class="google-mode-switch" role="group" aria-label="Phương tiện"><button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button><button type="button" data-mode="motorbike" aria-pressed="false">🛵 Xe máy</button><button type="button" data-mode="drive" aria-pressed="false">🚗 Ô tô</button></div><section id="geo-note" class="geo-note destination-snapshot" aria-live="polite"><div class="destination-snapshot-loading"><span></span><div><strong>Thông tin điểm đến</strong><small>Đang lấy thời tiết, độ đông và review...</small></div></div></section><div id="geo-routes" class="geo-routes"></div><div id="geo-steps" class="geo-steps"></div><div class="google-nav-actions"><button type="button" class="google-start-nav">📍 Bắt đầu theo dõi vị trí</button></div></aside></div>`;
-    document.body.appendChild(root);$('.geo-close',root).onclick=close;$('.google-start-nav',root).onclick=toggleTracking;$('[data-mode="motorbike"]',root).onclick=()=>openGoogleDirections('two-wheeler');$('[data-mode="drive"]',root).onclick=()=>openGoogleDirections('driving');return root;
+    root.innerHTML=`<div class="geo-shell"><div class="geo-map-wrap"><div id="geo-map"></div><button type="button" class="geo-back" hidden>← Danh sách</button><div id="geo-status">Đang tải bản đồ...</div><div class="google-maneuver" hidden><span class="google-maneuver-icon">↑</span><div><strong>Tiếp tục</strong><small>--</small></div></div></div><aside class="geo-side"><header class="geo-head"><div><span id="geo-provider">GOOGLE WALKING · GEOAPIFY MAP</span><h2 id="geo-title">Điểm đến</h2><p id="geo-summary">Đang tính đường...</p></div><button type="button" class="geo-close" aria-label="Đóng">×</button></header><div class="google-mode-switch" role="group" aria-label="Phương tiện"><button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button><button type="button" data-mode="motorbike" aria-pressed="false">🛵 Xe máy</button><button type="button" data-mode="drive" aria-pressed="false">🚗 Ô tô</button></div><section id="geo-note" class="geo-note destination-snapshot" aria-live="polite"><div class="destination-snapshot-loading"><span></span><div><strong>Thông tin điểm đến</strong><small>Đang lấy thời tiết, độ đông và review...</small></div></div></section><div id="geo-routes" class="geo-routes"></div><div id="geo-steps" class="geo-steps"></div><div class="google-nav-actions"><button type="button" class="google-start-nav">📍 Bắt đầu theo dõi vị trí</button></div></aside></div>`;
+    document.body.appendChild(root);$('.geo-close',root).onclick=close;$('.geo-back',root).onclick=backToList;$('.google-start-nav',root).onclick=toggleTracking;$('[data-mode="motorbike"]',root).onclick=()=>openGoogleDirections('two-wheeler');$('[data-mode="drive"]',root).onclick=()=>openGoogleDirections('driving');return root;
   }
   function stopTracking(){
     if(state?.watchId!=null&&navigator.geolocation)navigator.geolocation.clearWatch(state.watchId);
@@ -19,7 +19,8 @@
     const button=root&&$('.google-start-nav',root);if(button){button.classList.remove('active');button.textContent='📍 Bắt đầu theo dõi vị trí';}
     const maneuver=root&&$('.google-maneuver',root);if(maneuver)maneuver.hidden=true;
   }
-  function close(){session++;summaryAbort?.abort();summaryAbort=null;stopTracking();root?.classList.remove('open');root?.setAttribute('aria-hidden','true');document.documentElement.classList.remove('geo-nav-open');document.body.classList.remove('geo-nav-open');try{window.GeoapifyMapProvider?.destroy?.(map);}catch{}map=null;state=null;}
+  function close(){session++;summaryAbort?.abort();summaryAbort=null;stopTracking();root?.classList.remove('open');root?.setAttribute('aria-hidden','true');document.documentElement.classList.remove('geo-nav-open');document.body.classList.remove('geo-nav-open');try{window.GeoapifyMapProvider?.destroy?.(map);}catch{}map=null;state=null;backAction=null;}
+  function backToList(){const action=backAction;close();if(typeof action==='function')Promise.resolve(action()).catch(error=>console.error('[TravelOS back to nearby]',error));}
   function originFromApp(){const p=window.userPos,lat=Number(p?.lat),lng=Number(p?.lon);return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng,coordSystem:'wgs84'}:null;}
   async function fetchRoutes(origin,destination,country,mode){
     if(!window.TravelDirections?.request)throw new Error('Route service chưa sẵn sàng.');
@@ -115,10 +116,10 @@
     finally{clearTimeout(timer);if(id===session)summaryAbort=null;}
   }
   async function open(options={}){
-    close();const id=++session,info=options.destination||options;
+    close();backAction=typeof options.onBack==='function'?options.onBack:null;const id=++session,info=options.destination||options;
     const destination=window.GeoapifyMapProvider?.validPoint?.(info),origin=window.GeoapifyMapProvider?.validPoint?.(options.origin)||originFromApp();
     if(!origin)throw new Error('Chưa có GPS hiện tại. Hãy bật Location rồi thử lại.');if(!destination)throw new Error('Điểm đến không có tọa độ hợp lệ.');
-    const r=ensureRoot();r.classList.add('open');r.setAttribute('aria-hidden','false');document.documentElement.classList.add('geo-nav-open');document.body.classList.add('geo-nav-open');
+    const r=ensureRoot();r.classList.add('open');r.setAttribute('aria-hidden','false');$('.geo-back',r).hidden=!backAction;document.documentElement.classList.add('geo-nav-open');document.body.classList.add('geo-nav-open');
     $('#geo-title',r).textContent=info?.name||'Điểm đến';$('#geo-provider',r).textContent='GOOGLE WALKING · GEOAPIFY MAP';$('#geo-note',r).innerHTML='<div class="destination-snapshot-loading"><span></span><div><strong>Thông tin điểm đến</strong><small>Đang lấy thời tiết, độ đông và review...</small></div></div>';$('#geo-status',r).textContent='Đang tải bản đồ...';$('#geo-status',r).classList.remove('hidden');
     void loadDestinationSnapshot({...info,...destination},id);
     try{

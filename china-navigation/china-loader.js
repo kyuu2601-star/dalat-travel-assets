@@ -24,7 +24,7 @@
   function loadCss() {
     if (document.querySelector('link[data-china-nav-css]')) return;
     const link = document.createElement('link');
-    link.rel = 'stylesheet'; link.href = BASE + 'china-navigation.css'; link.dataset.chinaNavCss = '1';
+    link.rel = 'stylesheet'; link.href = BASE + 'china-navigation.css?v=20261008-2'; link.dataset.chinaNavCss = '1';
     document.head.appendChild(link);
   }
   async function ensureLoaded(city = '') {
@@ -35,7 +35,7 @@
         await loadScript('gcj02.js');
         await loadScript('amap-provider.js');
         await loadScript('amap-route-service.js');
-        await loadScript('travel-navigation.js');
+        await loadScript('travel-navigation.js?v=20261008-2');
         active = true;
       })();
     }

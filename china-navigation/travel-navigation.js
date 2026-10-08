@@ -7,6 +7,7 @@
 
   let session = 0;
   let selection = 0;
+  let backAction = null;
   const $ = sel => document.querySelector(sel);
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtM = n => Number(n) < 1000 ? `${Math.round(Number(n) || 0)} m` : `${(Number(n) / 1000).toFixed(1)} km`;
@@ -44,6 +45,7 @@
       <div class="tn-shell">
         <div class="tn-map-wrap">
           <div id="tn-map" class="tn-map"></div>
+          <button id="tn-back" class="tn-back" type="button" hidden>← Danh sách</button>
           <div id="tn-map-status" class="tn-map-status">Đang chuẩn bị AMap...</div>
           <div id="tn-special-alert" class="tn-special-alert" hidden></div>
         </div>
@@ -57,6 +59,7 @@
       </div>`;
     document.body.appendChild(root);
     $('#tn-close').addEventListener('click', close);
+    $('#tn-back').addEventListener('click', backToList);
     root.addEventListener('click', e => { if (e.target === root) close(); });
   }
 
@@ -87,6 +90,13 @@
     state.gpsTimer = null;
     try { state.map?.destroy?.(); } catch {}
     state = blankState();
+    backAction = null;
+  }
+
+  function backToList() {
+    const action = backAction;
+    close();
+    if (typeof action === 'function') Promise.resolve(action()).catch(error => console.error('[TravelOS back to nearby]', error));
   }
 
   function originFromApp() {
@@ -583,9 +593,11 @@
 
   async function open(options = {}) {
     close();
+    backAction = typeof options.onBack === 'function' ? options.onBack : null;
     const requestSession = session;
     const destination = options.destination || options;
     openModal(destination);
+    $('#tn-back').hidden = !backAction;
     try {
       const origin = options.origin || originFromApp();
       if (!origin) throw new Error('Chưa có GPS hiện tại. Hãy bật Location rồi thử lại.');

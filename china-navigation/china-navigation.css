@@ -4,4 +4,5 @@
 .tn-route-choice strong, .tn-route-choice span { display: block; }
 .tn-route-choice span { margin-top: 6px; font-size: 12px; line-height: 1.5; }
 .tn-route-choice[aria-pressed="true"] { border-color: #38bdf8; background: rgba(14,165,233,.16); }
+.tn-back { position: absolute; top: 14px; right: 14px; z-index: 40; padding: 9px 12px; border: 1px solid rgba(255,255,255,.22); border-radius: 11px; background: rgba(2,6,23,.9); color: #f8fafc; font: 800 11px/1 system-ui; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.34); backdrop-filter: blur(8px); }
 .tn-route-choice:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
