@@ -73,6 +73,7 @@ function getStructuredUserLocation() {
 
 async function initBot() {
     loadChatHistory();
+    if (window.TRAVELOS_NATIVE) return { ok:true, deferred:true };
     const workerBase = String(window.CONFIG?.WORKER_URL || '').replace(/\/+$/, '');
     if (!workerBase) throw new Error('Thiếu WORKER_URL cho trợ lý.');
     const controller = new AbortController();

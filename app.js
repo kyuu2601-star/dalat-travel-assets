@@ -310,6 +310,31 @@ function saveGeoCache(position, data) {
     } catch (_) {}
 }
 
+function inferNativeLocation(position) {
+    const lat = Number(position?.lat);
+    const lon = Number(position?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    // Trùng Khánh municipality is intentionally broad so the app can switch
+    // to its China-only flow without a reverse-geocoding network request.
+    if (lat >= 28.0 && lat <= 32.3 && lon >= 105.2 && lon <= 110.3) {
+        return { country:'Trung Quốc', countryCode:'CN', city:'Trùng Khánh', locality:'', principalSubdivision:'Trùng Khánh' };
+    }
+
+    const outline = [[73.5,39.5],[79,35.5],[80,30],[88,27.5],[92,28],[97,28],[98,24],[101,21.5],[102,22.5],[106.5,22.8],[108,21.5],[110,20.3],[114,22],[117,23],[120,25],[122,29],[122,40],[125,40],[131,43],[135,48],[132,53],[120,54],[108,49],[95,49],[87,47],[80,45]];
+    let inMainlandChina = false;
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+        const [xi, yi] = outline[i];
+        const [xj, yj] = outline[j];
+        if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inMainlandChina = !inMainlandChina;
+    }
+    inMainlandChina = inMainlandChina || (lat >= 18 && lat <= 20.6 && lon >= 108.5 && lon <= 111.5);
+    if (inMainlandChina) {
+        return { country:'Trung Quốc', countryCode:'CN', city:'', locality:'', principalSubdivision:'' };
+    }
+    return null;
+}
+
 async function maybeDetectGpsLocation(position) {
     if (geoRequestInFlight) return;
 
@@ -322,6 +347,16 @@ async function maybeDetectGpsLocation(position) {
     if (cached) {
         lastGeocodedPos = { lat: cached.latitude, lon: cached.longitude };
         applyDetectedLocation(cached);
+        return;
+    }
+
+    if (window.TRAVELOS_NATIVE) {
+        const inferred = inferNativeLocation(position);
+        lastGeocodedPos = { lat:position.lat, lon:position.lon };
+        if (inferred) {
+            saveGeoCache(position, inferred);
+            applyDetectedLocation(inferred);
+        }
         return;
     }
 
@@ -903,6 +938,17 @@ window.addEventListener('travelos:data-source', event => {
     }
 });
 
+window.addEventListener('travelos:data-updated', event => {
+    if (!Array.isArray(event.detail?.places)) return;
+    fullData = event.detail.places;
+    window.fullData = fullData;
+    renderChips();
+    renderLocationFilters();
+    if (pendingDetectedLocation || detectedLocation) applyDetectedLocation(pendingDetectedLocation || detectedLocation);
+    else applyFilters();
+    checkRadarStatus();
+});
+
 navigator.geolocation.watchPosition(pos => {
     const newPos = {
         lat: pos.coords.latitude,
@@ -936,7 +982,7 @@ navigator.geolocation.watchPosition(pos => {
 document.addEventListener('click', () => requestWakeLock(), { once: true });
 document.addEventListener('click', requestNotificationPermission, { once: true });
 
-if ('serviceWorker' in navigator) {
+if (!window.TRAVELOS_NATIVE && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 

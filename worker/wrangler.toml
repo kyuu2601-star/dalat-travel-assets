@@ -21,5 +21,5 @@ binding = "MAP_WORKER"
 service = "travelos-map"
 
 [vars]
-ALLOWED_ORIGINS = "https://kyuu2601-star.github.io"
+ALLOWED_ORIGINS = "https://kyuu2601-star.github.io,https://localhost,http://localhost,capacitor://localhost"
 MAP_WORKER_URL = "https://travelos-map.kyuu2601.workers.dev"

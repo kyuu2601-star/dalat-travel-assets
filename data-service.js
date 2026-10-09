@@ -1,7 +1,15 @@
 (function () {
     const ADMIN_KEY_STORAGE = 'travelos_admin_key';
+    const DATA_CHECKED_AT_STORAGE = 'travelos_data_checked_at';
+    const SNAPSHOT_URL = 'data/places.snapshot.json';
+    const SNAPSHOT_DB = 'travelos-local-data';
+    const SNAPSHOT_STORE = 'snapshots';
+    const SNAPSHOT_KEY = 'places';
+    const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
     let placesCache = null;
     let loadPromise = null;
+    let syncPromise = null;
+    let currentVersion = '';
 
     function numOrNull(value) {
         if (value === null || value === undefined || value === '') return null;
@@ -45,22 +53,143 @@
         return CONFIG.DATA_API_URL.replace(/\/$/, '');
     }
 
+    function openSnapshotDb() {
+        return new Promise((resolve, reject) => {
+            if (!window.indexedDB) return reject(new Error('IndexedDB unavailable'));
+            const request = indexedDB.open(SNAPSHOT_DB, 1);
+            request.onupgradeneeded = () => {
+                if (!request.result.objectStoreNames.contains(SNAPSHOT_STORE)) {
+                    request.result.createObjectStore(SNAPSHOT_STORE);
+                }
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error || new Error('Cannot open local data store'));
+        });
+    }
+
+    async function readStoredSnapshot() {
+        let db;
+        try {
+            db = await openSnapshotDb();
+            return await new Promise((resolve, reject) => {
+                const request = db.transaction(SNAPSHOT_STORE, 'readonly').objectStore(SNAPSHOT_STORE).get(SNAPSHOT_KEY);
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error || new Error('Cannot read local snapshot'));
+            });
+        } catch (_) {
+            return null;
+        } finally {
+            db?.close();
+        }
+    }
+
+    async function writeStoredSnapshot(snapshot) {
+        let db;
+        try {
+            db = await openSnapshotDb();
+            await new Promise((resolve, reject) => {
+                const request = db.transaction(SNAPSHOT_STORE, 'readwrite').objectStore(SNAPSHOT_STORE).put(snapshot, SNAPSHOT_KEY);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error || new Error('Cannot save local snapshot'));
+            });
+        } catch (error) {
+            console.warn('[TravelOS data] Không lưu được snapshot vào thiết bị:', error);
+        } finally {
+            db?.close();
+        }
+    }
+
+    async function readBundledSnapshot() {
+        try {
+            const response = await fetch(SNAPSHOT_URL, { cache: 'force-cache' });
+            if (!response.ok) return null;
+            const snapshot = await response.json();
+            return Array.isArray(snapshot?.places) ? snapshot : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function emitSource(source, extra = {}) {
+        window.dispatchEvent(new CustomEvent('travelos:data-source', { detail: { source, ...extra } }));
+    }
+
     async function fetchD1Places() {
         const response = await fetch(`${apiBase()}/places?limit=5000`, { cache: 'no-store' });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || `D1 data HTTP ${response.status}`);
         const rows = Array.isArray(payload) ? payload : payload.places;
         if (!Array.isArray(rows)) throw new Error('Invalid D1 places payload');
-        return rows.map(normalizePlace);
+        return rows;
+    }
+
+    async function fetchDataManifest() {
+        const response = await fetch(`${apiBase()}/data-manifest`, { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.version) throw new Error(payload.error || `Data manifest HTTP ${response.status}`);
+        return payload;
+    }
+
+    async function downloadAndStore(version = '') {
+        const rows = await fetchD1Places();
+        const snapshot = {
+            version: String(version || `remote-${Date.now()}`),
+            generatedAt: new Date().toISOString(),
+            places: rows
+        };
+        await writeStoredSnapshot(snapshot);
+        currentVersion = snapshot.version;
+        placesCache = rows.map(normalizePlace);
+        return placesCache;
+    }
+
+    function shouldCheckForUpdates() {
+        const checkedAt = Number(localStorage.getItem(DATA_CHECKED_AT_STORAGE) || 0);
+        return !Number.isFinite(checkedAt) || Date.now() - checkedAt >= SYNC_INTERVAL_MS;
+    }
+
+    function syncInBackground() {
+        if (syncPromise || !CONFIG.D1_ENABLED || !CONFIG.DATA_API_URL || !shouldCheckForUpdates()) return;
+        syncPromise = (async () => {
+            const manifest = await fetchDataManifest();
+            localStorage.setItem(DATA_CHECKED_AT_STORAGE, String(Date.now()));
+            if (String(manifest.version) === currentVersion) return;
+            const places = await downloadAndStore(manifest.version);
+            window.dispatchEvent(new CustomEvent('travelos:data-updated', {
+                detail: { version: currentVersion, places }
+            }));
+        })().catch(error => {
+            console.warn('[TravelOS data] Không kiểm tra được phiên bản mới:', error);
+        }).finally(() => { syncPromise = null; });
     }
 
     async function loadPlaces(force = false) {
-        if (force) { placesCache = null; loadPromise = null; }
+        if (force) {
+            placesCache = null;
+            loadPromise = null;
+            const manifest = await fetchDataManifest().catch(() => null);
+            const places = await downloadAndStore(manifest?.version);
+            localStorage.setItem(DATA_CHECKED_AT_STORAGE, String(Date.now()));
+            emitSource('device', { version: currentVersion });
+            return places;
+        }
         if (placesCache) return placesCache;
         if (loadPromise) return loadPromise;
         loadPromise = (async () => {
-            placesCache = await fetchD1Places();
-            window.dispatchEvent(new CustomEvent('travelos:data-source', { detail: { source: 'd1' } }));
+            const [stored, bundled] = await Promise.all([readStoredSnapshot(), readBundledSnapshot()]);
+            const snapshot = Array.isArray(stored?.places) ? stored : bundled;
+            if (snapshot) {
+                currentVersion = String(snapshot.version || 'bundled');
+                placesCache = snapshot.places.map(normalizePlace);
+                emitSource(stored ? 'device' : 'bundled', { version: currentVersion });
+                setTimeout(syncInBackground, 0);
+                return placesCache;
+            }
+
+            const manifest = await fetchDataManifest().catch(() => null);
+            await downloadAndStore(manifest?.version);
+            localStorage.setItem(DATA_CHECKED_AT_STORAGE, String(Date.now()));
+            emitSource('network', { version: currentVersion });
             return placesCache;
         })();
         try { return await loadPromise; }
@@ -105,5 +234,5 @@
         return payload;
     }
 
-    window.TravelData = { loadPlaces, getKnowledgeBase, createPlace, normalizePlace, clearAdminKey };
+    window.TravelData = { loadPlaces, getKnowledgeBase, createPlace, normalizePlace, clearAdminKey, syncInBackground };
 })();

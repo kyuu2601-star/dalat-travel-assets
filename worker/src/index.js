@@ -512,6 +512,26 @@ async function serveR2Image(request, env, key) {
   return new Response(request.method === 'HEAD' ? null : object.body, { status: 200, headers });
 }
 
+async function serveDownload(request, env, fileName) {
+  if (!env.IMAGES) return new Response('Download storage unavailable', { status: 503 });
+  if (!/^[A-Za-z0-9._-]+$/.test(fileName)) return new Response('Not found', { status: 404 });
+
+  const object = request.method === 'HEAD'
+    ? await env.IMAGES.head(`downloads/${fileName}`)
+    : await env.IMAGES.get(`downloads/${fileName}`);
+  if (!object) return new Response('Not found', { status: 404 });
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('Content-Type', 'application/vnd.android.package-archive');
+  headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
+  headers.set('Content-Length', String(object.size));
+  headers.set('ETag', object.httpEtag);
+  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  return new Response(request.method === 'HEAD' ? null : object.body, { status: 200, headers });
+}
+
 // =========================================================
 // D1 SCHEMA
 // =========================================================
@@ -600,6 +620,22 @@ async function listPlaces(url, env) {
   const result = await env.DB.prepare(`SELECT * FROM places ${where} ORDER BY country,city,area,name LIMIT ? OFFSET ?`)
     .bind(...binds, limit, offset).all();
   return result.results || [];
+}
+
+async function placesDataManifest(env) {
+  const row = await env.DB.prepare(`
+    SELECT COUNT(*) count, COALESCE(MAX(id),0) max_id, COALESCE(MAX(updated_at),'') updated_at
+    FROM places
+  `).first();
+  const count = Number(row?.count || 0);
+  const maxId = Number(row?.max_id || 0);
+  const updatedAt = clean(row?.updated_at, 100);
+  return {
+    version: `${count}-${maxId}-${updatedAt || 'empty'}`,
+    count,
+    updatedAt,
+    dataPath: '/api/places?limit=5000'
+  };
 }
 
 async function createPlace(request, env) {
@@ -2375,6 +2411,10 @@ export default {
       return serveR2Image(request, env, key);
     }
 
+    if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/downloads/')) {
+      return serveDownload(request, env, path.slice('/downloads/'.length));
+    }
+
     if (!isOriginAllowed(request, env)) return json({ error: 'Origin not allowed' }, 403, request, env);
 
     if (path === '/ai-v3' && request.method === 'POST') return handleAiV3(request, env);
@@ -2395,6 +2435,12 @@ export default {
     if (path === '/api/places' && request.method === 'GET') {
       if (!env.DB) return json({ error: 'D1 binding DB chưa được cấu hình.' }, 503, request, env);
       try { return json({ places: await listPlaces(url, env) }, 200, request, env); }
+      catch (error) { return json({ error: errorText(error, 'Unknown error', 1000) }, 500, request, env); }
+    }
+
+    if (path === '/api/data-manifest' && request.method === 'GET') {
+      if (!env.DB) return json({ error: 'D1 binding DB chưa được cấu hình.' }, 503, request, env);
+      try { return json(await placesDataManifest(env), 200, request, env); }
       catch (error) { return json({ error: errorText(error, 'Unknown error', 1000) }, 500, request, env); }
     }
 

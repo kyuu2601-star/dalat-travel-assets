@@ -1,2 +1,11 @@
 map-worker/.wrangler/
 .wrangler/
+node_modules/
+www/
+.toolchains/
+.signing/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+*.apk

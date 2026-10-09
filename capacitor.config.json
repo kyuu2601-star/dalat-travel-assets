@@ -1,0 +1,12 @@
+{
+  "appId": "com.kyuu2601.travelos",
+  "appName": "TravelOS",
+  "webDir": "www",
+  "loggingBehavior": "debug",
+  "android": {
+    "androidScheme": "https",
+    "allowMixedContent": false,
+    "backgroundColor": "#020617"
+  }
+}
+
