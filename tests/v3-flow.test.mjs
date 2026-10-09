@@ -716,3 +716,29 @@ test('AI v3 falls back to current-hour BestTime forecast when live busyness is u
     assert.equal(data.travelos.sources[0].source,'besttime-forecast');
   } finally {globalThis.fetch=originalFetch;}
 });
+
+test('AMap walking retries without a mismatched POI ID so the path reaches the requested marker', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requested=[];
+  globalThis.fetch=async url=>{
+    const parsed=new URL(String(url));requested.push(parsed);
+    const usesPoiId=parsed.searchParams.has('destination_id');
+    const polyline=usesPoiId
+      ? '106.574310,29.556984;106.579588,29.554878'
+      : '106.574310,29.556984;106.577287,29.554965';
+    return new Response(JSON.stringify({status:'1',info:'OK',infocode:'10000',route:{paths:[{distance:usesPoiId?'685':'364',cost:{duration:'300'},steps:[{instruction:'Đi bộ tới điểm đến',polyline}]}]}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/route/walking',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({country:'China',provider:'amap',origin:{lat:29.5569256,lng:106.5742115,coordSystem:'gcj02'},destination:{lat:29.555101,lng:106.577417,coordSystem:'gcj02',poiId:'WRONG-BUT-VALID-POI'},alternativeRoute:3,isIndoor:true})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),last=data.routes[0].steps[0].path.at(-1);
+    assert.equal(response.status,200);
+    assert.equal(requested.length,2);
+    assert.equal(requested[0].searchParams.get('destination_id'),'WRONG-BUT-VALID-POI');
+    assert.equal(requested[1].searchParams.has('destination_id'),false);
+    assert.equal(data.meta.endpointFallback,'coordinate-only');
+    assert.equal(data.meta.profile,'indoor-multi-coordinates');
+    assert.deepEqual(last,{lng:106.577287,lat:29.554965});
+    assert.ok(data.meta.attempts[0].endpointValidation.routes[0].endGap>120);
+    assert.ok(data.meta.attempts[1].endpointValidation.routes[0].endGap<120);
+  }finally{globalThis.fetch=originalFetch;}
+});
