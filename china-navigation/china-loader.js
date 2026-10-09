@@ -33,7 +33,7 @@
         loadCss();
         await loadScript('china-config.js');
         await loadScript('gcj02.js');
-        await loadScript('amap-provider.js?v=20261009-1');
+        await loadScript('amap-provider.js?v=20261009-2');
         await loadScript('amap-route-service.js');
         await loadScript('travel-navigation.js?v=20261009-1');
         active = true;

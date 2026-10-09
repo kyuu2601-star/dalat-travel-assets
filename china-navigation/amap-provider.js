@@ -16,7 +16,7 @@
     const lng = Number(point.lng ?? point.lon ?? point.longitude);
     return Number.isFinite(lat) && Number.isFinite(lng) ? {
       lat, lng,
-      coordSystem:point.coordSystem || point.coordinate_system || 'wgs84',
+      coordSystem:point.coordSystem || point.coordinate_system || (/amap/i.test(String(point.provider || '')) ? 'gcj02' : 'wgs84'),
       country:point.country || ''
     } : null;
   }

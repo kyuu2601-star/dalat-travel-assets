@@ -7,7 +7,8 @@
   function providerOf(payload){const raw=String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase();return raw.includes('google')?'google':raw==='geoapify'?'geoapify':'amap';}
   function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Places · Geoapify Map':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
   function currentCity(payload){return payload?.pois?.[0]?.city||document.getElementById('selectCity')?.value||'';}
-  function poiDestination(poi,payload){const p=validPoint(poi);return p?{name:poi.name||'',address:poi.address||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:poi.coordSystem||'wgs84',poiId:poi.poiId||poi.id||'',provider:poi.provider||payload?.provider||'',rating:poi.rating||null,userRatingCount:poi.userRatingCount||0,reviews:Array.isArray(poi.reviews)?poi.reviews.slice(0,5):[]}:null;}
+  function coordinateSystemOf(point,providerHint=''){const explicit=String(point?.coordSystem||point?.coordinate_system||'').toLowerCase();if(explicit)return explicit;return /amap/i.test(String(point?.provider||providerHint||''))?'gcj02':'wgs84';}
+  function poiDestination(poi,payload){const p=validPoint(poi),provider=poi?.provider||payload?.provider||'';return p?{name:poi.name||'',address:poi.address||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:coordinateSystemOf(poi,provider),poiId:poi.poiId||poi.id||'',provider,rating:poi.rating||null,userRatingCount:poi.userRatingCount||0,reviews:Array.isArray(poi.reviews)?poi.reviews.slice(0,5):[]}:null;}
   async function ensureProvider(payload){
     const provider=providerOf(payload);
     if(provider==='google'){
@@ -22,7 +23,7 @@
     if(!window.AMapProvider?.ensureSdk) throw new Error('AMap module chưa sẵn sàng.');
     await window.AMapProvider.ensureSdk(); return 'amap';
   }
-  function amapPoint(point,country=''){const p=validPoint(point);if(!p)return null;return window.AMapProvider?.toGcj?.({...p,country:p.country||country})||p;}
+  function amapPoint(point,country='',providerHint=''){const p=validPoint(point);if(!p)return null;return window.AMapProvider?.toGcj?.({...p,coordSystem:coordinateSystemOf(p,providerHint),country:p.country||country})||p;}
   function personMarker(){return '<div class="nearby-user-person" aria-label="Vị trí hiện tại"><svg viewBox="0 0 24 30" aria-hidden="true"><circle cx="12" cy="5" r="4"></circle><path d="M8 11h8c2 0 3 1.5 3 3.2V19h-3v10h-3V20h-2v9H8V19H5v-4.8C5 12.5 6 11 8 11z"></path></svg></div>';}
   function makeAmapMarker(index,user=false,center=false){return user?personMarker():center?'<div class="nearby-pin nearby-pin-center"><span>●</span></div>':`<div class="nearby-pin"><span>${index+1}</span></div>`;}
   async function mountMap(container,payload,interactive){
@@ -37,7 +38,7 @@
     if(!center)throw new Error('Nearby map thiếu tọa độ.');
     const map=new AMap.Map(container,{zoom:15,center:[center.lng,center.lat],viewMode:'2D',resizeEnable:true,dragEnable:Boolean(interactive),zoomEnable:Boolean(interactive),doubleClickZoom:Boolean(interactive),keyboardEnable:Boolean(interactive),scrollWheel:Boolean(interactive),touchZoom:Boolean(interactive)});
     const markers=[],areaMarker=new AMap.Marker({position:[center.lng,center.lat],anchor:'bottom-center',content:makeAmapMarker(0,false,true),title:'Địa điểm được dùng làm tâm tìm kiếm',zIndex:200});map.add(areaMarker);markers.push(areaMarker);
-    payload.pois.forEach((poi,index)=>{const p=amapPoint(poi,country);if(!p)return;const marker=new AMap.Marker({position:[p.lng,p.lat],anchor:'bottom-center',content:makeAmapMarker(index),title:String(poi.name||'')});marker.on?.('click',()=>interactive&&openRoute(poi,payload));map.add(marker);markers.push(marker);});
+    payload.pois.forEach((poi,index)=>{const p=amapPoint(poi,country,poi?.provider||payload?.provider);if(!p)return;const marker=new AMap.Marker({position:[p.lng,p.lat],anchor:'bottom-center',content:makeAmapMarker(index),title:String(poi.name||'')});marker.on?.('click',()=>interactive&&openRoute(poi,payload));map.add(marker);markers.push(marker);});
     if(markers.length>1)map.setFitView(markers,false,interactive?[70,70,70,70]:[36,36,36,36]);return map;
   }
   function destroyMap(map,provider,container){

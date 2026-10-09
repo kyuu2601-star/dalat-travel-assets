@@ -216,17 +216,20 @@ function compactNearbySnapshot(payload) {
         name:text(payload.query?.name, 200),
         googleType:text(payload.query?.googleType, 100)
     };
-    const pois = payload.pois.slice(0, 10).map(poi => ({
-        id:text(poi?.id, 200), poiId:text(poi?.poiId || poi?.id, 200),
-        name:text(poi?.name, 300), address:text(poi?.address, 700),
-        localizedName:text(poi?.localizedName, 300), localizedAddress:text(poi?.localizedAddress, 700),
-        lat:numberOrNull(poi?.lat ?? poi?.latitude), lng:numberOrNull(poi?.lng ?? poi?.lon ?? poi?.longitude),
-        distance:numberOrNull(poi?.distance), country:text(poi?.country, 120), city:text(poi?.city, 160), district:text(poi?.district, 160),
-        coordSystem:text(poi?.coordSystem || poi?.coordinate_system, 20), provider:text(poi?.provider || payload.provider, 80),
-        rating:numberOrNull(poi?.rating), userRatingCount:numberOrNull(poi?.userRatingCount), openTime:text(poi?.openTime, 300),
-        phone:text(poi?.phone, 200), website:text(poi?.website, 500), primaryType:text(poi?.primaryType, 120),
-        note:text(poi?.note, 500), noteConfidence:text(poi?.noteConfidence, 40)
-    })).filter(poi => poi.name && poi.lat !== null && poi.lng !== null);
+    const pois = payload.pois.slice(0, 10).map(poi => {
+        const provider=text(poi?.provider || payload.provider, 80),explicitCoordSystem=text(poi?.coordSystem || poi?.coordinate_system, 20).toLowerCase();
+        return {
+            id:text(poi?.id, 200), poiId:text(poi?.poiId || poi?.id, 200),
+            name:text(poi?.name, 300), address:text(poi?.address, 700),
+            localizedName:text(poi?.localizedName, 300), localizedAddress:text(poi?.localizedAddress, 700),
+            lat:numberOrNull(poi?.lat ?? poi?.latitude), lng:numberOrNull(poi?.lng ?? poi?.lon ?? poi?.longitude),
+            distance:numberOrNull(poi?.distance), country:text(poi?.country, 120), city:text(poi?.city, 160), district:text(poi?.district, 160),
+            coordSystem:explicitCoordSystem||(/amap/i.test(provider)?'gcj02':'wgs84'), provider,
+            rating:numberOrNull(poi?.rating), userRatingCount:numberOrNull(poi?.userRatingCount), openTime:text(poi?.openTime, 300),
+            phone:text(poi?.phone, 200), website:text(poi?.website, 500), primaryType:text(poi?.primaryType, 120),
+            note:text(poi?.note, 500), noteConfidence:text(poi?.noteConfidence, 40)
+        };
+    }).filter(poi => poi.name && poi.lat !== null && poi.lng !== null);
     if (!pois.length) return null;
     return { version:1, source:text(payload.source, 100), provider:text(payload.provider || pois[0].provider, 80), query, center, count:pois.length, pois };
 }

@@ -376,6 +376,8 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(nearby,/mapWrap\?\.addEventListener\('click'/);
   assert.match(nearby,/poi\.localizedName\|\|poi\.name/);
   assert.match(nearby,/nearby-poi-note/);
+  assert.match(nearby,/function coordinateSystemOf/);
+  assert.match(nearby,/['"]gcj02['"]/);
   assert.match(provider,/attributionControl\?\.setPrefix/);
   assert.match(provider,/© <a href="https:\/\/www\.geoapify\.com\//);
   assert.match(nearbyCss,/nearby-mini-map \.leaflet-control-attribution/);
@@ -398,7 +400,7 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261009-1/);
+  assert.match(index,/chat\.js\?v=20261009-2/);
 });
 
 test('Chat history restores the nearby map card for 24 hours without sending map payloads back to Gemini', async () => {
@@ -406,11 +408,12 @@ test('Chat history restores the nearby map card for 24 hours without sending map
   const store=new Map(),rendered=[],chatBox={children:[],scrollTop:0,scrollHeight:100,appendChild(node){this.children.push(node);}};
   const context={console,Date,AbortController,setTimeout,clearTimeout,localStorage:{getItem:key=>store.get(key)??null,setItem:(key,value)=>store.set(key,String(value)),removeItem:key=>store.delete(key)},document:{getElementById:id=>id==='chat-box'?chatBox:null,createElement:()=>({className:'',innerHTML:'',textContent:''})},window:{TravelNearby:{render:(payload,node)=>rendered.push({payload,node})}}};
   vm.createContext(context);vm.runInContext(source,context);
-  const nearby={source:'amap-place-v5',provider:'amap',query:'nhà thuốc',center:{lat:29.55,lng:106.57,country:'China',coordSystem:'gcj02'},pois:[{id:'poi-1',name:'药房',address:'重庆市',lat:29.551,lng:106.571,coordSystem:'gcj02',provider:'amap',distance:120,rating:4.7,reviews:[{text:'must not persist'}]}]};
+  const nearby={source:'amap-place-v5',provider:'amap',query:'nhà thuốc',center:{lat:29.55,lng:106.57,country:'China',coordSystem:'wgs84'},pois:[{id:'poi-1',name:'药房',address:'重庆市',lat:29.551,lng:106.571,provider:'amap',distance:120,rating:4.7,reviews:[{text:'must not persist'}]}]};
   context.saveMessage('ai','Tôi tìm được một địa điểm.',{nearby});
   const saved=JSON.parse(store.get('travelos_chat_history'));
   assert.equal(saved.version,2);
   assert.equal(saved.messages[0].nearby.pois[0].name,'药房');
+  assert.equal(saved.messages[0].nearby.pois[0].coordSystem,'gcj02');
   assert.equal(saved.messages[0].nearby.pois[0].reviews,undefined);
   chatBox.children.length=0;
   context.loadChatHistory();
@@ -603,13 +606,16 @@ test('AI v3 translates a China dish query and returns Vietnamese AMap notes', as
     assert.equal(body.query,'火锅');
     assert.deepEqual(body.queryVariants,['重庆火锅','四川火锅']);
     assert.equal(body.language,'zh');
-    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'amap-hotpot',name:'海底捞火锅',address:'王府井大街88号',lat:39.9142,lng:116.4112,distance:40,rating:'4.8',tag:'四川火锅;服务热情',cost:'128',provider:'amap',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'amap-hotpot',name:'海底捞火锅',address:'王府井大街88号',lat:39.9142,lng:116.4112,coordSystem:'gcj02',distance:40,rating:'4.8',tag:'四川火锅;服务热情',cost:'128',provider:'amap',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
   try{
     const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán lẩu quanh Vương Phủ Tỉnh',userLocation:{country:'Trung Quốc',city:'Bắc Kinh'}})}),env);
     const data=await response.json(),poi=data.travelos.nearby.pois[0];
     assert.equal(response.status,200);
     assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby']);
+    assert.equal(calls[1].body.center.coordSystem,'wgs84');
+    assert.equal(poi.coordSystem,'gcj02');
+    assert.equal(poi.poiId,'amap-hotpot');
     assert.equal(poi.localizedName,'Haidilao Hot Pot (海底捞火锅)');
     assert.equal(poi.localizedAddress,'88 phố Vương Phủ Tỉnh, Bắc Kinh');
     assert.equal(poi.note,'Nổi bật với lẩu Tứ Xuyên và dịch vụ nhiệt tình.');

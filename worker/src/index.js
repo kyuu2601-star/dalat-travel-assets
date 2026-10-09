@@ -1791,18 +1791,22 @@ function coordFrom(value) {
   const rawLat=value?.lat??value?.latitude,rawLng=value?.lng??value?.lon??value?.longitude;
   if(rawLat==null||rawLng==null||rawLat===''||rawLng==='') return null;
   const lat=Number(rawLat),lng=Number(rawLng);
-  return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng}:null;
+  if(!Number.isFinite(lat)||!Number.isFinite(lng))return null;
+  const coordSystem=clean(value?.coordSystem||value?.coordinate_system,20).toLowerCase(),country=clean(value?.country,120);
+  return {lat,lng,...(coordSystem?{coordSystem}:{}),...(country?{country}:{})};
 }
 
 function compactPoi(poi) {
+  const provider=clean(poi?.provider,80),explicitCoordSystem=clean(poi?.coordSystem||poi?.coordinate_system,20).toLowerCase();
+  const coordSystem=explicitCoordSystem||(/amap/.test(provider.toLowerCase())?'gcj02':'wgs84');
   return {
-    id:clean(poi?.id||poi?.poiId,300),name:clean(poi?.name,300),address:clean(poi?.address,800),
+    id:clean(poi?.id||poi?.poiId,300),poiId:clean(poi?.poiId||poi?.id,300),name:clean(poi?.name,300),address:clean(poi?.address,800),
     localizedName:clean(poi?.localizedName,300),localizedAddress:clean(poi?.localizedAddress,800),
     lat:num(poi?.lat),lng:num(poi?.lng),distance:num(poi?.distance),phone:clean(poi?.phone,300),website:clean(poi?.website,800),
     country:clean(poi?.country,120),city:clean(poi?.city,200),district:clean(poi?.district,200),
     openNow:typeof poi?.openNow==='boolean'?poi.openNow:null,openTime:clean(poi?.openTime,700),businessStatus:clean(poi?.businessStatus,100),
     rating:num(poi?.rating),userRatingCount:int(poi?.userRatingCount),reviews:Array.isArray(poi?.reviews)?poi.reviews.slice(0,5):[],
-    provider:clean(poi?.provider,80),primaryType:clean(poi?.primaryType,120),types:Array.isArray(poi?.types)?poi.types.slice(0,12):[],
+    provider,coordSystem,primaryType:clean(poi?.primaryType,120),types:Array.isArray(poi?.types)?poi.types.slice(0,12):[],
     tag:clean(poi?.tag,500),cost:clean(poi?.cost,80),businessArea:clean(poi?.businessArea,200),alias:clean(poi?.alias,300),
     note:clean(poi?.note,220),noteConfidence:clean(poi?.noteConfidence,30)
   };
