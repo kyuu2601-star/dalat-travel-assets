@@ -241,6 +241,7 @@
 
   function sourceLabel(source) {
     if (source === 'amap-route-v2') return 'Route 2.0';
+    if (source === 'amap-route-v3-fallback') return 'Route v3 fallback';
     if (source === 'amap-js-walking') return 'JS fallback';
     return '';
   }
@@ -263,15 +264,22 @@
     if (window.AMapRouteService?.configured?.()) {
       try {
         const planned = await window.AMapRouteService.walkingRoute(origin, destination, { alternativeRoute:3, isIndoor:true });
-        return { ...planned, source:'amap-route-v2', route2Error:'' };
+        return { ...planned, source:planned.source || 'amap-route-v2', route2Error:'' };
       } catch (error) {
         route2Error = error?.message || String(error || 'Route 2.0 error');
         console.warn('[TravelNavigation Route 2.0 fallback]', error);
       }
     }
 
-    const fallback = await window.AMapProvider.walkingRoute(origin, destination);
-    return { ...fallback, source:'amap-js-walking', route2Error };
+    try {
+      const fallback = await window.AMapProvider.walkingRoute(origin, destination);
+      return { ...fallback, source:'amap-js-walking', route2Error };
+    } catch (fallbackError) {
+      const primary = /OUT_OF_SERVICE|20800/.test(route2Error)
+        ? 'AMap cho rằng điểm bắt đầu hoặc điểm đến nằm ngoài vùng đường đi bộ trên đất liền.'
+        : route2Error;
+      throw new Error([primary, fallbackError?.message].filter(Boolean).join(' · '));
+    }
   }
 
   function haversine(a, b) {

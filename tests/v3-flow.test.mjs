@@ -769,6 +769,28 @@ test('AMap walking retries without a mismatched POI ID so the path reaches the r
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('AMap walking falls back to the official v3 route when Route 2.0 is out of service', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requested=[];
+  globalThis.fetch=async url=>{
+    const target=String(url);requested.push(target);
+    if(target.includes('/v5/direction/walking'))return new Response(JSON.stringify({status:'0',info:'OUT_OF_SERVICE',infocode:'20800'}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.match(target,/\/v3\/direction\/walking/);
+    return new Response(JSON.stringify({status:'1',info:'OK',infocode:'10000',route:{paths:[{distance:'364',duration:'300',steps:[{instruction:'Đi bộ tới điểm đến',distance:'364',duration:'300',polyline:'106.574310,29.556984;106.577287,29.554965'}]}]}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/route/walking',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({country:'China',provider:'amap',origin:{lat:29.5569256,lng:106.5742115,coordSystem:'gcj02'},destination:{lat:29.555101,lng:106.577417,coordSystem:'gcj02'},alternativeRoute:3,isIndoor:true})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(requested.length,2);
+    assert.match(requested[0],/\/v5\/direction\/walking/);
+    assert.match(requested[1],/\/v3\/direction\/walking/);
+    assert.equal(data.source,'amap-route-v3-fallback');
+    assert.equal(data.meta.endpointFallback,'v3-coordinate-only');
+    assert.equal(data.routes[0].distance,364);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('AMap provider clears a stale canvas and falls back to 2D when 3D never finishes rendering', async () => {
   const source=await readFile(new URL('../china-navigation/amap-provider.js',import.meta.url),'utf8');
   const instances=[];

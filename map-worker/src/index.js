@@ -1,4 +1,5 @@
 const AMAP_WALKING_URL = 'https://restapi.amap.com/v5/direction/walking';
+const AMAP_WALKING_V3_URL = 'https://restapi.amap.com/v3/direction/walking';
 const AMAP_NEARBY_URL = 'https://restapi.amap.com/v5/place/around';
 const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places';
 const GEOAPIFY_ROUTING_URL = 'https://api.geoapify.com/v1/routing';
@@ -121,6 +122,16 @@ async function callAmap(env, origin, destination, profile, timeoutMs) {
     return { ok:false, network:true, timeout:error?.name==='AbortError', info:error?.name==='AbortError'?'REQUEST_TIMEOUT':'NETWORK_ERROR', message:error?.message || '', elapsedMs:Date.now()-started };
   } finally { clearTimeout(timer); }
 }
+async function callAmapV3(env, origin, destination, timeoutMs) {
+  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,origin:`${origin.lng.toFixed(6)},${origin.lat.toFixed(6)}`,destination:`${destination.lng.toFixed(6)},${destination.lat.toFixed(6)}`,output:'json'});
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.max(500,timeoutMs)),started=Date.now();
+  try{
+    const response=await fetch(`${AMAP_WALKING_V3_URL}?${params}`,{signal:controller.signal}),raw=await response.json().catch(()=>null),elapsedMs=Date.now()-started;
+    if(!raw)return{ok:false,network:true,httpStatus:response.status,info:`AMap v3 HTTP ${response.status}`,elapsedMs};
+    return{ok:response.ok&&String(raw.status)==='1',httpStatus:response.status,status:raw.status,info:raw.info,infocode:raw.infocode,raw,elapsedMs};
+  }catch(error){return{ok:false,network:true,timeout:error?.name==='AbortError',info:error?.name==='AbortError'?'REQUEST_TIMEOUT':'NETWORK_ERROR',message:error?.message||'',elapsedMs:Date.now()-started};}
+  finally{clearTimeout(timer);}
+}
 async function amapWalkingRoute(body, env, originHeader, origin, destination) {
   if (!env.AMAP_WEB_KEY) return json({ error:'Worker chưa có secret AMAP_WEB_KEY.' }, 500, originHeader);
   origin = toAmapPoint(origin); destination = toAmapPoint(destination);
@@ -151,6 +162,17 @@ async function amapWalkingRoute(body, env, originHeader, origin, destination) {
       else {last={...result,ok:false,info:'EMPTY_ROUTE'};attempts[attemptIndex].info='EMPTY_ROUTE';}
     }
     if(!(result.network||retryableAmapError(result.info)||result.info==='EMPTY_ROUTE')) break;
+  }
+  const v3Remaining=deadline-Date.now();
+  if(v3Remaining>=500){
+    const v3Profile={name:'v3-coordinate-fallback',isIndoor:false,alternativeRoute:1},v3Origin={...origin,poiId:''},v3Destination={...destination,poiId:''};
+    const v3Result=await callAmapV3(env,v3Origin,v3Destination,Math.min(3500,Math.max(500,v3Remaining)));last=v3Result;attempts.push(safeAttempt(v3Profile,v3Result));
+    if(v3Result.ok){
+      const v3Routes=(Array.isArray(v3Result.raw?.route?.paths)?v3Result.raw.route.paths:[]).map(normalizeAmapPath).filter(route=>route.steps.length||route.distance>0),checked=validateAmapRouteEndpoints(v3Routes,v3Origin,v3Destination);
+      attempts[attempts.length-1].endpointValidation=checked.diagnostics;
+      if(checked.routes.length)return json({source:'amap-route-v3-fallback',provider:'amap',origin:{lat:origin.lat,lng:origin.lng,coordSystem:'gcj02',country:body?.country||origin.country||''},destination:{lat:destination.lat,lng:destination.lng,coordSystem:'gcj02',country:body?.country||destination.country||''},routes:checked.routes,meta:{count:checked.routes.length,info:v3Result.raw.info||'OK',infocode:v3Result.raw.infocode||'',profile:v3Profile.name,indoor:false,endpointFallback:'v3-coordinate-only',attempts}},200,originHeader);
+      last={...v3Result,ok:false,info:'ROUTE_ENDPOINT_MISMATCH'};attempts[attempts.length-1].info=last.info;
+    }
   }
   return json({ error:`AMap Route 2.0: ${String(last?.info||'unknown error')}`, infocode:String(last?.infocode||''), attempts, diagnostic:{origin:{lat:origin.lat,lng:origin.lng},destination:{lat:destination.lat,lng:destination.lng},requestedIndoor:wantIndoor,requestedAlternativeRoute:requestedAlt} },502,originHeader);
 }

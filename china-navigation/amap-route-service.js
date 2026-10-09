@@ -40,7 +40,7 @@
         poiFallback = response.ok;
       }
       if (!response.ok || !Array.isArray(data?.routes) || !data.routes.length) throw new Error(data?.error || data?.message || `Route Worker HTTP ${response.status}`);
-      return { ...data, source:SOURCE, meta:{ ...data.meta, provider:'amap', upstreamSource:data.source || '', poiFallback }, origin:data.origin || o, destination:data.destination || d };
+      return { ...data, source:data.source || SOURCE, meta:{ ...data.meta, provider:'amap', upstreamSource:data.source || '', poiFallback }, origin:data.origin || o, destination:data.destination || d };
     } catch (error) {
       if (error?.name === 'AbortError') throw new Error('Route Worker timeout.');
       throw error;
