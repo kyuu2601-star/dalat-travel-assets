@@ -887,13 +887,12 @@ test('AMap walking never falls back outside Route 2.0', async () => {
   }finally{globalThis.fetch=originalFetch;}
 });
 
-test('AMap provider clears a stale canvas and falls back to 2D when 3D never finishes rendering', async () => {
+test('AMap provider paints directly in 2D without waiting for a 3D timeout', async () => {
   const source=await readFile(new URL('../china-navigation/amap-provider.js',import.meta.url),'utf8');
   const instances=[];
   const container={clears:0,replaceChildren(){this.clears++;},querySelector(){return null;}};
   class FakeMap{
     constructor(node,options){this.node=node;this.options=options;this.destroyed=false;instances.push(this);}
-    once(event,callback){if(event==='complete'&&this.options.viewMode==='2D')queueMicrotask(callback);}
     resize(){}
     setCenter(){}
     clearMap(){}
@@ -902,10 +901,9 @@ test('AMap provider clears a stale canvas and falls back to 2D when 3D never fin
   const context={console,URL,Promise,queueMicrotask,requestAnimationFrame:callback=>callback(),setTimeout:callback=>setImmediate(callback),clearTimeout:handle=>clearImmediate(handle),document:{getElementById:id=>id==='tn-map'?container:null,querySelector:()=>null,createElement:()=>({}),head:{appendChild(){}}},window:{AMap:{Map:FakeMap,Walking:function(){}},CHINA_NAV_CONFIG:{},GCJ02:{wgs84ToGcj02:(lat,lng)=>({lat,lng})}}};
   vm.runInNewContext(source,context);
   const map=await context.window.AMapProvider.createMap('tn-map',{lat:29.55,lng:106.57,coordSystem:'gcj02',country:'China'});
-  assert.equal(instances.length,2);
-  assert.equal(instances[0].options.viewMode,'3D');
-  assert.equal(instances[0].destroyed,true);
-  assert.equal(instances[1].options.viewMode,'2D');
+  assert.equal(instances.length,1);
+  assert.equal(instances[0].options.viewMode,'2D');
+  assert.equal(instances[0].options.pitchEnable,false);
   assert.equal(map.__travelosFallback2D,true);
-  assert.equal(container.clears,2);
+  assert.equal(container.clears,1);
 });

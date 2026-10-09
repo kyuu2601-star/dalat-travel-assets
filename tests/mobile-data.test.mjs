@@ -71,3 +71,27 @@ test('native startup defers bot health and external reverse geocoding', async ()
   assert.match(chatSource, /if \(window\.TRAVELOS_NATIVE\) return \{ ok:true, deferred:true \}/);
   assert.match(appSource, /if \(window\.TRAVELOS_NATIVE\)[\s\S]*inferNativeLocation\(position\)/);
 });
+
+test('native chat controls clear the Android navigation bar', async () => {
+  const [css, widget] = await Promise.all([
+    readFile(new URL('../style.css', import.meta.url), 'utf8'),
+    readFile(new URL('../widget.js', import.meta.url), 'utf8')
+  ]);
+  assert.match(css, /\.native-app #chat-widget-button \{ bottom: max\(84px,/);
+  assert.match(css, /\.native-app #chat-widget-window \{ bottom: max\(152px,/);
+  assert.match(widget, /bottomClearance = window\.TRAVELOS_NATIVE \? Math\.max\(edgeY, 84\) : edgeY/);
+  assert.match(widget, /viewport\.height - bottomClearance - buttonSize/);
+});
+
+test('China mode preloads AMap and paints the map while Route 2.0 runs', async () => {
+  const [loader, navigation, provider] = await Promise.all([
+    readFile(new URL('../china-navigation/china-loader.js', import.meta.url), 'utf8'),
+    readFile(new URL('../china-navigation/travel-navigation.js', import.meta.url), 'utf8'),
+    readFile(new URL('../china-navigation/amap-provider.js', import.meta.url), 'utf8')
+  ]);
+  assert.match(loader, /AMapProvider\?\.ensureSdk\?\.\(\)/);
+  assert.match(navigation, /Promise\.allSettled\(\[/);
+  assert.match(navigation, /mapPromise,[\s\S]*planWalkingRoute\(origin, resolvedDestination\)/);
+  assert.match(provider, /viewMode:'2D'/);
+  assert.doesNotMatch(provider, /viewMode:'3D'/);
+});

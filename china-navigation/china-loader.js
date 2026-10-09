@@ -40,10 +40,13 @@
         loadCss();
         await loadScript('china-config.js');
         await loadScript('gcj02.js');
-        await loadScript('amap-provider.js?v=20261009-2');
+        await loadScript('amap-provider.js?v=20261009-3');
         await loadScript('amap-route-service.js?v=20261009-3');
-        await loadScript('travel-navigation.js?v=20261009-3');
+        await loadScript('travel-navigation.js?v=20261009-4');
         active = true;
+        // Warm the remote SDK as soon as China is selected. Navigation can then
+        // paint the map immediately instead of paying this network cost on tap.
+        window.AMapProvider?.ensureSdk?.().catch(error => console.warn('[ChinaNavigation SDK preload]', error));
       })();
     }
     await loadingPromise;

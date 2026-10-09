@@ -39,12 +39,13 @@ if [ ! -f "$SIGNING_FILE" ]; then
 fi
 
 cd "$PROJECT_ROOT"
+APP_VERSION=$(node -p "require('./package.json').version")
 npm run android:sync
 cd android
 ./gradlew --no-daemon clean assembleRelease
 
 APK_SOURCE="$PROJECT_ROOT/android/app/build/outputs/apk/release/app-release.apk"
-APK_DESTINATION="$PROJECT_ROOT/TravelOS-v1.0.0.apk"
+APK_DESTINATION="$PROJECT_ROOT/TravelOS-v${APP_VERSION}.apk"
 cp "$APK_SOURCE" "$APK_DESTINATION"
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK_DESTINATION"
 shasum -a 256 "$APK_DESTINATION"

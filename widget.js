@@ -69,6 +69,9 @@
         const compact = viewport.width <= 680;
         const edgeX = compact ? 16 : 24;
         const edgeY = compact ? 16 : 24;
+        // Android three-button navigation is not consistently exposed through
+        // CSS safe-area insets inside a WebView, so keep an explicit clearance.
+        const bottomClearance = window.TRAVELOS_NATIVE ? Math.max(edgeY, 84) : edgeY;
         const buttonSize = 52;
         const windowGap = compact ? 14 : 16;
 
@@ -79,7 +82,7 @@
         );
         const buttonTop = Math.max(
             viewport.top,
-            viewport.top + viewport.height - edgeY - buttonSize
+            viewport.top + viewport.height - bottomClearance - buttonSize
         );
 
         btn.style.position = 'fixed';
@@ -94,7 +97,7 @@
 
         const availableHeight = Math.max(
             1,
-            viewport.height - edgeY * 2 - buttonSize - windowGap
+            viewport.height - edgeY - bottomClearance - buttonSize - windowGap
         );
         const desiredHeight = Math.min(600, availableHeight);
 
@@ -104,7 +107,7 @@
         );
         const windowTop = Math.max(
             viewport.top + edgeY,
-            viewport.top + viewport.height - edgeY - buttonSize - windowGap - desiredHeight
+            viewport.top + viewport.height - bottomClearance - buttonSize - windowGap - desiredHeight
         );
 
         win.style.position = 'fixed';

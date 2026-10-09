@@ -606,8 +606,28 @@
         coordSystem: destination.coordSystem || cfg().route?.destinationCoordinateSystem || 'wgs84'
       });
       if (requestSession !== session) return;
-      const planned = await planWalkingRoute(origin, resolvedDestination);
-      if (requestSession !== session) return;
+      const mapPromise = window.AMapProvider.createMap('tn-map', origin).then(map => {
+        if (requestSession !== session) { map.destroy?.(); return map; }
+        state.map = map;
+        $('#tn-map-status').textContent = 'Đang tính tuyến Route 2.0...';
+        return map;
+      });
+      const [mapResult, routeResult] = await Promise.allSettled([
+        mapPromise,
+        planWalkingRoute(origin, resolvedDestination)
+      ]);
+      if (requestSession !== session) {
+        if (mapResult.status === 'fulfilled') mapResult.value?.destroy?.();
+        return;
+      }
+      if (mapResult.status === 'rejected') throw mapResult.reason;
+      if (routeResult.status === 'rejected') {
+        mapResult.value?.destroy?.();
+        state.map = null;
+        throw routeResult.reason;
+      }
+      const map = mapResult.value;
+      const planned = routeResult.value;
       const routes = planned.routes.map(route => window.ChongqingRoute?.analyze(route) || route);
       if (!routes.length) throw new Error('AMap không trả tuyến đi bộ.');
       state.origin = planned.origin;
@@ -618,9 +638,7 @@
       state.routes = routes;
       state.routeSource = planned.source || '';
       state.route2Error = planned.route2Error || '';
-      const map = await window.AMapProvider.createMap('tn-map', planned.origin);
-      if (requestSession !== session) { map.destroy?.(); return; }
-      state.map = map;
+      try { map.setCenter?.([planned.origin.lng, planned.origin.lat]); } catch {}
       $('#tn-map-status').classList.add('hidden');
       const preferred = state.chongqing
         ? [...routes].sort((a, b) => (a.difficulty || 0) - (b.difficulty || 0) || a.distance - b.distance)[0]
