@@ -126,11 +126,43 @@
     });
   }
 
+  function mapContainer(container) {
+    return typeof container === 'string' ? document.getElementById(container) : container;
+  }
+  function waitForMapReady(map, container, timeoutMs = 2600) {
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = ready => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(Boolean(ready));
+      };
+      let listensForComplete = false;
+      const timer = setTimeout(() => finish(!listensForComplete && container?.querySelector?.('canvas,.amap-layer,.amap-maps')), timeoutMs);
+      try {
+        if (typeof map.once === 'function') { listensForComplete = true; map.once('complete', () => finish(true)); }
+        else if (typeof map.on === 'function') { listensForComplete = true; map.on('complete', () => finish(true)); }
+      } catch { listensForComplete = false; }
+      requestAnimationFrame(() => {
+        try { map.resize?.(); }
+        catch {}
+      });
+    });
+  }
+  async function mountMap(container, options) {
+    container.replaceChildren();
+    const map = new window.AMap.Map(container, options);
+    const ready = await waitForMapReady(map, container);
+    return { map, ready };
+  }
   async function createMap(container, center) {
     const AMap = await ensureSdk();
     const country = center?.country || currentCountry();
     const c = center ? (isChinaCountry(country) ? toGcj(center, country) : pointValue(center)) : null;
-    return new AMap.Map(container, {
+    const node = mapContainer(container);
+    if (!node) throw new Error('Không tìm thấy vùng hiển thị AMap.');
+    const baseOptions = {
       zoom:16,
       center:c ? [c.lng, c.lat] : undefined,
       viewMode:'3D',
@@ -139,7 +171,15 @@
       showBuildingBlock:true,
       pitchEnable:true,
       resizeEnable:true
-    });
+    };
+    let mounted = await mountMap(node, baseOptions);
+    if (!mounted.ready) {
+      try { mounted.map.clearMap?.(); mounted.map.destroy?.(); } catch {}
+      mounted = await mountMap(node, { ...baseOptions, viewMode:'2D', pitch:0, showBuildingBlock:false, pitchEnable:false });
+      mounted.map.__travelosFallback2D = true;
+    }
+    try { mounted.map.resize?.(); if (c) mounted.map.setCenter?.([c.lng, c.lat]); } catch {}
+    return mounted.map;
   }
 
   function routePath(route) {

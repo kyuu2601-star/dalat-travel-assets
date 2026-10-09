@@ -66,6 +66,7 @@
   function openModal(destination) {
     ensureModal();
     const root = $('#travel-nav-modal');
+    $('#tn-map')?.replaceChildren();
     root.classList.add('open');
     root.setAttribute('aria-hidden', 'false');
     document.body.classList.add('travel-nav-open');
@@ -88,7 +89,10 @@
     document.body.classList.remove('travel-nav-open');
     if (state.gpsTimer) clearInterval(state.gpsTimer);
     state.gpsTimer = null;
-    try { state.map?.destroy?.(); } catch {}
+    const map = state.map;
+    state.map = null;
+    try { map?.clearMap?.(); map?.destroy?.(); } catch {}
+    $('#tn-map')?.replaceChildren();
     state = blankState();
     backAction = null;
   }
@@ -361,7 +365,7 @@
 
     try {
       if (special) {
-        state.map.setPitch?.(r.focusPitch);
+        state.map.setPitch?.(state.map.__travelosFallback2D ? 0 : r.focusPitch);
         state.map.setZoom?.(r.focusZoom);
         const from = userPoint || step.path?.[0];
         const to = step.path?.[Math.min(1, (step.path?.length || 1) - 1)] || target;
@@ -370,7 +374,7 @@
         highlightStep(step);
         state.focusStep = index;
       } else if (manual) {
-        state.map.setPitch?.(45);
+        state.map.setPitch?.(state.map.__travelosFallback2D ? 0 : 45);
         state.map.setRotation?.(0);
         state.map.setZoom?.(18);
         state.map.setCenter?.([target.lng, target.lat]);
@@ -383,7 +387,7 @@
   function restoreMapView() {
     if (!state.map) return;
     try {
-      state.map.setPitch?.(45);
+      state.map.setPitch?.(state.map.__travelosFallback2D ? 0 : 45);
       state.map.setRotation?.(0);
       state.map.setZoom?.(17);
       if (window.userPos) {
@@ -582,7 +586,7 @@
     state.warned10m = new Set();
     state.userMarker = null;
     window.AMapProvider.drawRoute(state.map, route, state.origin, state.destination);
-    state.map.setPitch?.(45);
+    state.map.setPitch?.(state.map.__travelosFallback2D ? 0 : 45);
     state.map.setRotation?.(0);
     renderRouteChoices();
     renderRouteMeta(route, state.chongqing, state.routeSource);
