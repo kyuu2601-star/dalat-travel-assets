@@ -398,7 +398,27 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261008-2/);
+  assert.match(index,/chat\.js\?v=20261009-1/);
+});
+
+test('Chat history restores the nearby map card for 24 hours without sending map payloads back to Gemini', async () => {
+  const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
+  const store=new Map(),rendered=[],chatBox={children:[],scrollTop:0,scrollHeight:100,appendChild(node){this.children.push(node);}};
+  const context={console,Date,AbortController,setTimeout,clearTimeout,localStorage:{getItem:key=>store.get(key)??null,setItem:(key,value)=>store.set(key,String(value)),removeItem:key=>store.delete(key)},document:{getElementById:id=>id==='chat-box'?chatBox:null,createElement:()=>({className:'',innerHTML:'',textContent:''})},window:{TravelNearby:{render:(payload,node)=>rendered.push({payload,node})}}};
+  vm.createContext(context);vm.runInContext(source,context);
+  const nearby={source:'amap-place-v5',provider:'amap',query:'nhà thuốc',center:{lat:29.55,lng:106.57,country:'China',coordSystem:'gcj02'},pois:[{id:'poi-1',name:'药房',address:'重庆市',lat:29.551,lng:106.571,coordSystem:'gcj02',provider:'amap',distance:120,rating:4.7,reviews:[{text:'must not persist'}]}]};
+  context.saveMessage('ai','Tôi tìm được một địa điểm.',{nearby});
+  const saved=JSON.parse(store.get('travelos_chat_history'));
+  assert.equal(saved.version,2);
+  assert.equal(saved.messages[0].nearby.pois[0].name,'药房');
+  assert.equal(saved.messages[0].nearby.pois[0].reviews,undefined);
+  chatBox.children.length=0;
+  context.loadChatHistory();
+  assert.equal(chatBox.children.length,1);
+  assert.equal(rendered.length,1);
+  assert.equal(rendered[0].payload.pois[0].poiId,'poi-1');
+  assert.equal(rendered[0].node,chatBox.children[0]);
+  assert.match(source,/chatHistoryArray = chatHistoryArray\.map\(message => \(\{ role:message\.role, content:message\.content \}\)\)/);
 });
 
 test('App keeps onboarding visible until places and bot readiness settle', async () => {

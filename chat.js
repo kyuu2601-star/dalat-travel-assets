@@ -1,6 +1,7 @@
 const CHAT_STORAGE_KEY = 'travelos_chat_history';
 const LEGACY_CHAT_STORAGE_KEY = 'dalatos_chat_history';
 const EXPIRY_TIME = 24 * 60 * 60 * 1000;
+const CHAT_HISTORY_VERSION = 2;
 
 function renderMarkdownSafe(text) {
     let html = escapeChatHtml(String(text ?? ''));
@@ -107,6 +108,7 @@ async function handleChat() {
                 const localHistory = readHistory();
                 let chatHistoryArray = localHistory ? localHistory.messages : [];
                 if (chatHistoryArray.length > 6) chatHistoryArray = chatHistoryArray.slice(-6);
+                chatHistoryArray = chatHistoryArray.map(message => ({ role:message.role, content:message.content }));
 
                 const requestBody = {
                     userMessage: text,
@@ -159,10 +161,9 @@ async function handleChat() {
         const messageElement = loadingElement?.closest('.msg');
         if (messageElement) {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
-            if (data?.travelos?.nearby && window.TravelNearby?.render) {
-                window.TravelNearby.render(data.travelos.nearby, messageElement);
-            }
-            saveMessage('ai', aiMsg);
+            const nearby = compactNearbySnapshot(data?.travelos?.nearby);
+            if (nearby && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
+            saveMessage('ai', aiMsg, nearby ? { nearby } : {});
         }
     } catch (error) {
         console.error(error);
@@ -186,7 +187,7 @@ function normalizeAssistantVoice(text) {
 
 function addMessage(role, content, isHtml = false) {
     const chatBox = document.getElementById('chat-box');
-    if (!chatBox) return;
+    if (!chatBox) return null;
 
     const div = document.createElement('div');
     div.className = `msg ${role}`;
@@ -197,16 +198,50 @@ function addMessage(role, content, isHtml = false) {
 
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
+    return div;
+}
+
+function compactNearbySnapshot(payload) {
+    if (!payload || !Array.isArray(payload.pois) || !payload.pois.length) return null;
+    const numberOrNull = value => value === null || value === undefined || value === '' ? null : (Number.isFinite(Number(value)) ? Number(value) : null);
+    const text = (value, max = 500) => String(value ?? '').trim().slice(0, max);
+    const center = payload.center && typeof payload.center === 'object' ? {
+        lat:numberOrNull(payload.center.lat ?? payload.center.latitude),
+        lng:numberOrNull(payload.center.lng ?? payload.center.lon ?? payload.center.longitude),
+        country:text(payload.center.country, 120),
+        coordSystem:text(payload.center.coordSystem || payload.center.coordinate_system, 20)
+    } : null;
+    const query = typeof payload.query === 'string' ? text(payload.query, 300) : {
+        keyword:text(payload.query?.keyword, 200),
+        name:text(payload.query?.name, 200),
+        googleType:text(payload.query?.googleType, 100)
+    };
+    const pois = payload.pois.slice(0, 10).map(poi => ({
+        id:text(poi?.id, 200), poiId:text(poi?.poiId || poi?.id, 200),
+        name:text(poi?.name, 300), address:text(poi?.address, 700),
+        localizedName:text(poi?.localizedName, 300), localizedAddress:text(poi?.localizedAddress, 700),
+        lat:numberOrNull(poi?.lat ?? poi?.latitude), lng:numberOrNull(poi?.lng ?? poi?.lon ?? poi?.longitude),
+        distance:numberOrNull(poi?.distance), country:text(poi?.country, 120), city:text(poi?.city, 160), district:text(poi?.district, 160),
+        coordSystem:text(poi?.coordSystem || poi?.coordinate_system, 20), provider:text(poi?.provider || payload.provider, 80),
+        rating:numberOrNull(poi?.rating), userRatingCount:numberOrNull(poi?.userRatingCount), openTime:text(poi?.openTime, 300),
+        phone:text(poi?.phone, 200), website:text(poi?.website, 500), primaryType:text(poi?.primaryType, 120),
+        note:text(poi?.note, 500), noteConfidence:text(poi?.noteConfidence, 40)
+    })).filter(poi => poi.name && poi.lat !== null && poi.lng !== null);
+    if (!pois.length) return null;
+    return { version:1, source:text(payload.source, 100), provider:text(payload.provider || pois[0].provider, 80), query, center, count:pois.length, pois };
 }
 
 function readHistory() {
-    let history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || 'null');
+    let history = null;
+    try { history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || 'null'); }
+    catch { localStorage.removeItem(CHAT_STORAGE_KEY); }
 
     if (!history) {
         const legacy = localStorage.getItem(LEGACY_CHAT_STORAGE_KEY);
         if (legacy) {
-            history = JSON.parse(legacy);
-            localStorage.setItem(CHAT_STORAGE_KEY, legacy);
+            try { history = JSON.parse(legacy); }
+            catch { history = null; }
+            if (history) localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ ...history, version:CHAT_HISTORY_VERSION }));
             localStorage.removeItem(LEGACY_CHAT_STORAGE_KEY);
         }
     }
@@ -214,10 +249,12 @@ function readHistory() {
     return history;
 }
 
-function saveMessage(role, content) {
-    let history = readHistory() || { timestamp: Date.now(), messages: [] };
-    if (Date.now() - history.timestamp > EXPIRY_TIME) history = { timestamp: Date.now(), messages: [] };
-    history.messages.push({ role, content });
+function saveMessage(role, content, extras = {}) {
+    let history = readHistory() || { version:CHAT_HISTORY_VERSION, timestamp:Date.now(), messages:[] };
+    if (Date.now() - history.timestamp > EXPIRY_TIME) history = { version:CHAT_HISTORY_VERSION, timestamp:Date.now(), messages:[] };
+    history.version = CHAT_HISTORY_VERSION;
+    history.messages.push({ role, content, ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}) });
+    if (history.messages.length > 80) history.messages = history.messages.slice(-80);
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
 }
 
@@ -230,5 +267,9 @@ function loadChatHistory() {
         return;
     }
 
-    history.messages.forEach(msg => addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content));
+    history.messages.forEach(msg => {
+        const messageElement = addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content);
+        const nearby = compactNearbySnapshot(msg.nearby);
+        if (messageElement && nearby && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
+    });
 }
