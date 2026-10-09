@@ -4,7 +4,10 @@
   function validPoint(p){const lat=Number(p?.lat??p?.latitude),lng=Number(p?.lng??p?.lon??p?.longitude);return Number.isFinite(lat)&&Number.isFinite(lng)?{...p,lat,lng}:null;}
   function distanceText(v){const m=Number(v);if(!Number.isFinite(m)||m<0)return'';return m<1000?`${Math.max(1,Math.round(m))} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;}
   function queryLabel(payload){const q=payload?.query;if(typeof q==='string')return q;return q?.name||q?.keyword||q?.googleType||'Nearby';}
-  function providerOf(payload){const raw=String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase();return raw.includes('google')?'google':raw==='geoapify'?'geoapify':'amap';}
+  function isChinaCountry(value){return window.ChinaNavigation?.isChina?.(value)||/(?:中国|中华人民共和国)/.test(String(value||''));}
+  function isChinaPoint(value){return window.ChinaNavigation?.isChinaPoint?.(value)||false;}
+  function isChinaPayload(payload){return isChinaCountry(payload?.center?.country)||isChinaCountry(payload?.pois?.[0]?.country)||isChinaPoint(payload?.center)||isChinaPoint(payload?.pois?.[0]);}
+  function providerOf(payload){if(isChinaPayload(payload))return'amap';const raw=String(payload?.provider||payload?.pois?.[0]?.provider||'').toLowerCase();return raw.includes('google')?'google':raw==='geoapify'?'geoapify':'amap';}
   function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Places · Geoapify Map':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
   function currentCity(payload){return payload?.pois?.[0]?.city||document.getElementById('selectCity')?.value||'';}
   function coordinateSystemOf(point,providerHint=''){const explicit=String(point?.coordSystem||point?.coordinate_system||'').toLowerCase();if(explicit)return explicit;return /amap/i.test(String(point?.provider||providerHint||''))?'gcj02':'wgs84';}

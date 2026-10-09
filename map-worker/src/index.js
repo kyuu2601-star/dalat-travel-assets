@@ -1,5 +1,7 @@
 const AMAP_WALKING_URL = 'https://restapi.amap.com/v5/direction/walking';
 const AMAP_NEARBY_URL = 'https://restapi.amap.com/v5/place/around';
+const AMAP_TEXT_SEARCH_URL = 'https://restapi.amap.com/v5/place/text';
+const AMAP_PLACE_DETAIL_URL = 'https://restapi.amap.com/v5/place/detail';
 const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places';
 const GEOAPIFY_ROUTING_URL = 'https://api.geoapify.com/v1/routing';
 const GEOAPIFY_GEOCODING_URL = 'https://api.geoapify.com/v1/geocode/search';
@@ -39,13 +41,35 @@ function isChinaCountry(value) {
   const v = fold(value);
   return ['trung quoc','china','cn','中国','中华人民共和国'].some(x => v === fold(x) || v.includes(fold(x)));
 }
+const CHINA_MAINLAND_OUTLINE=[[73.5,39.5],[79,35.5],[80,30],[88,27.5],[92,28],[97,28],[98,24],[101,21.5],[102,22.5],[106.5,22.8],[108,21.5],[110,20.3],[114,22],[117,23],[120,25],[122,29],[122,40],[125,40],[131,43],[135,48],[132,53],[120,54],[108,49],[95,49],[87,47],[80,45]];
+function pointInOutline(lat,lng,outline) {
+  let inside=false;
+  for(let i=0,j=outline.length-1;i<outline.length;j=i++){
+    const [xi,yi]=outline[i],[xj,yj]=outline[j],crosses=(yi>lat)!==(yj>lat)&&lng<(xj-xi)*(lat-yi)/(yj-yi)+xi;
+    if(crosses)inside=!inside;
+  }
+  return inside;
+}
+function isChinaCoordinate(value) {
+  const point=finiteCoord(value);if(!point)return false;
+  const {lat,lng}=point;
+  return pointInOutline(lat,lng,CHINA_MAINLAND_OUTLINE)||(lat>=18&&lat<=20.6&&lng>=108.5&&lng<=111.5);
+}
+function hasChinaPlaceHint(value) {
+  const v=fold(value);
+  return ['trung khanh','chongqing','重庆','bac kinh','beijing','北京','thuong hai','shanghai','上海','quang chau','guangzhou','广州','tham quyen','shenzhen','深圳','thanh do','chengdu','成都','tay an','xian','西安','hang chau','hangzhou','杭州','nam kinh','nanjing','南京','to chau','suzhou','苏州','vu han','wuhan','武汉','raffles city','来福士','chaotianmen','朝天门'].some(item=>v.includes(fold(item)));
+}
 function providerFor(body) {
+  const country = body?.country || body?.destination?.country || body?.origin?.country || body?.center?.country || '';
+  const query=body?.query||body?.name||body?.address||'';
+  const chinaContext=isChinaCountry(country)||isChinaCoordinate(body?.center)||isChinaCoordinate(body?.location)||isChinaCoordinate(body?.origin)||isChinaCoordinate(body?.destination)||hasChinaPlaceHint(query);
+  // China is a hard provider boundary: never let a stale/forced global provider bypass AMap.
+  if(chinaContext) return 'amap';
   const forced = clean(body?.provider, 20).toLowerCase();
   if (forced === 'amap' || forced === 'domestic') return 'amap';
   if (forced === 'geoapify') return 'geoapify';
   if (forced === 'google' || forced === 'google_places' || forced === 'google_routes') return 'google';
-  const country = body?.country || body?.destination?.country || body?.origin?.country || body?.center?.country || '';
-  return isChinaCountry(country) ? 'amap' : 'google';
+  return 'google';
 }
 function clampInt(value, min, max, fallback) {
   const n = Math.round(Number(value));
@@ -420,7 +444,7 @@ async function nearbySearch(request, env, originHeader) {
   const radius=clampInt(body?.radius,100,50000,3000),limit=clampInt(body?.limit,1,20,8),candidateLimit=clampInt(body?.candidateLimit,limit,50,Math.max(20,limit*4)),country=clean(body?.country||center.country,120);
   const normalizedBody={...body,name};
   const provider=providerFor(body);
-  if(provider==='amap') return amapNearby(normalizedBody,env,originHeader,center,keyword,types,radius,limit,Math.min(25,candidateLimit),country);
+  if(provider==='amap') return amapNearby(normalizedBody,env,originHeader,center,keyword,types,radius,limit,Math.min(25,candidateLimit),'Trung Quốc');
   if(provider==='geoapify') return geoapifyNearby(normalizedBody,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
   return googleNearby(normalizedBody,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
 }
@@ -434,10 +458,59 @@ async function fetchJson(url, init = {}, timeoutMs = 9000) {
   } finally { clearTimeout(timer); }
 }
 
+function amapQueryVariants(value) {
+  const original=clean(value,300),translated=original
+    .replace(/Raffles?\s*City/gi,'重庆来福士广场')
+    .replace(/(?:ga\s*)?Chaotianmen/gi,'朝天门')
+    .replace(/Trùng\s*Khánh|Chongqing/gi,'重庆')
+    .replace(/Bắc\s*Kinh|Beijing/gi,'北京')
+    .replace(/Thượng\s*Hải|Shanghai/gi,'上海')
+    .replace(/Quảng\s*Châu|Guangzhou/gi,'广州')
+    .replace(/Thâm\s*Quyến|Shenzhen/gi,'深圳')
+    .replace(/Thành\s*Đô|Chengdu/gi,'成都')
+    .replace(/Tây\s*An|Xi'?an/gi,'西安')
+    .replace(/Hàng\s*Châu|Hangzhou/gi,'杭州')
+    .replace(/Nam\s*Kinh|Nanjing/gi,'南京')
+    .replace(/Tô\s*Châu|Suzhou/gi,'苏州')
+    .replace(/Vũ\s*Hán|Wuhan/gi,'武汉')
+    .trim();
+  return uniqueSearchQueries(translated,original);
+}
+
+async function amapResolve(body, env, originHeader, query, center) {
+  if(!env.AMAP_WEB_KEY)return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
+  const limit=clampInt(body?.limit,1,10,5),queryCenter=center?toAmapPoint(center):null,queries=amapQueryVariants(query);
+  let lastError='AMap không trả địa điểm phù hợp.';
+  for(const keyword of queries){
+    const params=new URLSearchParams({key:env.AMAP_WEB_KEY,keywords:keyword,page_size:String(limit),page_num:'1',show_fields:'business,navi',output:'json'});
+    if(queryCenter){params.set('location',`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`);params.set('sortrule','distance');}
+    const result=await fetchJson(`${AMAP_TEXT_SEARCH_URL}?${params.toString()}`);
+    if(!result.ok||String(result.data?.status)!=='1'){lastError=clean(result.data?.info||`AMap Place Text HTTP ${result.status}`,500);continue;}
+    const places=(Array.isArray(result.data?.pois)?result.data.pois:[]).map(item=>normalizeAmapPoi(item,queryCenter,'Trung Quốc')).filter(Boolean).slice(0,limit);
+    if(places.length)return json({ok:true,source:'amap-place-text-v5',provider:'amap',query,places,meta:{resolvedQuery:keyword,infocode:clean(result.data?.infocode,40)}},200,originHeader);
+  }
+  return json({error:lastError,provider:'amap'},404,originHeader);
+}
+
+async function amapPlaceDetails(body, env, originHeader) {
+  if(!env.AMAP_WEB_KEY)return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
+  const id=clean(body?.placeId||body?.id,200),center=finiteCoord(body?.center||body?.location);
+  if(!id){
+    const query=clean(body?.query||[body?.name,body?.address].filter(Boolean).join(' '),300);
+    if(!query)return json({error:'AMap details cần placeId hoặc query/name.',provider:'amap'},400,originHeader);
+    return amapResolve({...body,limit:1},env,originHeader,query,center);
+  }
+  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,id,show_fields:'business,navi',output:'json'}),result=await fetchJson(`${AMAP_PLACE_DETAIL_URL}?${params.toString()}`);
+  if(!result.ok||String(result.data?.status)!=='1')return json({error:result.data?.info||`AMap Place Detail HTTP ${result.status}`,provider:'amap'},502,originHeader);
+  const place=(Array.isArray(result.data?.pois)?result.data.pois:[]).map(item=>normalizeAmapPoi(item,center?toAmapPoint(center):null,'Trung Quốc')).find(Boolean)||null;
+  return json({ok:Boolean(place),source:'amap-place-detail-v5',provider:'amap',place,places:place?[place]:[]},place?200:404,originHeader);
+}
+
 async function resolvePlace(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
   const query=clean(body?.query||body?.name,300),center=finiteCoord(body?.center||body?.location);
   if(!query) return json({error:'query là bắt buộc.'},400,originHeader);
+  if(providerFor(body)==='amap')return amapResolve(body,env,originHeader,query,center);
   if(env.GOOGLE_MAPS_API_KEY){
     const google=await googleTextPlaces({query,center,radius:body?.radius||10000,limit:clampInt(body?.limit,1,10,5),language:body?.language,country:body?.country},env);
     if(google.ok&&google.places.length) return json({ok:true,source:'google-places-text-v1',provider:'google_places',query,places:google.places},200,originHeader);
@@ -632,23 +705,25 @@ async function weatherCurrent(request, env, originHeader) {
   let body;try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
   const coord=finiteCoord(body?.location||body?.center||body);if(!coord)return json({error:'location không hợp lệ.'},400,originHeader);
   let googleError='';
-  if(env.GOOGLE_MAPS_API_KEY){
+  const chinaContext=providerFor({...body,location:coord})==='amap';
+  if(env.GOOGLE_MAPS_API_KEY&&!chinaContext){
     const params=new URLSearchParams({key:env.GOOGLE_MAPS_API_KEY,'location.latitude':String(coord.lat),'location.longitude':String(coord.lng),languageCode:clean(body?.language,10)||'vi',unitsSystem:'METRIC'});
     try{
       const result=await fetchJson(`${GOOGLE_WEATHER_URL}?${params.toString()}`,{},5000);
       if(result.ok)return json({ok:true,source:'google-weather-v1',provider:'google_weather',weather:normalizeGoogleWeather(result.data,coord)},200,originHeader);
       googleError=clean(result.data?.error?.message||`Google Weather HTTP ${result.status}`,500);
     }catch(error){googleError=clean(error?.message,500);}
-  }else googleError='GOOGLE_MAPS_API_KEY_NOT_CONFIGURED';
+  }else googleError=chinaContext?'CHINA_LOCAL_MODE':'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED';
   try{
     const fallback=await openMeteoCurrent(coord);
-    if(fallback)return json({ok:true,source:'open-meteo-fallback',provider:'open_meteo',weather:fallback,fallbackFrom:'google_weather',googleError},200,originHeader);
+    if(fallback)return json({ok:true,source:chinaContext?'open-meteo-china':'open-meteo-fallback',provider:'open_meteo',weather:fallback,...(chinaContext?{regionMode:'china'}:{fallbackFrom:'google_weather',googleError})},200,originHeader);
   }catch{}
   return json({error:googleError||'Không lấy được thời tiết.',provider:'google_weather'},502,originHeader);
 }
 
 async function placeDetails(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
+  if(providerFor(body)==='amap')return amapPlaceDetails(body,env,originHeader);
   const google=await googlePlaceDetails(body,env,originHeader);
   if(google) return google;
   const id=clean(body?.placeId||body?.id,500);
@@ -666,7 +741,7 @@ async function trafficRoute(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
   const origin=finiteCoord(body?.origin),destination=finiteCoord(body?.destination);
   if(!origin||!destination) return json({error:'origin/destination không hợp lệ.'},400,originHeader);
-  if(isChinaCountry(body?.country||origin.country||destination.country)) {
+  if(providerFor(body)==='amap') {
     if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
     const from=toAmapPoint(origin),to=toAmapPoint(destination),params=new URLSearchParams({key:env.AMAP_WEB_KEY,origin:`${from.lng.toFixed(6)},${from.lat.toFixed(6)}`,destination:`${to.lng.toFixed(6)},${to.lat.toFixed(6)}`,show_fields:'cost,polyline',output:'json'});
     const result=await fetchJson(`${AMAP_DRIVING_URL}?${params.toString()}`);

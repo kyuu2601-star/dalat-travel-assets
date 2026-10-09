@@ -12,6 +12,13 @@
     const v = fold(value);
     return ['trung khanh','chongqing','重庆','重庆市'].some(a => v.includes(fold(a)));
   }
+  function isChinaPoint(value) {
+    const lat=Number(value?.lat??value?.latitude),lng=Number(value?.lng??value?.lon??value?.longitude);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng))return false;
+    const outline=[[73.5,39.5],[79,35.5],[80,30],[88,27.5],[92,28],[97,28],[98,24],[101,21.5],[102,22.5],[106.5,22.8],[108,21.5],[110,20.3],[114,22],[117,23],[120,25],[122,29],[122,40],[125,40],[131,43],[135,48],[132,53],[120,54],[108,49],[95,49],[87,47],[80,45]];
+    let inside=false;for(let i=0,j=outline.length-1;i<outline.length;j=i++){const[xi,yi]=outline[i],[xj,yj]=outline[j];if((yi>lat)!==(yj>lat)&&lng<(xj-xi)*(lat-yi)/(yj-yi)+xi)inside=!inside;}
+    return inside||(lat>=18&&lat<=20.6&&lng>=108.5&&lng<=111.5);
+  }
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[data-china-nav="${src}"]`)) return resolve();
@@ -80,21 +87,21 @@
     const button = event.target.closest?.('.route-button:not(.disabled)');
     if (!button) return;
     const place = findPlaceFromRouteButton(button);
-    const chinaDestination = isChina(place?.country);
-    const chinaCurrent = isChina(currentCountry());
+    const chinaDestination = isChina(place?.country) || isChinaPoint({lat:place?.latitude,lng:place?.longitude});
+    const chinaCurrent = isChina(currentCountry()) || isChinaPoint(window.userPos);
     if (!chinaDestination && !chinaCurrent) return;
-    if (!place || !chinaDestination) return;
+    if (!place || (!chinaDestination && !chinaCurrent)) return;
     event.preventDefault(); event.stopPropagation();
     try { await openPlace(place); }
     catch (error) { console.error('[ChinaNavigation]', error); alert(error.message || 'Không mở được China Navigation.'); }
   }, true);
 
   function maybePreload() {
-    if (isChina(currentCountry())) ensureLoaded(currentCity()).catch(err => console.warn('[ChinaNavigation preload]', err));
+    if (isChina(currentCountry()) || isChinaPoint(window.userPos)) ensureLoaded(currentCity()).catch(err => console.warn('[ChinaNavigation preload]', err));
   }
   document.addEventListener('change', event => { if (event.target?.id === 'selectCountry' || event.target?.id === 'selectCity') maybePreload(); });
   window.addEventListener('load', () => { maybePreload(); setTimeout(maybePreload, 2500); });
-  setInterval(() => { if (!active && isChina(currentCountry())) maybePreload(); }, 5000);
+  setInterval(() => { if (!active && (isChina(currentCountry()) || isChinaPoint(window.userPos))) maybePreload(); }, 5000);
 
-  window.ChinaNavigation = { ensureLoaded, openPlace, isChina, isChongqing, get active() { return active; } };
+  window.ChinaNavigation = { ensureLoaded, openPlace, isChina, isChongqing, isChinaPoint, get active() { return active; } };
 })();

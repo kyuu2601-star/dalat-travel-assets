@@ -39,13 +39,27 @@ function escapeChatHtml(value) {
     return value.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 }
 
+function isChinaGpsPoint(value) {
+    const lat = Number(value?.lat ?? value?.latitude);
+    const lng = Number(value?.lng ?? value?.lon ?? value?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    const outline = [[73.5,39.5],[79,35.5],[80,30],[88,27.5],[92,28],[97,28],[98,24],[101,21.5],[102,22.5],[106.5,22.8],[108,21.5],[110,20.3],[114,22],[117,23],[120,25],[122,29],[122,40],[125,40],[131,43],[135,48],[132,53],[120,54],[108,49],[95,49],[87,47],[80,45]];
+    let inside = false;
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+        const [xi, yi] = outline[i], [xj, yj] = outline[j];
+        if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside || (lat >= 18 && lat <= 20.6 && lng >= 108.5 && lng <= 111.5);
+}
+
 function getStructuredUserLocation() {
-    const country = document.getElementById('selectCountry')?.value || '';
+    let country = document.getElementById('selectCountry')?.value || '';
     const city = document.getElementById('selectCity')?.value || '';
     const area = document.getElementById('selectArea')?.value || '';
     const currentPos = window.userPos || null;
     const lat = Number(currentPos?.lat);
     const lon = Number(currentPos?.lon);
+    if (isChinaGpsPoint(currentPos)) country = 'Trung Quốc';
 
     return {
         country,
@@ -109,10 +123,12 @@ async function handleChat() {
                 let chatHistoryArray = localHistory ? localHistory.messages : [];
                 if (chatHistoryArray.length > 6) chatHistoryArray = chatHistoryArray.slice(-6);
                 chatHistoryArray = chatHistoryArray.map(message => ({ role:message.role, content:message.content }));
+                const latestNearby = [...(localHistory?.messages || [])].reverse().find(message => message?.nearby)?.nearby || null;
 
                 const requestBody = {
                     userMessage: text,
                     chatHistory: chatHistoryArray,
+                    conversationContext: latestNearby ? { nearby:compactNearbySnapshot(latestNearby) } : undefined,
                     khuVuc: selectedLocation,
                     userLocation
                 };

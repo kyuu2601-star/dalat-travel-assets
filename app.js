@@ -667,7 +667,9 @@ async function openPlaceNavigation(index, event) {
     };
     try {
         const country = foldLocation(destination.country);
-        const isChina = ['trungquoc', 'china', 'cn'].some(value => country === value || country.includes(value));
+        const isChina = ['trungquoc', 'china', 'cn'].some(value => country === value || country.includes(value))
+            || window.ChinaNavigation?.isChinaPoint?.(destination)
+            || window.ChinaNavigation?.isChinaPoint?.(window.userPos);
         if (isChina) {
             if (window.ChinaNavigation?.ensureLoaded) await window.ChinaNavigation.ensureLoaded(destination.city || '');
             if (!window.TravelNavigation?.open) throw new Error('AMap Navigation chưa sẵn sàng.');

@@ -156,6 +156,38 @@ test('Map Worker replaces a Vietnamese pharmacy category with the native AMap ke
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker hard-locks Chongqing GPS to AMap even with a stale Google/Vietnam hint', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='';
+  globalThis.fetch=async url=>{requestedUrl=String(url);return new Response(JSON.stringify({status:'1',info:'OK',count:'1',pois:[{id:'cq-store',name:'罗森便利店',address:'渝中区',location:'106.574,29.560',cityname:'重庆市',adname:'渝中区',business:{rating:'4.5'}}]}),{status:200,headers:{'Content-Type':'application/json'}});};
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({provider:'google',country:'Việt Nam',center:{lat:29.56,lng:106.57,coordSystem:'wgs84'},query:'cửa hàng tiện lợi',category:'convenience_store',limit:10})}),{AMAP_WEB_KEY:'amap-test',GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),url=new URL(requestedUrl);
+    assert.equal(response.status,200);
+    assert.equal(url.hostname,'restapi.amap.com');
+    assert.equal(url.pathname,'/v5/place/around');
+    assert.equal(data.provider,'amap');
+    assert.equal(data.pois[0].country,'Trung Quốc');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker resolves and reads China places only through AMap', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,paths=[];
+  globalThis.fetch=async url=>{
+    const parsed=new URL(String(url));paths.push(parsed.pathname);
+    return new Response(JSON.stringify({status:'1',info:'OK',pois:[{id:'raffles-cq',name:'重庆来福士广场',address:'接圣街8号',location:'106.586,29.566',cityname:'重庆市',adname:'渝中区',business:{rating:'4.7'}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const env={AMAP_WEB_KEY:'amap-test',GOOGLE_MAPS_API_KEY:'google-test',GEOAPIFY_API_KEY:'geo-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'};
+    const resolved=await worker.fetch(new Request('https://travelos-map.test/place/resolve',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({provider:'google',country:'Trung Quốc',query:'Raffles City Trùng Khánh'})}),env);
+    const details=await worker.fetch(new Request('https://travelos-map.test/poi/details',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({provider:'google',country:'China',placeId:'raffles-cq'})}),env);
+    assert.equal((await resolved.json()).provider,'amap');
+    assert.equal((await details.json()).provider,'amap');
+    assert.deepEqual(paths,['/v5/place/text','/v5/place/detail']);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker enriches place details by exact Google Place ID for review text', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';
@@ -400,10 +432,10 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261009-2/);
+  assert.match(index,/chat\.js\?v=20261009-5/);
 });
 
-test('Chat history restores the nearby map card for 24 hours without sending map payloads back to Gemini', async () => {
+test('Chat history restores the nearby map card for 24 hours and exposes only a compact follow-up context', async () => {
   const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
   const store=new Map(),rendered=[],chatBox={children:[],scrollTop:0,scrollHeight:100,appendChild(node){this.children.push(node);}};
   const context={console,Date,AbortController,setTimeout,clearTimeout,localStorage:{getItem:key=>store.get(key)??null,setItem:(key,value)=>store.set(key,String(value)),removeItem:key=>store.delete(key)},document:{getElementById:id=>id==='chat-box'?chatBox:null,createElement:()=>({className:'',innerHTML:'',textContent:''})},window:{TravelNearby:{render:(payload,node)=>rendered.push({payload,node})}}};
@@ -422,6 +454,7 @@ test('Chat history restores the nearby map card for 24 hours without sending map
   assert.equal(rendered[0].payload.pois[0].poiId,'poi-1');
   assert.equal(rendered[0].node,chatBox.children[0]);
   assert.match(source,/chatHistoryArray = chatHistoryArray\.map\(message => \(\{ role:message\.role, content:message\.content \}\)\)/);
+  assert.match(source,/conversationContext: latestNearby \? \{ nearby:compactNearbySnapshot\(latestNearby\) \}/);
 });
 
 test('App keeps onboarding visible until places and bot readiness settle', async () => {
@@ -436,7 +469,7 @@ test('App keeps onboarding visible until places and bot readiness settle', async
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động TravelOS/);
-  assert.match(index,/app\.js\?v=20261008-4/);
+  assert.match(index,/app\.js\?v=20261009-5/);
 });
 
 test('Destination summary combines Google reviews, weather, BestTime and AI copy', async () => {
@@ -624,7 +657,7 @@ test('AI v3 translates a China dish query and returns Vietnamese AMap notes', as
   }finally{globalThis.fetch=originalFetch;}
 });
 
-test('AI v3 localizes AMap places and translates food tags without a Gemini key', async () => {
+test('AI v3 localizes AMap places without leaking the China flow to Google', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const calls=[];
   const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
@@ -635,20 +668,17 @@ test('AI v3 localizes AMap places and translates food tags without a Gemini key'
       assert.equal(body.language,'zh');
       return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'amap-hotpot',name:'海底捞火锅',address:'王府井大街88号',lat:39.9142,lng:116.4112,distance:40,rating:'4.8',tag:'四川火锅;牛肉;服务热情',cost:'128',provider:'amap',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
     }
-    assert.equal(path,'/place/resolve');
-    assert.match(body.query,/海底捞火锅/);
-    assert.equal(body.language,'vi');
-    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'google-hotpot',name:'Haidilao Hot Pot',address:'88 Wangfujing Street, Bắc Kinh, Trung Quốc',lat:39.91421,lng:116.41121,country:'Trung Quốc',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    throw new Error(`Unexpected China flow call ${path}`);
   }}};
   const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán lẩu quanh Vương Phủ Tỉnh',userLocation:{country:'Trung Quốc',city:'Bắc Kinh'}})}),env);
   const data=await response.json(),poi=data.travelos.nearby.pois[0];
   assert.equal(response.status,200);
-  assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby','/place/resolve']);
-  assert.equal(poi.localizedName,'Haidilao Hot Pot');
-  assert.equal(poi.localizedAddress,'88 Wangfujing Street, Bắc Kinh, Trung Quốc');
+  assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby']);
+  assert.match(poi.localizedName,/海底捞火锅/);
+  assert.match(poi.localizedAddress,/王府井大街88号/);
   assert.match(poi.note,/lẩu Tứ Xuyên/);
   assert.match(poi.note,/thịt bò/);
-  assert.match(data.text,/Haidilao Hot Pot/);
+  assert.match(data.text,/海底捞火锅/);
 });
 
 test('AI v3 cleans casual remote-area wording and requests ten highest-rated places', async () => {
@@ -670,6 +700,52 @@ test('AI v3 cleans casual remote-area wording and requests ten highest-rated pla
   assert.equal(calls[1].body.sortBy,'rating');
   assert.match(data.text,/⭐ 4\.9/);
   assert.equal(data.travelos.remoteSearch.requestedArea,'Emart PVT');
+});
+
+test('AI v3 strips trailing ranking words from a remote China area and forces AMap', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',provider:'amap',places:[{id:'raffles-cq',name:'重庆来福士广场',lat:29.566,lng:106.586,country:'Trung Quốc',provider:'amap',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'store-1',name:'罗森便利店',address:'渝中区',lat:29.5661,lng:106.5861,distance:30,provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm cửa hàng tiện lợi quanh Raffles City Trùng Khánh gần nhất',userLocation:{country:'Việt Nam',city:'TP.HCM'}})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(calls[0].body.query,'Raffles City Trùng Khánh');
+  assert.equal(calls[0].body.provider,'amap');
+  assert.equal(calls[1].body.provider,'amap');
+  assert.equal(calls[1].body.country,'Trung Quốc');
+  assert.equal(data.travelos.nearby.provider,'amap');
+});
+
+test('AI v3 gives Gemini the structured previous place list for follow-up questions', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,prompts=[];
+  globalThis.fetch=async (url,init={})=>{
+    assert.match(String(url),/generativelanguage\.googleapis\.com/);
+    const payload=JSON.parse(String(init.body||'{}'));prompts.push(payload);
+    const text=prompts.length===1
+      ? JSON.stringify({goal:'compare previous list ratings',responseMode:'DIRECT',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]})
+      : 'Trong danh sách vừa rồi, Quán B có rating cao nhất: 4,9/5.';
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const nearby={provider:'amap',query:'quán ăn quanh Raffles City',center:{lat:29.566,lng:106.586,country:'Trung Quốc',coordSystem:'gcj02'},pois:[
+      {id:'a',name:'店A',localizedName:'Quán A (店A)',address:'地址A',lat:29.5661,lng:106.5861,distance:30,rating:4.4,provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'},
+      {id:'b',name:'店B',localizedName:'Quán B (店B)',address:'地址B',lat:29.5662,lng:106.5862,distance:50,rating:4.9,provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'}
+    ]};
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Trong danh sách vừa rồi, chỗ nào rating cao nhất?',chatHistory:[],conversationContext:{nearby},userLocation:{country:'Trung Quốc',city:'Trùng Khánh'}})}),{GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(prompts.length,2);
+    const plannerText=prompts[0].contents.at(-1).parts[0].text,answerText=prompts[1].contents.at(-1).parts[0].text;
+    assert.match(plannerText,/PREVIOUS_NEARBY_CONTEXT/);
+    assert.match(plannerText,/Quán B/);
+    assert.match(answerText,/"rating":4\.9/);
+    assert.match(data.text,/Quán B/);
+  }finally{globalThis.fetch=originalFetch;}
 });
 
 test('AI v3 resolves a venue and distinguishes live BestTime busyness from forecast', async () => {
