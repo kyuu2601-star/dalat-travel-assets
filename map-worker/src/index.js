@@ -1,5 +1,4 @@
 const AMAP_WALKING_URL = 'https://restapi.amap.com/v5/direction/walking';
-const AMAP_WALKING_V3_URL = 'https://restapi.amap.com/v3/direction/walking';
 const AMAP_NEARBY_URL = 'https://restapi.amap.com/v5/place/around';
 const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places';
 const GEOAPIFY_ROUTING_URL = 'https://api.geoapify.com/v1/routing';
@@ -103,7 +102,9 @@ function validateAmapRouteEndpoints(routes, origin, destination) {
   const validIndexes=new Set(diagnostics.filter(item=>item.valid).map(item=>item.routeIndex));
   return {routes:(routes||[]).filter(route=>validIndexes.has(route?.routeIndex??0)),diagnostics:{toleranceMeters:tolerance,routes:diagnostics}};
 }
-function retryableAmapError(info) { return String(info || '').toUpperCase() === 'UNKNOWN_ERROR'; }
+function retryableAmapError(info) {
+  return ['UNKNOWN_ERROR','OUT_OF_SERVICE','EMPTY_ROUTE','ROUTE_ENDPOINT_MISMATCH'].includes(String(info || '').toUpperCase());
+}
 function safeAttempt(profile, result={}) { return { profile:profile.name, indoor:profile.isIndoor, alternativeRoute:profile.alternativeRoute, httpStatus:result.httpStatus ?? null, status:String(result.status ?? ''), info:String(result.info || ''), infocode:String(result.infocode || ''), elapsedMs:Number(result.elapsedMs || 0) }; }
 function buildAmapParams(env, origin, destination, profile) {
   const params = new URLSearchParams({ key:env.AMAP_WEB_KEY, origin:`${origin.lng.toFixed(6)},${origin.lat.toFixed(6)}`, destination:`${destination.lng.toFixed(6)},${destination.lat.toFixed(6)}`, alternative_route:String(profile.alternativeRoute), show_fields:'navi,polyline,cost', isindoor:profile.isIndoor ? '1':'0', output:'json' });
@@ -122,57 +123,30 @@ async function callAmap(env, origin, destination, profile, timeoutMs) {
     return { ok:false, network:true, timeout:error?.name==='AbortError', info:error?.name==='AbortError'?'REQUEST_TIMEOUT':'NETWORK_ERROR', message:error?.message || '', elapsedMs:Date.now()-started };
   } finally { clearTimeout(timer); }
 }
-async function callAmapV3(env, origin, destination, timeoutMs) {
-  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,origin:`${origin.lng.toFixed(6)},${origin.lat.toFixed(6)}`,destination:`${destination.lng.toFixed(6)},${destination.lat.toFixed(6)}`,output:'json'});
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.max(500,timeoutMs)),started=Date.now();
-  try{
-    const response=await fetch(`${AMAP_WALKING_V3_URL}?${params}`,{signal:controller.signal}),raw=await response.json().catch(()=>null),elapsedMs=Date.now()-started;
-    if(!raw)return{ok:false,network:true,httpStatus:response.status,info:`AMap v3 HTTP ${response.status}`,elapsedMs};
-    return{ok:response.ok&&String(raw.status)==='1',httpStatus:response.status,status:raw.status,info:raw.info,infocode:raw.infocode,raw,elapsedMs};
-  }catch(error){return{ok:false,network:true,timeout:error?.name==='AbortError',info:error?.name==='AbortError'?'REQUEST_TIMEOUT':'NETWORK_ERROR',message:error?.message||'',elapsedMs:Date.now()-started};}
-  finally{clearTimeout(timer);}
-}
 async function amapWalkingRoute(body, env, originHeader, origin, destination) {
   if (!env.AMAP_WEB_KEY) return json({ error:'Worker chưa có secret AMAP_WEB_KEY.' }, 500, originHeader);
   origin = toAmapPoint(origin); destination = toAmapPoint(destination);
   const requestedAlt=clampInt(body?.alternativeRoute,1,3,3), wantIndoor=body?.isIndoor!==false;
   const profiles=[]; if(wantIndoor) profiles.push({name:'indoor-multi',isIndoor:true,alternativeRoute:requestedAlt});
   profiles.push({name:'outdoor-multi',isIndoor:false,alternativeRoute:requestedAlt}); if(requestedAlt!==1) profiles.push({name:'outdoor-single',isIndoor:false,alternativeRoute:1});
+  const hasPoiId=Boolean(origin.poiId||destination.poiId), coordinateOrigin={...origin,poiId:''}, coordinateDestination={...destination,poiId:''};
+  const attemptPlan=profiles.flatMap(profile=>[
+    {profile,origin,destination,coordinateOnly:false},
+    ...(hasPoiId?[{profile:{...profile,name:`${profile.name}-coordinates`},origin:coordinateOrigin,destination:coordinateDestination,coordinateOnly:true}]:[])
+  ]);
   const attempts=[], deadline=Date.now()+REQUEST_BUDGET_MS; let last=null;
-  for(let i=0;i<profiles.length;i++){
-    const profile=profiles[i], remaining=deadline-Date.now(); if(remaining<700) break;
-    const result=await callAmap(env,origin,destination,profile,Math.min(4000,Math.max(1200,Math.floor(remaining/(profiles.length-i))))); last=result; attempts.push(safeAttempt(profile,result)); const attemptIndex=attempts.length-1;
+  for(let i=0;i<attemptPlan.length;i++){
+    const item=attemptPlan[i], profile=item.profile, remaining=deadline-Date.now(); if(remaining<600) break;
+    const result=await callAmap(env,item.origin,item.destination,profile,Math.min(3000,Math.max(600,Math.floor(remaining/(attemptPlan.length-i))))); last=result; attempts.push(safeAttempt(profile,result)); const attemptIndex=attempts.length-1;
     if(result.ok){
       const routes=(Array.isArray(result.raw?.route?.paths)?result.raw.route.paths:[]).map(normalizeAmapPath).filter(r=>r.steps.length||r.distance>0);
-      const checked=validateAmapRouteEndpoints(routes,origin,destination);
+      const checked=validateAmapRouteEndpoints(routes,item.origin,item.destination);
       attempts[attemptIndex].endpointValidation=checked.diagnostics;
-      if(checked.routes.length) return json({ source:'amap-route-v2', provider:'amap', origin:{lat:origin.lat,lng:origin.lng,coordSystem:'gcj02',country:body?.country||origin.country||''}, destination:{lat:destination.lat,lng:destination.lng,coordSystem:'gcj02',country:body?.country||destination.country||''}, routes:checked.routes, meta:{count:checked.routes.length,info:result.raw.info||'OK',infocode:result.raw.infocode||'',profile:profile.name,indoor:profile.isIndoor,attempts} },200,originHeader);
-      if(routes.length&&(origin.poiId||destination.poiId)){
-        const coordinateOrigin={...origin,poiId:''},coordinateDestination={...destination,poiId:''},coordinateProfile={...profile,name:`${profile.name}-coordinates`},coordinateRemaining=deadline-Date.now();
-        if(coordinateRemaining>=700){
-          const coordinateResult=await callAmap(env,coordinateOrigin,coordinateDestination,coordinateProfile,Math.min(4000,Math.max(700,coordinateRemaining)));last=coordinateResult;attempts.push(safeAttempt(coordinateProfile,coordinateResult));
-          if(coordinateResult.ok){
-            const coordinateRoutes=(Array.isArray(coordinateResult.raw?.route?.paths)?coordinateResult.raw.route.paths:[]).map(normalizeAmapPath).filter(r=>r.steps.length||r.distance>0),coordinateChecked=validateAmapRouteEndpoints(coordinateRoutes,coordinateOrigin,coordinateDestination);
-            attempts[attempts.length-1].endpointValidation=coordinateChecked.diagnostics;
-            if(coordinateChecked.routes.length)return json({source:'amap-route-v2',provider:'amap',origin:{lat:origin.lat,lng:origin.lng,coordSystem:'gcj02',country:body?.country||origin.country||''},destination:{lat:destination.lat,lng:destination.lng,coordSystem:'gcj02',country:body?.country||destination.country||''},routes:coordinateChecked.routes,meta:{count:coordinateChecked.routes.length,info:coordinateResult.raw.info||'OK',infocode:coordinateResult.raw.infocode||'',profile:coordinateProfile.name,indoor:profile.isIndoor,endpointFallback:'coordinate-only',attempts}},200,originHeader);
-          }
-        }
-      }
+      if(checked.routes.length) return json({ source:'amap-route-v2', provider:'amap', origin:{lat:origin.lat,lng:origin.lng,coordSystem:'gcj02',country:body?.country||origin.country||''}, destination:{lat:destination.lat,lng:destination.lng,coordSystem:'gcj02',country:body?.country||destination.country||''}, routes:checked.routes, meta:{count:checked.routes.length,info:result.raw.info||'OK',infocode:result.raw.infocode||'',profile:profile.name,indoor:profile.isIndoor,...(item.coordinateOnly?{endpointFallback:'coordinate-only'}:{}),attempts} },200,originHeader);
       if(routes.length){last={...last,...result,ok:false,info:'ROUTE_ENDPOINT_MISMATCH'};attempts[attemptIndex].info=last.info;}
       else {last={...result,ok:false,info:'EMPTY_ROUTE'};attempts[attemptIndex].info='EMPTY_ROUTE';}
     }
-    if(!(result.network||retryableAmapError(result.info)||result.info==='EMPTY_ROUTE')) break;
-  }
-  const v3Remaining=deadline-Date.now();
-  if(v3Remaining>=500){
-    const v3Profile={name:'v3-coordinate-fallback',isIndoor:false,alternativeRoute:1},v3Origin={...origin,poiId:''},v3Destination={...destination,poiId:''};
-    const v3Result=await callAmapV3(env,v3Origin,v3Destination,Math.min(3500,Math.max(500,v3Remaining)));last=v3Result;attempts.push(safeAttempt(v3Profile,v3Result));
-    if(v3Result.ok){
-      const v3Routes=(Array.isArray(v3Result.raw?.route?.paths)?v3Result.raw.route.paths:[]).map(normalizeAmapPath).filter(route=>route.steps.length||route.distance>0),checked=validateAmapRouteEndpoints(v3Routes,v3Origin,v3Destination);
-      attempts[attempts.length-1].endpointValidation=checked.diagnostics;
-      if(checked.routes.length)return json({source:'amap-route-v3-fallback',provider:'amap',origin:{lat:origin.lat,lng:origin.lng,coordSystem:'gcj02',country:body?.country||origin.country||''},destination:{lat:destination.lat,lng:destination.lng,coordSystem:'gcj02',country:body?.country||destination.country||''},routes:checked.routes,meta:{count:checked.routes.length,info:v3Result.raw.info||'OK',infocode:v3Result.raw.infocode||'',profile:v3Profile.name,indoor:false,endpointFallback:'v3-coordinate-only',attempts}},200,originHeader);
-      last={...v3Result,ok:false,info:'ROUTE_ENDPOINT_MISMATCH'};attempts[attempts.length-1].info=last.info;
-    }
+    if(!(result.network||retryableAmapError(last?.info||result.info))) break;
   }
   return json({ error:`AMap Route 2.0: ${String(last?.info||'unknown error')}`, infocode:String(last?.infocode||''), attempts, diagnostic:{origin:{lat:origin.lat,lng:origin.lng},destination:{lat:destination.lat,lng:destination.lng},requestedIndoor:wantIndoor,requestedAlternativeRoute:requestedAlt} },502,originHeader);
 }

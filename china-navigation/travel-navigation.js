@@ -241,8 +241,6 @@
 
   function sourceLabel(source) {
     if (source === 'amap-route-v2') return 'Route 2.0';
-    if (source === 'amap-route-v3-fallback') return 'Route v3 fallback';
-    if (source === 'amap-js-walking') return 'JS fallback';
     return '';
   }
 
@@ -251,8 +249,7 @@
     $('#tn-summary').textContent = `${fmtT(route.duration)} · ${fmtM(route.distance)}${sourceText ? ` · ${sourceText}` : ''}`;
     if (chongqing && window.ChongqingRoute) {
       const text = window.ChongqingRoute.summary(route);
-      const fallback = source === 'amap-js-walking' && state.route2Error ? `<small>Route 2.0 lỗi nên đang dùng JS fallback.</small>` : '';
-      $('#tn-special').innerHTML = `<strong>Chongqing Terrain</strong><span>${esc(text)}</span>${fallback}`;
+      $('#tn-special').innerHTML = `<strong>Chongqing Terrain</strong><span>${esc(text)}</span>`;
     } else $('#tn-special').innerHTML = '';
     if (state.rawRoute?.meta?.poiFallback) {
       $('#tn-special').innerHTML += '<small>Đang dẫn tới tọa độ địa điểm. AMap chưa xác nhận lối vào hoặc đường lên tầng của quán.</small>';
@@ -260,25 +257,16 @@
   }
 
   async function planWalkingRoute(origin, destination) {
-    let route2Error = '';
-    if (window.AMapRouteService?.configured?.()) {
-      try {
-        const planned = await window.AMapRouteService.walkingRoute(origin, destination, { alternativeRoute:3, isIndoor:true });
-        return { ...planned, source:planned.source || 'amap-route-v2', route2Error:'' };
-      } catch (error) {
-        route2Error = error?.message || String(error || 'Route 2.0 error');
-        console.warn('[TravelNavigation Route 2.0 fallback]', error);
-      }
-    }
-
+    if (!window.AMapRouteService?.configured?.()) throw new Error('Route 2.0 Worker chưa được cấu hình.');
     try {
-      const fallback = await window.AMapProvider.walkingRoute(origin, destination);
-      return { ...fallback, source:'amap-js-walking', route2Error };
-    } catch (fallbackError) {
-      const primary = /OUT_OF_SERVICE|20800/.test(route2Error)
-        ? 'AMap cho rằng điểm bắt đầu hoặc điểm đến nằm ngoài vùng đường đi bộ trên đất liền.'
-        : route2Error;
-      throw new Error([primary, fallbackError?.message].filter(Boolean).join(' · '));
+      const planned = await window.AMapRouteService.walkingRoute(origin, destination, { alternativeRoute:3, isIndoor:true });
+      return { ...planned, source:'amap-route-v2', route2Error:'' };
+    } catch (error) {
+      const detail = error?.message || String(error || 'Route 2.0 error');
+      console.warn('[TravelNavigation Route 2.0]', error);
+      throw new Error(/OUT_OF_SERVICE|20800/.test(detail)
+        ? 'AMap Route 2.0 vẫn đánh giá điểm đầu hoặc điểm đến nằm ngoài vùng hỗ trợ. App không hạ xuống route khác để tránh mất dữ liệu địa hình.'
+        : `AMap Route 2.0 chưa tạo được tuyến: ${detail}`);
     }
   }
 

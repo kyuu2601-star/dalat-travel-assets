@@ -769,25 +769,45 @@ test('AMap walking retries without a mismatched POI ID so the path reaches the r
   }finally{globalThis.fetch=originalFetch;}
 });
 
-test('AMap walking falls back to the official v3 route when Route 2.0 is out of service', async () => {
+test('AMap walking retries Route 2.0 with coordinates when its POI request is out of service', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requested=[];
+  globalThis.fetch=async url=>{
+    const parsed=new URL(String(url));requested.push(parsed);
+    assert.match(parsed.pathname,/\/v5\/direction\/walking/);
+    if(parsed.searchParams.has('destination_id'))return new Response(JSON.stringify({status:'0',info:'OUT_OF_SERVICE',infocode:'20800'}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({status:'1',info:'OK',infocode:'10000',route:{paths:[{distance:'364',cost:{duration:'300'},steps:[{instruction:'沿电梯步行至目的地',step_distance:'364',cost:{duration:'300'},navi:{walk_type:'9'},polyline:'106.574310,29.556984;106.577287,29.554965'}]}]}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/route/walking',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({country:'China',provider:'amap',origin:{lat:29.5569256,lng:106.5742115,coordSystem:'gcj02'},destination:{lat:29.555101,lng:106.577417,coordSystem:'gcj02',poiId:'B0IR0CUPS1'},alternativeRoute:3,isIndoor:true})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(requested.length,2);
+    assert.equal(requested[0].searchParams.get('destination_id'),'B0IR0CUPS1');
+    assert.equal(requested[1].searchParams.has('destination_id'),false);
+    assert.equal(data.source,'amap-route-v2');
+    assert.equal(data.meta.endpointFallback,'coordinate-only');
+    assert.equal(data.meta.profile,'indoor-multi-coordinates');
+    assert.equal(data.routes[0].distance,364);
+    assert.equal(data.routes[0].steps[0].walkType,'9');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AMap walking never falls back outside Route 2.0', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch,requested=[];
   globalThis.fetch=async url=>{
     const target=String(url);requested.push(target);
-    if(target.includes('/v5/direction/walking'))return new Response(JSON.stringify({status:'0',info:'OUT_OF_SERVICE',infocode:'20800'}),{status:200,headers:{'Content-Type':'application/json'}});
-    assert.match(target,/\/v3\/direction\/walking/);
-    return new Response(JSON.stringify({status:'1',info:'OK',infocode:'10000',route:{paths:[{distance:'364',duration:'300',steps:[{instruction:'Đi bộ tới điểm đến',distance:'364',duration:'300',polyline:'106.574310,29.556984;106.577287,29.554965'}]}]}}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.match(target,/\/v5\/direction\/walking/);
+    return new Response(JSON.stringify({status:'0',info:'OUT_OF_SERVICE',infocode:'20800'}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/route/walking',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({country:'China',provider:'amap',origin:{lat:29.5569256,lng:106.5742115,coordSystem:'gcj02'},destination:{lat:29.555101,lng:106.577417,coordSystem:'gcj02'},alternativeRoute:3,isIndoor:true})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
-    assert.equal(response.status,200);
-    assert.equal(requested.length,2);
-    assert.match(requested[0],/\/v5\/direction\/walking/);
-    assert.match(requested[1],/\/v3\/direction\/walking/);
-    assert.equal(data.source,'amap-route-v3-fallback');
-    assert.equal(data.meta.endpointFallback,'v3-coordinate-only');
-    assert.equal(data.routes[0].distance,364);
+    assert.equal(response.status,502);
+    assert.ok(requested.length>=2);
+    assert.ok(requested.every(target=>target.includes('/v5/direction/walking')));
+    assert.match(data.error,/AMap Route 2\.0: OUT_OF_SERVICE/);
   }finally{globalThis.fetch=originalFetch;}
 });
 

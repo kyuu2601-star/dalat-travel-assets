@@ -34,8 +34,8 @@
         await loadScript('china-config.js');
         await loadScript('gcj02.js');
         await loadScript('amap-provider.js?v=20261009-2');
-        await loadScript('amap-route-service.js?v=20261009-2');
-        await loadScript('travel-navigation.js?v=20261009-2');
+        await loadScript('amap-route-service.js?v=20261009-3');
+        await loadScript('travel-navigation.js?v=20261009-3');
         active = true;
       })();
     }
