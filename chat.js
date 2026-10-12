@@ -81,8 +81,7 @@ function needsFreshGpsForChat(message) {
 }
 
 function refreshCurrentPositionForChat() {
-    const current = window.userPos || null;
-    if (!navigator.geolocation?.watchPosition) return Promise.resolve(current);
+    if (!navigator.geolocation) return Promise.resolve(null);
     return new Promise(resolve => {
         let watchId = null, latest = null, sampleCount = 0, sampleTimer = null, finished = false;
         const finish = () => {
@@ -90,8 +89,8 @@ function refreshCurrentPositionForChat() {
             finished = true;
             clearTimeout(sampleTimer);
             clearTimeout(deadlineTimer);
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            const accepted = latest || current;
+            if (watchId !== null) navigator.geolocation.clearWatch?.(watchId);
+            const accepted = latest;
             if (accepted) {
                 window.userPos = accepted;
                 window.dispatchEvent(new CustomEvent('travelos:gps-fix', { detail:accepted }));
@@ -99,7 +98,7 @@ function refreshCurrentPositionForChat() {
             resolve(accepted);
         };
         const deadlineTimer = setTimeout(finish, 10000);
-        watchId = navigator.geolocation.watchPosition(position => {
+        const acceptPosition = position => {
             const next = {
                 lat:position.coords.latitude,
                 lon:position.coords.longitude,
@@ -112,11 +111,14 @@ function refreshCurrentPositionForChat() {
             clearTimeout(sampleTimer);
             sampleTimer = setTimeout(finish, 2500);
             if (sampleCount >= 2 && Number.isFinite(next.accuracy) && next.accuracy <= 20) finish();
-        }, finish, {
+        };
+        const options = {
             enableHighAccuracy:true,
             maximumAge:0,
             timeout:10000
-        });
+        };
+        if (navigator.geolocation.watchPosition) watchId = navigator.geolocation.watchPosition(acceptPosition, () => {}, options);
+        navigator.geolocation.getCurrentPosition?.(acceptPosition, () => {}, options);
     });
 }
 
@@ -164,7 +166,10 @@ async function handleChat() {
     let retries = 3;
 
     try {
-        if (needsFreshGpsForChat(text)) await refreshCurrentPositionForChat();
+        if (needsFreshGpsForChat(text)) {
+            const freshPosition = await refreshCurrentPositionForChat();
+            if (!freshPosition) throw Object.assign(new Error('Không lấy được GPS hiện tại.'), { code:'GPS_FRESH_REQUIRED' });
+        }
         while (retries > 0) {
             try {
                 const userLocation = getStructuredUserLocation();
@@ -237,7 +242,9 @@ async function handleChat() {
     } catch (error) {
         console.error(error);
         const loadingElement = document.getElementById(loadingId);
-        if (loadingElement?.closest('.msg')) loadingElement.closest('.msg').textContent = 'Kết nối đang gặp lỗi. Bạn thử lại nhé.';
+        if (loadingElement?.closest('.msg')) loadingElement.closest('.msg').textContent = error?.code === 'GPS_FRESH_REQUIRED'
+            ? 'Tôi chưa lấy được GPS hiện tại. Bạn kiểm tra quyền Vị trí hoặc DevTools Sensor rồi gửi lại câu hỏi nhé.'
+            : 'Kết nối đang gặp lỗi. Bạn thử lại nhé.';
     } finally {
         if (sendBtn) sendBtn.disabled = false;
         if (voiceBtn) voiceBtn.disabled = false;

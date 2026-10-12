@@ -1332,7 +1332,9 @@ function liveIntentFromPlan(plan) {
 }
 
 function hasGps(location) {
-  return Number.isFinite(Number(location?.latitude)) && Number.isFinite(Number(location?.longitude));
+  const latitude=location?.latitude,longitude=location?.longitude;
+  if(latitude==null||longitude==null||latitude===''||longitude==='')return false;
+  return Number.isFinite(Number(latitude))&&Number.isFinite(Number(longitude));
 }
 
 function nearbyLanguage(location) {
@@ -2609,9 +2611,17 @@ async function handleAiV3(request, env) {
   const history=Array.isArray(body?.chatHistory)?body.chatHistory.slice(-8):[];
   const previousContext=compactConversationContext(body?.conversationContext);
   const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
+  const currentNearbyIntent=liveNearbyIntent(userMessage);
+  const explicitRemoteIntent=remoteAreaSearchIntent(userMessage);
+  if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent&&!hasGps(location)){
+    return json({
+      text:'Tôi chưa lấy được GPS hiện tại nên chưa thể tìm địa điểm “quanh đây”. Bạn bật quyền Vị trí hoặc kiểm tra Sensor rồi gửi lại câu hỏi nhé.',
+      error:{code:'GPS_REQUIRED'},travelos:{version:3,nearbyError:{code:'GPS_REQUIRED',message:'Fresh current GPS is required.'}}
+    },200,request,env);
+  }
   try {
     const detectedIntent=detectTravelIntent(userMessage,previousContext);
-    const remoteIntent=remoteAreaSearchIntent(userMessage);
+    const remoteIntent=explicitRemoteIntent;
     if(detectedIntent==='PLACE_DISCOVERY'&&remoteIntent)return handleRemoteAreaSearch(remoteIntent,request,env,location);
     const plan=await planV3(userMessage,history,location,previousContext,env);
     if(plan.needsClarification) {

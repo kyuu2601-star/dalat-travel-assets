@@ -582,18 +582,20 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261012-3/);
+  assert.match(index,/chat\.js\?v=20261012-4/);
 });
 
 test('Current-location chat requests refresh GPS before calling the backend', async () => {
   const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
   assert.match(source,/needsFreshGpsForChat\(text\)/);
   assert.match(source,/navigator\.geolocation\.watchPosition/);
+  assert.match(source,/navigator\.geolocation\.getCurrentPosition/);
   assert.match(source,/maximumAge:0/);
   assert.match(source,/sampleTimer = setTimeout\(finish, 2500\)/);
   assert.match(source,/accuracy:\s*Number\(position\.coords\.accuracy\)/);
   assert.match(source,/gpsTimestamp/);
   assert.match(source,/travelos:gps-fix/);
+  assert.match(source,/GPS_FRESH_REQUIRED/);
   assert.match(source,/quanh day/);
 });
 
@@ -889,6 +891,17 @@ test('AI v3 understands CHTL and deterministically searches nearest convenience 
   assert.equal(data.travelos.plan.tools[0].category,'convenience_store');
   assert.equal(data.travelos.nearby.pois[0].name,'GS25');
   assert.match(data.text,/GS25/);
+});
+
+test('AI v3 never turns a missing fresh GPS fix into an empty nearby result', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Quanh đây có cửa hàng tiện lợi nào không?',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',source:'selector'},chatHistory:[]})}),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('Map Worker must not run without GPS');}}});
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(data.error.code,'GPS_REQUIRED');
+  assert.match(data.text,/chưa lấy được GPS hiện tại/);
+  assert.equal(mapCalls,0);
 });
 
 test('AI v3 resolves a remote area before searching there instead of using current GPS', async () => {
