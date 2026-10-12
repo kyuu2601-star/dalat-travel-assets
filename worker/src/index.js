@@ -1,4 +1,5 @@
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
+const DEFAULT_FALLBACK_MODELS = ['gemini-3.8-flash','gemini-3.1-flash-lite'];
 const DEFAULT_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnXggiUJriOBPHz05pt01aIq_qaCDeQAcWpyYTG6zx1XI9WzfVDTbb8rPwYPf2w8uHxeDpx3Tznx53/pub?gid=615358788&single=true&output=csv';
 
 const LEGACY_LOCATION_MAP = {
@@ -1378,28 +1379,17 @@ const NEARBY_TOOLS = [{
  */
 async function callGemini(systemPrompt, contents, env, tools = null, forceFunctionCall = false) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY chưa được cấu hình.');
-  const model = clean(env.GEMINI_MODEL || DEFAULT_MODEL, 120) || DEFAULT_MODEL;
   /** @type {any} */
   const payload = { systemInstruction:{ parts:[{ text:systemPrompt }] }, contents };
   if (Array.isArray(tools) && tools.length) {
     payload.tools = tools;
     payload.toolConfig = { functionCallingConfig:{ mode:forceFunctionCall ? 'ANY' : 'AUTO' } };
   }
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'x-goog-api-key':env.GEMINI_API_KEY },
-    body:JSON.stringify(payload)
-  });
-  const raw = await response.text();
-  let data;
-  try { data = JSON.parse(raw); } catch { data = { raw }; }
-  if (!response.ok) throw new Error(data?.error?.message || `Gemini HTTP ${response.status}`);
-  return data;
+  return requestGemini(payload,env);
 }
 
 async function callGeminiJson(systemPrompt, contents, responseSchema, env) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY chưa được cấu hình.');
-  const model = clean(env.GEMINI_MODEL || DEFAULT_MODEL, 120) || DEFAULT_MODEL;
   const payload = {
     systemInstruction:{ parts:[{ text:systemPrompt }] },
     contents,
@@ -1409,18 +1399,58 @@ async function callGeminiJson(systemPrompt, contents, responseSchema, env) {
       responseSchema
     }
   };
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'x-goog-api-key':env.GEMINI_API_KEY },
-    body:JSON.stringify(payload)
+  return requestGemini(payload,env,data=>{
+    const text=modelText(data);
+    try{return JSON.parse(text);}
+    catch{const error=new Error('Gemini planner không trả JSON hợp lệ.');error.retryable=true;throw error;}
   });
-  const raw = await response.text();
-  let data;
-  try { data = JSON.parse(raw); } catch { data = { raw }; }
-  if (!response.ok) throw new Error(data?.error?.message || `Gemini HTTP ${response.status}`);
-  const text = modelText(data);
-  try { return JSON.parse(text); }
-  catch { throw new Error('Gemini planner không trả JSON hợp lệ.'); }
+}
+
+function geminiModels(env) {
+  const configured=clean(env.GEMINI_MODEL,120),fallbacks=clean(env.GEMINI_FALLBACK_MODELS,500)
+    .split(',').map(model=>clean(model,120)).filter(Boolean);
+  return [...new Set([configured||DEFAULT_MODEL,...(fallbacks.length?fallbacks:DEFAULT_FALLBACK_MODELS)].filter(Boolean))].slice(0,3);
+}
+
+function retryableGeminiFailure(status, message='', error=null) {
+  if(error?.retryable===true||error?.name==='AbortError')return true;
+  if([404,408,409,429,500,502,503,504].includes(Number(status)))return true;
+  return /high demand|overload|temporar|try again|unavailable|resource exhausted|deadline|timeout|network|fetch failed/i.test(String(message||error?.message||''));
+}
+
+async function requestGemini(payload, env, transform=data=>data) {
+  const models=geminiModels(env),failures=[];
+  for(let index=0;index<models.length;index++){
+    const model=models[index],controller=new AbortController(),timer=setTimeout(()=>controller.abort(),clamp(env.GEMINI_TIMEOUT_MS,4000,20000,10000));
+    try{
+      const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+        method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},body:JSON.stringify(payload),signal:controller.signal
+      });
+      const raw=await response.text();let data;
+      try{data=JSON.parse(raw);}catch{data={raw};}
+      if(!response.ok){
+        const message=clean(data?.error?.message||`Gemini HTTP ${response.status}`,500),retryable=retryableGeminiFailure(response.status,message);
+        failures.push({model,status:response.status,message});
+        if(!retryable)throw new Error(message);
+        console.warn('[Gemini fallback]',model,response.status,message);
+        continue;
+      }
+      try{return transform(data);}
+      catch(error){
+        failures.push({model,status:response.status,message:errorText(error,'Invalid model output',500)});
+        if(!retryableGeminiFailure(response.status,'',error))throw error;
+        console.warn('[Gemini output fallback]',model,errorText(error,'Invalid model output',300));
+      }
+    }catch(error){
+      const message=errorText(error,'Gemini request failed',500),retryable=retryableGeminiFailure(null,message,error);
+      failures.push({model,status:null,message});
+      if(!retryable)throw error;
+      console.warn('[Gemini network fallback]',model,message);
+    }finally{clearTimeout(timer);}
+  }
+  const error=new Error('AI_TEMPORARILY_UNAVAILABLE');
+  error.failures=failures;
+  throw error;
 }
 
 function functionCalls(data) {
@@ -1740,8 +1770,8 @@ async function handleAi(request, env) {
   } catch (error) {
     console.error('AI ERROR:', error);
     return json({
-      text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${errorText(error, 'Unknown error', 500)}. Bạn thử lại sau nhé.`,
-      error:{ message:errorText(error, 'Unknown error', 1000) },
+      text:'Thổ Địa đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',
+      error:{ code:'AI_TEMPORARILY_UNAVAILABLE' },
       travelos:{ intent:intentPlan }
     }, 200, request, env);
   }
@@ -2300,6 +2330,33 @@ function deterministicWeatherAdvice(weather, targetLabel='vị trí hiện tại
   return `Ở ${targetLabel}, hiện tại ${condition}${temp!=null?`, ${Math.round(temp)}°C${feelsText}`:''}. Nhìn 8 giờ tới (${tempRange}), thời tiết **${verdict}**. ${action}`;
 }
 
+function deterministicEvidenceAnswer(state) {
+  if(state?.nearby?.pois?.length)return deterministicNearbyText(state.nearby);
+  const place=state?.details||state?.lastPlace||null,busyness=state?.busyness||null,parts=[];
+  if(place?.name){
+    const name=place.localizedName||place.name,address=place.localizedAddress||place.address;
+    let line=`${name}${address?` — ${address}`:''}`;
+    if(place.rating)line+=` · ${Number(place.rating).toFixed(1)}/5${place.userRatingCount?` từ ${Number(place.userRatingCount).toLocaleString('vi-VN')} lượt`:''}`;
+    if(place.openNow===true)line+=' · đang mở';else if(place.openNow===false)line+=' · hiện đang đóng';
+    if(place.openTime)line+=` · ${place.openTime}`;
+    parts.push(line+'.');
+  }
+  if(busyness){
+    if(busyness.available){
+      const label=clean(busyness.label,100)||busynessLabel(busyness.score),basis=busyness.basis==='live'?'Hiện tại':'Theo dự báo';
+      parts.push(`${basis}, địa điểm ${label||'có dữ liệu độ đông'}${busyness.score!=null?` (${Math.round(Number(busyness.score))}/100)`:''}.`);
+    }else parts.push('Hiện chưa có dữ liệu độ đông đáng tin cậy cho địa điểm này.');
+  }
+  const route=Array.isArray(state?.routes)?state.routes[0]:null;
+  if(route)parts.push(`Tuyến đầu tiên dài ${route.distance<1000?`${Math.round(route.distance)} m`:`${(route.distance/1000).toFixed(1)} km`}, thời gian khoảng ${Math.max(1,Math.round(route.duration/60))} phút.`);
+  const curated=state?.curated?.places;
+  if(Array.isArray(curated)&&curated.length){
+    const names=curated.slice(0,6).map(place=>clean(place?.name,200)).filter(Boolean);
+    if(names.length)parts.push(`Các điểm TravelOS có thể dùng để lên lịch: ${names.join(', ')}.`);
+  }
+  return parts.join(' ');
+}
+
 function busynessLabel(score) {
   if(score==null||score==='') return '';
   const value=Number(score);
@@ -2563,9 +2620,13 @@ async function handleAiV3(request, env) {
     } else {
       try { text=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env); }
       catch(error) {
-        if(!state.weather)throw error;
-        const target=state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại';
-        text=deterministicWeatherAdvice(state.weather,target);
+        if(state.weather){
+          const target=state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại';
+          text=deterministicWeatherAdvice(state.weather,target);
+        }else{
+          text=deterministicEvidenceAnswer(state);
+          if(!text)throw error;
+        }
       }
     }
     if(!text&&state.nearby) text=deterministicNearbyText(state.nearby);
@@ -2573,7 +2634,7 @@ async function handleAiV3(request, env) {
     return json({text:text||'Tôi chưa tạo được câu trả lời phù hợp.',travelos:{version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined}},200,request,env);
   } catch(error) {
     console.error('AI V3 ERROR:',error);
-    return json({text:`⚠️ Thổ Địa đang gặp lỗi kết nối AI: ${errorText(error,'Unknown error',500)}. Bạn thử lại sau nhé.`,error:{message:errorText(error,'Unknown error',1000)},travelos:{version:3}},200,request,env);
+    return json({text:'Thổ Địa đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',error:{code:'AI_TEMPORARILY_UNAVAILABLE'},travelos:{version:3}},200,request,env);
   }
 }
 
@@ -2613,7 +2674,7 @@ export default {
         try { db = { bound: true, ready: true, ...await stats(env) }; }
         catch (error) { db = { bound: true, ready: false, error: errorText(error, 'Unknown error', 500) }; }
       }
-      return json({ ok: true, worker: 'TravelOS', db, images: { bound: Boolean(env.IMAGES) }, besttime: { bound: Boolean(env.BESTTIME_PRIVATE_KEY) } }, 200, request, env);
+      return json({ ok: true, worker: 'TravelOS', db, images: { bound: Boolean(env.IMAGES) }, besttime: { bound: Boolean(env.BESTTIME_PRIVATE_KEY) }, ai:{gemini:Boolean(env.GEMINI_API_KEY),models:geminiModels(env)} }, 200, request, env);
     }
 
     if (path === '/api/places' && request.method === 'GET') {

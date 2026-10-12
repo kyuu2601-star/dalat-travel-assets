@@ -558,6 +558,44 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.match(index,/chat\.js\?v=20261012-1/);
 });
 
+test('AI v3 switches Gemini models when the primary model is overloaded', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,calls=[];
+  globalThis.fetch=async (url,init={})=>{
+    const href=String(url),payload=JSON.parse(String(init.body||'{}'));calls.push(href);
+    if(href.includes('gemini-3.5-flash-lite'))return new Response(JSON.stringify({error:{message:'This model is currently experiencing high demand. Please try again later.'}}),{status:503,headers:{'Content-Type':'application/json'}});
+    if(payload?.generationConfig?.responseMimeType==='application/json'){
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({goal:'Giải thích phép lịch sự địa phương',travelIntent:'LOCAL_GUIDE',responseMode:'DIRECT',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]})}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Bạn nên nói nhỏ ở nơi công cộng và xếp hàng theo hướng dẫn tại chỗ.'}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Ở Trùng Khánh nên cư xử thế nào?',userLocation:{country:'Trung Quốc',city:'Trùng Khánh'}})}),{GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.match(data.text,/nói nhỏ/);
+    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.5-flash-lite','gemini-3.8-flash']);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 hides upstream overload details when every Gemini model is unavailable', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,calls=[];
+  const originalWarn=console.warn,originalError=console.error;
+  globalThis.fetch=async url=>{calls.push(String(url));return new Response(JSON.stringify({error:{message:'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.'}}),{status:503,headers:{'Content-Type':'application/json'}});};
+  console.warn=()=>{};console.error=()=>{};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Kể tôi nghe vài phép lịch sự khi đi du lịch',userLocation:{country:'Việt Nam',city:'TP.HCM'}})}),{GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.error.code,'AI_TEMPORARILY_UNAVAILABLE');
+    assert.match(data.text,/hơi quá tải/);
+    assert.doesNotMatch(data.text,/high demand|try again later|Gemini HTTP/i);
+    assert.equal(calls.length,3);
+    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.1-flash-lite']);
+  }finally{globalThis.fetch=originalFetch;console.warn=originalWarn;console.error=originalError;}
+});
+
 test('Chat history restores the nearby map card for 24 hours and exposes only a compact follow-up context', async () => {
   const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
   const store=new Map(),rendered=[],chatBox={children:[],scrollTop:0,scrollHeight:100,appendChild(node){this.children.push(node);}};
