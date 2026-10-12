@@ -372,7 +372,7 @@ const SEARCH_RULES=[
   {aliases:['pharmacy','drugstore','nha thuoc','hieu thuoc','tiem thuoc','mua thuoc'],geo:['healthcare.pharmacy','commercial.health_and_beauty.pharmacy','commercial.chemist'],google:'pharmacy',amap:'药店'},
   {aliases:['hospital','benh vien','cap cuu'],geo:['healthcare.hospital'],google:'hospital',amap:'医院'},
   {aliases:['clinic','phong kham','doctor','bac si'],geo:['healthcare.clinic_or_praxis'],google:'doctor',amap:'诊所'},
-  {aliases:['convenience store','cua hang tien loi','minimart','mini mart'],geo:['commercial.convenience'],google:'convenience_store',amap:'便利店'},
+  {aliases:['convenience store','cua hang tien loi','chtl','minimart','mini mart'],geo:['commercial.convenience'],google:'convenience_store',amap:'便利店'},
   {aliases:['grocery','tap hoa','cua hang tap hoa'],geo:['commercial.food_and_drink'],google:'grocery_store',amap:'杂货店'},
   {aliases:['supermarket','sieu thi'],geo:['commercial.supermarket'],google:'supermarket',amap:'超市'},
   {aliases:['atm','rut tien'],geo:['service.financial.atm'],google:'atm',amap:'ATM'},
@@ -687,6 +687,8 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
   const info=categoryInfo(keyword,body?.category,body?.name),name=clean(body?.name,120),textQuery=clean(body?.query,300);
   const expansion=!name&&textQuery?expandedSearchQuery(textQuery):'';
   const textQueries=!name?uniqueSearchQueries(textQuery,body?.queryVariants,expansion):[];
+  const categoryRule=SEARCH_RULES.find(rule=>rule.google===info.googleType);
+  const categoryOnlyQuery=!name&&Boolean(info.googleType)&&Boolean(categoryRule)&&categoryRule.aliases.some(alias=>fold(textQuery||keyword).includes(fold(alias)));
   let result,source;
   if(textQueries.length>1){
     const options={center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true};
@@ -694,6 +696,9 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
     const places=mergeGooglePlaces(...searches.map(search=>search.places||[])).filter(place=>(place.distance??Infinity)<=radius);
     result={ok:searches.some(search=>search.ok),places,error:searches.map(search=>search.error).filter(Boolean).join(' / ')};
     source='google-places-expanded-text-v1';
+  }else if(categoryOnlyQuery||(!name&&!textQuery&&info.googleType)){
+    result=await googleNearbyPlaces({googleType:info.googleType,center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
+    source='google-places-nearby-v1';
   }else if(name||textQuery||!info.googleType){
     result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true},env);
     source='google-places-text-v1';

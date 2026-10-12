@@ -71,6 +71,29 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
   } finally { globalThis.fetch=originalFetch; }
 });
 
+test('Map Worker searches convenience-store categories with Google Nearby distance ranking', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='',requestedBody=null;
+  globalThis.fetch=async (url,init={})=>{
+    requestedUrl=String(url);requestedBody=JSON.parse(String(init.body||'{}'));
+    return new Response(JSON.stringify({places:[
+      {id:'gs25-near',displayName:{text:'GS25'},formattedAddress:'Ngay bên cạnh',location:{latitude:10.7701,longitude:106.69},primaryType:'convenience_store',types:['convenience_store','store']},
+      {id:'store-far',displayName:{text:'Cửa hàng xa'},formattedAddress:'Xa hơn',location:{latitude:10.78,longitude:106.69},primaryType:'convenience_store',types:['convenience_store','store']}
+    ]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.77,lng:106.69},country:'Việt Nam',query:'CHTL',keyword:'CHTL',category:'convenience_store',radius:3000,limit:10,candidateLimit:40,sortBy:'distance'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'google-places-nearby-v1');
+    assert.equal(data.pois[0].id,'gs25-near');
+    assert.equal(requestedUrl,'https://places.googleapis.com/v1/places:searchNearby');
+    assert.deepEqual(requestedBody.includedTypes,['convenience_store']);
+    assert.equal(requestedBody.rankPreference,'DISTANCE');
+    assert.equal(requestedBody.maxResultCount,20);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker expands fried-chicken intent to brands and excludes results outside the requested radius', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch,requests=[];
@@ -825,6 +848,30 @@ test('AI v3 plans tools server-side and returns structured nearby evidence', asy
   } finally {
     globalThis.fetch=originalFetch;
   }
+});
+
+test('AI v3 understands CHTL and deterministically searches nearest convenience stores', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    mapCalls++;
+    assert.equal(new URL(request.url).pathname,'/poi/nearby');
+    const body=await request.json();
+    assert.equal(body.query,'cửa hàng tiện lợi');
+    assert.equal(body.keyword,'cửa hàng tiện lợi');
+    assert.equal(body.category,'convenience_store');
+    assert.equal(body.sortBy,'distance');
+    assert.equal(body.center.lat,10.77);
+    assert.equal(body.center.lng,106.69);
+    return new Response(JSON.stringify({ok:true,source:'google-places-nearby-v1',provider:'google_places',center:body.center,pois:[{id:'gs25-near',name:'GS25',address:'Ngay bên cạnh',lat:10.7701,lng:106.69,distance:11,provider:'google_places',primaryType:'convenience_store'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Quanh đây có CHTL nào k?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69,source:'gps'},chatHistory:[]})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(mapCalls,1);
+  assert.equal(data.travelos.plan.tools[0].category,'convenience_store');
+  assert.equal(data.travelos.nearby.pois[0].name,'GS25');
+  assert.match(data.text,/GS25/);
 });
 
 test('AI v3 resolves a remote area before searching there instead of using current GPS', async () => {

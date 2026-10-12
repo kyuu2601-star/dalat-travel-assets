@@ -1271,7 +1271,7 @@ const LIVE_NEARBY_RULES = [
   { category:'pharmacy', keyword:'nhà thuốc', aliases:['nha thuoc','hieu thuoc','tiem thuoc','pharmacy','drugstore','mua thuoc'], direct:true },
   { category:'hospital', keyword:'bệnh viện', aliases:['benh vien','hospital','cap cuu','emergency room'], direct:true },
   { category:'clinic', keyword:'phòng khám', aliases:['phong kham','clinic','bac si','doctor','nha khoa'], direct:true },
-  { category:'convenience_store', keyword:'cửa hàng tiện lợi', aliases:['cua hang tien loi','convenience store','minimart','mini mart'], direct:true },
+  { category:'convenience_store', keyword:'cửa hàng tiện lợi', aliases:['cua hang tien loi','chtl','convenience store','minimart','mini mart'], direct:true },
   { category:'grocery_store', keyword:'tạp hóa', aliases:['tap hoa','tiem tap hoa','grocery','grocery store','bach hoa'], direct:true },
   { category:'supermarket', keyword:'siêu thị', aliases:['sieu thi','supermarket','hypermarket','winmart','bach hoa xanh'], direct:true },
   { category:'atm', keyword:'ATM', aliases:['atm','rut tien'], direct:true },
@@ -1807,7 +1807,7 @@ const TRAVEL_INTENT_PROFILES = {
 function detectTravelIntent(userMessage, previousContext = null) {
   const text=fold(userMessage),hasPreviousPlace=Boolean(previousContext?.placeDetails||previousContext?.nearby?.pois?.length);
   const asksToFind=/\b(?:tim|kiem|gan toi|quanh|xung quanh|o dau|cho nao|quan nao|tiem nao|co (?:quan|tiem|cho|nha hang))\b/.test(text);
-  const namesPlaceType=/\b(?:nha thuoc|hieu thuoc|benh vien|phong kham|atm|cua hang tien loi|sieu thi|tap hoa|nha hang|quan|tiem|quan an|cafe|ca phe|khach san)\b/.test(text);
+  const namesPlaceType=/\b(?:nha thuoc|hieu thuoc|benh vien|phong kham|atm|cua hang tien loi|chtl|sieu thi|tap hoa|nha hang|quan|tiem|quan an|cafe|ca phe|khach san)\b/.test(text);
   if(asksToFind&&namesPlaceType)return'PLACE_DISCOVERY';
   const rules=[
     ['WEATHER_OUTDOOR',/\b(?:thoi tiet|troi|mua|nang|nong|lanh|nhiet do|du bao|ao mua|o du|gio manh|di choi.*(?:duoc|tien|on)|outdoor)\b/],
@@ -1815,7 +1815,7 @@ function detectTravelIntent(userMessage, previousContext = null) {
     ['ROUTE_MOBILITY',/\b(?:chi duong|duong di|di bo|lai xe|xe may|o to|metro|tau dien|taxi|di chuyen|traffic|giao thong|ket xe|bao lau|mat bao nhieu phut)\b/],
     ['SAFETY_HEALTH',/\b(?:an toan|nguy hiem|canh bao|lua dao|moc tui|cap cuu|benh vien|phong kham|nha thuoc|thuoc|dau bung|sot|bi thuong|canh sat|cong an)\b/],
     ['VENUE_INTELLIGENCE',/\b(?:rating|review|danh gia|mo cua|dong cua|dang mo|may gio|dong khong|dong duc|so dien thoai|website|dat ban|tien ich)\b/],
-    ['TRAVEL_UTILITY',/\b(?:atm|rut tien|doi tien|ty gia|sim|esim|wifi|wi fi|internet|cua hang tien loi|sieu thi|tap hoa|gui do|hanh ly|ve|hotline|lien he)\b/],
+    ['TRAVEL_UTILITY',/\b(?:atm|rut tien|doi tien|ty gia|sim|esim|wifi|wi fi|internet|cua hang tien loi|chtl|sieu thi|tap hoa|gui do|hanh ly|ve|hotline|lien he)\b/],
     ['PLACE_DISCOVERY',/\b(?:tim|kiem|gan toi|quanh toi|quanh day|xung quanh|o dau|cho nao|quan nao|tiem nao|nha hang|quan an|cafe|ca phe|khach san|diem choi|check in|mua o dau)\b/]
   ];
   for(const [id,pattern] of rules)if(pattern.test(text)){
@@ -1990,6 +1990,14 @@ function normalizeV3Plan(raw) {
 
 async function planV3(userMessage, history, location, previousContext, env) {
   const detectedIntent=detectTravelIntent(userMessage,previousContext);
+  const nearbyIntent=liveNearbyIntent(userMessage);
+  if(nearbyIntent?.explicitNearby&&hasGps(location)){
+    const deterministic={
+      goal:`Tìm ${nearbyIntent.keyword} gần vị trí hiện tại theo khoảng cách`,travelIntent:'PLACE_DISCOVERY',responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,
+      tools:[{name:'search_places',query:nearbyIntent.keyword,category:nearbyIntent.category,placeName:'',address:'',placeId:'',radius:nearbyIntent.radius,limit:10,language:nearbyLanguage(location),latitude:null,longitude:null,destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'general'}]
+    };
+    return enforceTravelIntentPlan(normalizeV3Plan(deterministic),'PLACE_DISCOVERY',userMessage,location,previousContext);
+  }
   if(detectedIntent==='WEATHER_OUTDOOR'){
     const deterministic={goal:'Kiểm tra thời tiết live và đánh giá khả năng đi chơi',travelIntent:detectedIntent,responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]};
     return enforceTravelIntentPlan(normalizeV3Plan(deterministic),detectedIntent,userMessage,location,previousContext);
