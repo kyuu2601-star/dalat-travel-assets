@@ -952,7 +952,9 @@ window.addEventListener('travelos:data-updated', event => {
 navigator.geolocation.watchPosition(pos => {
     const newPos = {
         lat: pos.coords.latitude,
-        lon: pos.coords.longitude
+        lon: pos.coords.longitude,
+        accuracy: Number(pos.coords.accuracy),
+        timestamp: Number(pos.timestamp) || Date.now()
     };
 
     window.userPos = newPos;
@@ -977,6 +979,18 @@ navigator.geolocation.watchPosition(pos => {
     enableHighAccuracy: true,
     maximumAge: 3000,
     timeout: 15000
+});
+
+window.addEventListener('travelos:gps-fix', event => {
+    const fix = event.detail;
+    if (!Number.isFinite(Number(fix?.lat)) || !Number.isFinite(Number(fix?.lon))) return;
+    userPos = fix;
+    lastPos = fix;
+    window.userPos = fix;
+    updateGpsDisplay();
+    checkRadarStatus();
+    applyFilters();
+    maybeDetectGpsLocation(fix);
 });
 
 document.addEventListener('click', () => requestWakeLock(), { once: true });

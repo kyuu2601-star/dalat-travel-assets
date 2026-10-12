@@ -58,7 +58,9 @@ function getStructuredUserLocation() {
     const area = document.getElementById('selectArea')?.value || '';
     const currentPos = window.userPos || null;
     const lat = Number(currentPos?.lat);
-    const lon = Number(currentPos?.lon);
+    const lon = Number(currentPos?.lon ?? currentPos?.lng);
+    const accuracy = Number(currentPos?.accuracy);
+    const gpsTimestamp = Number(currentPos?.timestamp);
     if (isChinaGpsPoint(currentPos)) country = 'Trung Quốc';
 
     return {
@@ -67,8 +69,38 @@ function getStructuredUserLocation() {
         area,
         latitude: Number.isFinite(lat) ? lat : null,
         longitude: Number.isFinite(lon) ? lon : null,
+        accuracy: Number.isFinite(accuracy) ? accuracy : null,
+        gpsTimestamp: Number.isFinite(gpsTimestamp) ? gpsTimestamp : null,
         source: Number.isFinite(lat) && Number.isFinite(lon) ? 'gps' : 'selector'
     };
+}
+
+function needsFreshGpsForChat(message) {
+    const text = String(message ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
+    return /\b(?:quanh day|xung quanh day|gan day|gan toi|gan tui|quanh toi|quanh tui|vi tri hien tai|o day|cho nay|near me)\b/.test(text);
+}
+
+function refreshCurrentPositionForChat() {
+    const current = window.userPos || null;
+    const age = Date.now() - Number(current?.timestamp || 0);
+    const accuracy = Number(current?.accuracy);
+    if (Number.isFinite(accuracy) && accuracy <= 75 && age >= 0 && age <= 5000) return Promise.resolve(current);
+    if (!navigator.geolocation?.getCurrentPosition) return Promise.resolve(current);
+    return new Promise(resolve => navigator.geolocation.getCurrentPosition(position => {
+        const next = {
+            lat:position.coords.latitude,
+            lon:position.coords.longitude,
+            accuracy:Number(position.coords.accuracy),
+            timestamp:Number(position.timestamp) || Date.now()
+        };
+        window.userPos = next;
+        window.dispatchEvent(new CustomEvent('travelos:gps-fix', { detail:next }));
+        resolve(next);
+    }, () => resolve(window.userPos || current), {
+        enableHighAccuracy:true,
+        maximumAge:0,
+        timeout:10000
+    }));
 }
 
 async function initBot() {
@@ -115,6 +147,7 @@ async function handleChat() {
     let retries = 3;
 
     try {
+        if (needsFreshGpsForChat(text)) await refreshCurrentPositionForChat();
         while (retries > 0) {
             try {
                 const userLocation = getStructuredUserLocation();

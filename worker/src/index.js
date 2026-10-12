@@ -861,6 +861,8 @@ function normalizeUserLocation(raw, khuVuc) {
     area: clean(raw.area || legacy.area, 160),
     latitude: num(raw.latitude),
     longitude: num(raw.longitude),
+    accuracy: num(raw.accuracy),
+    gpsTimestamp: num(raw.gpsTimestamp),
     source: clean(raw.source, 40) || 'selector'
   };
   if(isChinaTravelContext(location,khuVuc))location.country='Trung Quốc';
