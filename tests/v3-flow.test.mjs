@@ -188,6 +188,25 @@ test('Map Worker resolves and reads China places only through AMap', async () =>
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker geocodes weather locations before Google Places POI search', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,urls=[];
+  globalThis.fetch=async url=>{
+    urls.push(String(url));
+    assert.match(String(url),/^https:\/\/api\.geoapify\.com\/v1\/geocode\/search/);
+    return new Response(JSON.stringify({results:[{place_id:'dalat-city',name:'Đà Lạt',city:'Đà Lạt',state:'Lâm Đồng',country:'Việt Nam',formatted:'Đà Lạt, Lâm Đồng, Việt Nam',lat:11.9404,lon:108.4413,result_type:'city'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://map.test/place/resolve',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({query:'Đà Lạt',country:'Việt Nam',resolveMode:'geocode',limit:3})}),{GOOGLE_MAPS_API_KEY:'google-test',GEOAPIFY_API_KEY:'geo-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'geoapify-geocoding-v1');
+    assert.equal(data.places[0].name,'Đà Lạt');
+    assert.equal(data.places[0].resultType,'city');
+    assert.equal(urls.length,1);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker enriches place details by exact Google Place ID for review text', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='',fieldMask='';
@@ -570,9 +589,27 @@ test('AI v3 resolves remote weather instead of searching for a POI named weather
     const data=await response.json();
     assert.equal(mapCalls.length,1);
     assert.equal(mapCalls[0].body.query,'Trùng Khánh');
+    assert.equal(mapCalls[0].body.resolveMode,'geocode');
     assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['resolve_place','weather']);
     assert.equal(data.travelos.weather.coordinates.lat,29.563);
     assert.match(data.text,/Trùng Khánh/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 never falls back to current GPS when a requested weather location cannot be resolved', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async url=>{throw new Error(`Weather must not run against current GPS: ${url}`);};
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    assert.equal(new URL(request.url).pathname,'/place/resolve');
+    return new Response(JSON.stringify({error:'Không xác định được địa danh.'}),{status:404,headers:{'Content-Type':'application/json'}});
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết ở một nơi không tồn tại có tiện đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),env);
+    const data=await response.json();
+    assert.equal(data.travelos.weather,undefined);
+    assert.equal(data.travelos.sources.find(source=>source.tool==='weather').error,'GPS_OR_DESTINATION_REQUIRED');
+    assert.doesNotMatch(data.text,/thời tiết (?:ở|tại) TP\.HCM/i);
   }finally{globalThis.fetch=originalFetch;}
 });
 

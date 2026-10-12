@@ -2,6 +2,7 @@ const AMAP_WALKING_URL = 'https://restapi.amap.com/v5/direction/walking';
 const AMAP_NEARBY_URL = 'https://restapi.amap.com/v5/place/around';
 const AMAP_TEXT_SEARCH_URL = 'https://restapi.amap.com/v5/place/text';
 const AMAP_PLACE_DETAIL_URL = 'https://restapi.amap.com/v5/place/detail';
+const AMAP_GEOCODING_URL = 'https://restapi.amap.com/v3/geocode/geo';
 const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places';
 const GEOAPIFY_ROUTING_URL = 'https://api.geoapify.com/v1/routing';
 const GEOAPIFY_GEOCODING_URL = 'https://api.geoapify.com/v1/geocode/search';
@@ -492,6 +493,37 @@ async function amapResolve(body, env, originHeader, query, center) {
   return json({error:lastError,provider:'amap'},404,originHeader);
 }
 
+async function amapGeocode(body, env, originHeader, query) {
+  if(!env.AMAP_WEB_KEY)return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
+  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,address:query,output:'json'}),result=await fetchJson(`${AMAP_GEOCODING_URL}?${params.toString()}`);
+  if(!result.ok||String(result.data?.status)!=='1')return json({error:clean(result.data?.info||`AMap Geocoding HTTP ${result.status}`,500),provider:'amap'},502,originHeader);
+  const places=(Array.isArray(result.data?.geocodes)?result.data.geocodes:[]).map((item,index)=>{
+    const point=parseLngLat(item?.location);if(!point)return null;
+    return {id:`amap-geocode-${index}-${point.lat.toFixed(6)},${point.lng.toFixed(6)}`,poiId:'',name:query,address:clean(item?.formatted_address||query,1000),lat:point.lat,lng:point.lng,
+      city:clean(item?.city,200),district:clean(item?.district,200),province:clean(item?.province,200),country:'Trung Quốc',provider:'amap',coordSystem:'gcj02',resultType:clean(item?.level,100)};
+  }).filter(Boolean).slice(0,clampInt(body?.limit,1,10,5));
+  return places.length?json({ok:true,source:'amap-geocoding-v3',provider:'amap',query,places},200,originHeader):json({error:'AMap không geocode được địa danh này.',provider:'amap'},404,originHeader);
+}
+
+async function geoapifyResolve(body, env, originHeader, query, center) {
+  if(!env.GEOAPIFY_API_KEY)return json({error:'Geoapify geocoding chưa được cấu hình.',provider:'geoapify'},502,originHeader);
+  const params=new URLSearchParams({text:query,format:'json',limit:String(clampInt(body?.limit,1,10,5)),lang:clean(body?.language,10)||'vi',apiKey:env.GEOAPIFY_API_KEY});
+  if(center)params.set('bias',`proximity:${center.lng.toFixed(6)},${center.lat.toFixed(6)}`);
+  const result=await fetchJson(`${GEOAPIFY_GEOCODING_URL}?${params.toString()}`);
+  if(!result.ok||!Array.isArray(result.data?.results))return json({error:result.data?.message||`Geoapify Geocoding HTTP ${result.status}`,provider:'geoapify'},502,originHeader);
+  const queryKey=fold(query),rank={city:0,state:1,county:2,district:3,suburb:4,amenity:6,building:7};
+  const places=result.data.results.map(item=>({
+    id:clean(item?.place_id,200),poiId:clean(item?.place_id,200),name:clean(item?.name||item?.city||item?.address_line1||item?.formatted,300),address:clean(item?.formatted,1000),
+    lat:Number(item?.lat),lng:Number(item?.lon),distance:center?haversineMeters(center,{lat:Number(item?.lat),lng:Number(item?.lon)}):null,
+    city:clean(item?.city||item?.county,200),district:clean(item?.district||item?.suburb,200),province:clean(item?.state,200),country:clean(item?.country,120),
+    provider:'geoapify',coordSystem:'wgs84',resultType:clean(item?.result_type,100)
+  })).filter(item=>Number.isFinite(item.lat)&&Number.isFinite(item.lng)).sort((a,b)=>{
+    const aExact=[a.name,a.city,a.province].some(value=>fold(value)===queryKey),bExact=[b.name,b.city,b.province].some(value=>fold(value)===queryKey);
+    return Number(bExact)-Number(aExact)+(rank[a.resultType]??5)-(rank[b.resultType]??5);
+  }).slice(0,clampInt(body?.limit,1,10,5));
+  return places.length?json({ok:true,source:'geoapify-geocoding-v1',provider:'geoapify',query,places},200,originHeader):json({error:'Geoapify không geocode được địa danh này.',provider:'geoapify'},404,originHeader);
+}
+
 async function amapPlaceDetails(body, env, originHeader) {
   if(!env.AMAP_WEB_KEY)return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
   const id=clean(body?.placeId||body?.id,200),center=finiteCoord(body?.center||body?.location);
@@ -510,23 +542,15 @@ async function resolvePlace(request, env, originHeader) {
   let body; try{body=await request.json();}catch{return json({error:'JSON body không hợp lệ.'},400,originHeader);}
   const query=clean(body?.query||body?.name,300),center=finiteCoord(body?.center||body?.location);
   if(!query) return json({error:'query là bắt buộc.'},400,originHeader);
-  if(providerFor(body)==='amap')return amapResolve(body,env,originHeader,query,center);
+  const provider=providerFor(body),geocodeMode=clean(body?.resolveMode,30)==='geocode';
+  if(provider==='amap')return geocodeMode?amapGeocode(body,env,originHeader,query):amapResolve(body,env,originHeader,query,center);
+  if(geocodeMode&&env.GEOAPIFY_API_KEY)return geoapifyResolve(body,env,originHeader,query,center);
   if(env.GOOGLE_MAPS_API_KEY){
     const google=await googleTextPlaces({query,center,radius:body?.radius||10000,limit:clampInt(body?.limit,1,10,5),language:body?.language,country:body?.country},env);
     if(google.ok&&google.places.length) return json({ok:true,source:'google-places-text-v1',provider:'google_places',query,places:google.places},200,originHeader);
   }
-  if(!env.GEOAPIFY_API_KEY) return json({error:'Google Places không có kết quả và Geoapify fallback chưa được cấu hình.',provider:'google_places'},502,originHeader);
-  const params=new URLSearchParams({text:query,format:'json',limit:String(clampInt(body?.limit,1,10,5)),lang:clean(body?.language,10)||'vi',apiKey:env.GEOAPIFY_API_KEY});
-  if(center) params.set('bias',`proximity:${center.lng.toFixed(6)},${center.lat.toFixed(6)}`);
-  const result=await fetchJson(`${GEOAPIFY_GEOCODING_URL}?${params.toString()}`);
-  if(!result.ok||!Array.isArray(result.data?.results)) return json({error:result.data?.message||`Geoapify Geocoding HTTP ${result.status}`,provider:'geoapify'},502,originHeader);
-  const places=result.data.results.map(item=>({
-    id:clean(item?.place_id,200),poiId:clean(item?.place_id,200),name:clean(item?.name||item?.address_line1||item?.formatted,300),address:clean(item?.formatted,1000),
-    lat:Number(item?.lat),lng:Number(item?.lon),distance:center?haversineMeters(center,{lat:Number(item?.lat),lng:Number(item?.lon)}):null,
-    city:clean(item?.city||item?.county,200),district:clean(item?.district||item?.suburb,200),province:clean(item?.state,200),country:clean(item?.country,120),
-    provider:'geoapify',coordSystem:'wgs84',resultType:clean(item?.result_type,100)
-  })).filter(item=>Number.isFinite(item.lat)&&Number.isFinite(item.lng));
-  return json({ok:true,source:'geoapify-geocoding-v1',provider:'geoapify',query,places},200,originHeader);
+  if(!env.GEOAPIFY_API_KEY)return json({error:'Google Places không có kết quả và Geoapify fallback chưa được cấu hình.',provider:'google_places'},502,originHeader);
+  return geoapifyResolve(body,env,originHeader,query,center);
 }
 
 function normalizeGooglePlace(place, center, country) {

@@ -1814,7 +1814,7 @@ function sameTool(a,b){return a?.name===b?.name&&clean(a?.query,300)===clean(b?.
 function enforceTravelIntentPlan(plan, intent, userMessage, location, previousContext) {
   plan={...plan,travelIntent:intent};
   const tools=intent==='WEATHER_OUTDOOR'
-    ? (plan.tools||[]).filter(tool=>tool.name==='resolve_place'||tool.name==='weather')
+    ? []
     : [...(plan.tools||[])];
   const add=(tool,atEnd=true)=>{if(!tools.some(item=>sameTool(item,tool)))(atEnd?tools.push(tool):tools.unshift(tool));};
   const hasGps=Number.isFinite(location?.latitude)&&Number.isFinite(location?.longitude);
@@ -2426,7 +2426,8 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
   const previousNearby=previousContext?.nearby||null;
   const followup=nearbyFollowupIntent(userMessage,previousNearby),contextPlace=followup?contextPlaceForQuestion(userMessage,previousNearby):null;
   const priorPlace=contextPlace||previousContext?.placeDetails||null;
-  const refersToPreviousPlace=/\b(?:ở đó|tại đó|chỗ đó|địa điểm đó|nơi đó)\b/i.test(userMessage);
+  const explicitWeatherQuery=plan.travelIntent==='WEATHER_OUTDOOR'?weatherLocationQuery(userMessage):'';
+  const refersToPreviousPlace=/\b(?:o do|tai do|cho do|dia diem do|noi do)\b/.test(fold(userMessage));
   /** @type {any} */
   const state={lastPlace:priorPlace,weatherTarget:refersToPreviousPlace?priorPlace:null,nearby:null,weather:null,busyness:null,routes:null,details:null,curated:null};
   const gps=Number.isFinite(location.latitude)&&Number.isFinite(location.longitude)?{lat:location.latitude,lng:location.longitude}:null;
@@ -2457,7 +2458,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         }
       } else if(args.name==='resolve_place') {
         const query=args.query||args.placeName||args.address,center=coordFrom(args),china=isChinaTravelContext({...location,latitude:center?.lat,longitude:center?.lng},userMessage,query);
-        result=await mapTool('/place/resolve',{...chinaProviderFields(china),query,center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit},env);
+        result=await mapTool('/place/resolve',{...chinaProviderFields(china),query,center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit,resolveMode:plan.travelIntent==='WEATHER_OUTDOOR'?'geocode':''},env);
         if(result.ok) {
           const places=(result.data?.places||[]).map(compactPoi);
           result={ok:true,source:result.data?.source||result.data?.provider,data:{...result.data,places}};
@@ -2476,7 +2477,8 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
           if(place?.name) state.lastPlace=place;
         }
       } else if(args.name==='weather') {
-        result=await weatherTool(args,coordFrom(state.weatherTarget)||gps);
+        const weatherCoord=coordFrom(state.weatherTarget)||(!explicitWeatherQuery?gps:null);
+        result=await weatherTool({...args,latitude:null,longitude:null},weatherCoord);
         if(result.ok) state.weather=result.data;
       } else if(args.name==='place_busyness') {
         result=await busynessTool(args,state.details||state.lastPlace||{},env);
