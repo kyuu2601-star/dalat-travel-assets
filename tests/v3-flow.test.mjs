@@ -432,7 +432,7 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261009-5/);
+  assert.match(index,/chat\.js\?v=20261012-1/);
 });
 
 test('Chat history restores the nearby map card for 24 hours and exposes only a compact follow-up context', async () => {
@@ -443,7 +443,7 @@ test('Chat history restores the nearby map card for 24 hours and exposes only a 
   const nearby={source:'amap-place-v5',provider:'amap',query:'nhà thuốc',center:{lat:29.55,lng:106.57,country:'China',coordSystem:'wgs84'},pois:[{id:'poi-1',name:'药房',address:'重庆市',lat:29.551,lng:106.571,provider:'amap',distance:120,rating:4.7,reviews:[{text:'must not persist'}]}]};
   context.saveMessage('ai','Tôi tìm được một địa điểm.',{nearby});
   const saved=JSON.parse(store.get('travelos_chat_history'));
-  assert.equal(saved.version,2);
+  assert.equal(saved.version,3);
   assert.equal(saved.messages[0].nearby.pois[0].name,'药房');
   assert.equal(saved.messages[0].nearby.pois[0].coordSystem,'gcj02');
   assert.equal(saved.messages[0].nearby.pois[0].reviews,undefined);
@@ -454,7 +454,9 @@ test('Chat history restores the nearby map card for 24 hours and exposes only a 
   assert.equal(rendered[0].payload.pois[0].poiId,'poi-1');
   assert.equal(rendered[0].node,chatBox.children[0]);
   assert.match(source,/chatHistoryArray = chatHistoryArray\.map\(message => \(\{ role:message\.role, content:message\.content \}\)\)/);
-  assert.match(source,/conversationContext: latestNearby \? \{ nearby:compactNearbySnapshot\(latestNearby\) \}/);
+  assert.match(source,/const conversationContext = latestStoredContext\?\.travelContext/);
+  assert.match(source,/conversationContext: conversationContext \|\| undefined/);
+  assert.match(source,/function compactTravelContext\(payload\)/);
 });
 
 test('App keeps onboarding visible until places and bot readiness settle', async () => {
@@ -516,6 +518,68 @@ test('Destination summary combines Google reviews, weather, BestTime and AI copy
     assert.ok(external.some(url=>url.startsWith('https://besttime.app/')));
     assert.ok(external.some(url=>url.startsWith('https://generativelanguage.googleapis.com/')));
   }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Destination summary keeps aggregate rating when Google returns no review sample', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname;
+    if(path==='/weather/current')return new Response(JSON.stringify({ok:true,weather:{current:{temperature:30,condition:'Có mây'}}}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',place:{id:'kfc',name:'KFC',address:'TP.HCM',lat:10.78,lng:106.69,rating:4.4,userRatingCount:691,reviews:[],provider:'google_places'}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/destination-summary',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({destination:{name:'KFC',address:'TP.HCM',lat:10.78,lng:106.69,country:'Việt Nam'}})}),env);
+  const data=await response.json();
+  assert.equal(data.place.rating,4.4);
+  assert.equal(data.place.userRatingCount,691);
+  assert.equal(data.place.recentReviewCount,0);
+  assert.match(data.reviewSummary,/rating tổng 4\.4\/5/);
+  assert.match(data.reviewSummary,/691 lượt/);
+});
+
+test('AI v3 uses current GPS for outdoor weather and still answers when Gemini is unavailable', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,urls=[];
+  globalThis.fetch=async url=>{
+    urls.push(String(url));
+    assert.match(String(url),/^https:\/\/api\.open-meteo\.com\/v1\/forecast/);
+    return new Response(JSON.stringify({timezone:'Asia/Ho_Chi_Minh',current:{time:'2026-10-12T10:00',temperature_2m:29,apparent_temperature:32,precipitation:0,rain:0,weather_code:2,wind_speed_10m:8},hourly:{time:['2026-10-12T10:00','2026-10-12T11:00','2026-10-12T12:00'],temperature_2m:[29,30,31],precipitation_probability:[10,20,15],precipitation:[0,0,0],weather_code:[2,2,1],wind_speed_10m:[8,9,10]},daily:{}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết có tiện đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69,source:'gps'}})}),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),weatherUrl=new URL(urls[0]);
+    assert.equal(data.travelos.travelIntent,'WEATHER_OUTDOOR');
+    assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['weather']);
+    assert.equal(weatherUrl.searchParams.get('latitude'),'10.77');
+    assert.equal(weatherUrl.searchParams.get('longitude'),'106.69');
+    assert.match(data.text,/vị trí hiện tại/);
+    assert.match(data.text,/tiện để đi chơi/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 resolves remote weather instead of searching for a POI named weather', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,mapCalls=[];
+  globalThis.fetch=async url=>new Response(JSON.stringify({timezone:'Asia/Shanghai',current:{time:'2026-10-12T10:00',temperature_2m:20,apparent_temperature:20,precipitation:0,rain:0,weather_code:1,wind_speed_10m:5},hourly:{time:['2026-10-12T10:00'],temperature_2m:[20],precipitation_probability:[5],precipitation:[0],weather_code:[1],wind_speed_10m:[5]},daily:{}}),{status:200,headers:{'Content-Type':'application/json'}});
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
+    assert.equal(path,'/place/resolve');
+    return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',places:[{id:'cq',name:'重庆市',localizedName:'Trùng Khánh',lat:29.563,lng:106.551,country:'Trung Quốc',provider:'amap',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết ở Trùng Khánh có tiện để đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),env);
+    const data=await response.json();
+    assert.equal(mapCalls.length,1);
+    assert.equal(mapCalls[0].body.query,'Trùng Khánh');
+    assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['resolve_place','weather']);
+    assert.equal(data.travelos.weather.coordinates.lat,29.563);
+    assert.match(data.text,/Trùng Khánh/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 declares eight specialized travel intent profiles', async () => {
+  const source=await readFile(new URL('../worker/src/index.js',import.meta.url),'utf8');
+  for(const intent of ['PLACE_DISCOVERY','WEATHER_OUTDOOR','ROUTE_MOBILITY','ITINERARY_PLANNING','VENUE_INTELLIGENCE','SAFETY_HEALTH','TRAVEL_UTILITY','LOCAL_GUIDE'])assert.match(source,new RegExp(`${intent}:`));
+  assert.match(source,/TRAVEL INTENT PROFILE/);
 });
 
 test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {
@@ -741,7 +805,7 @@ test('AI v3 gives Gemini the structured previous place list for follow-up questi
     assert.equal(response.status,200);
     assert.equal(prompts.length,2);
     const plannerText=prompts[0].contents.at(-1).parts[0].text,answerText=prompts[1].contents.at(-1).parts[0].text;
-    assert.match(plannerText,/PREVIOUS_NEARBY_CONTEXT/);
+    assert.match(plannerText,/PREVIOUS_TRAVEL_CONTEXT/);
     assert.match(plannerText,/Quán B/);
     assert.match(answerText,/"rating":4\.9/);
     assert.match(data.text,/Quán B/);

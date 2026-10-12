@@ -80,20 +80,26 @@
   }
   function renderDestinationSnapshot(data,info){
     const weather=data?.weather?.current||{},busyness=data?.busyness||{},place=data?.place||info||{};
-    const temperature=Number(weather.temperature),rating=Number(place.recentRating),count=Number(place.recentReviewCount)||0,score=Number(busyness.score);
+    const recentRating=Number(place.recentRating),recentCount=Number(place.recentReviewCount)||0,totalRating=Number(place.rating),totalCount=Number(place.userRatingCount)||0,score=Number(busyness.score);
+    const hasRecent=Number.isFinite(recentRating)&&recentRating>0&&recentCount>0,rating=hasRecent?recentRating:totalRating,count=hasRecent?recentCount:totalCount;
+    const ratingSource=/amap/i.test(String(place.provider||''))?'AMap':'Google';
+    const temperature=Number(weather.temperature);
     const weatherStrong=Number.isFinite(temperature)?`${Math.round(temperature)}°C`:'Chưa có';
     const weatherSub=weather.condition||'Thời tiết hiện tại';
     const crowdStrong=busyness.available?(busyness.label||`${Math.round(score)}%`):'Chưa có';
     const crowdSub=busyness.available?(busyness.basis==='live'?'Hiện tại':'Dự báo theo giờ'):'BestTime chưa có dữ liệu';
     const ratingStrong=Number.isFinite(rating)&&rating>0?`${rating.toFixed(1)}/5`:'Chưa có';
-    const ratingSub=count?`${count} review · ≤ 3 tháng`:'Chưa có mẫu ≤ 3 tháng';
+    const ratingSub=count?(hasRecent?`${count} review · ≤ 3 tháng`:`${count.toLocaleString('vi-VN')} lượt đánh giá tổng`):'Chưa có số lượt đánh giá';
     const summary=data?.reviewSummary||fallbackReviewSummary(place);
-    $('#geo-note',root).innerHTML=`<div class="destination-snapshot-title">Tổng quan điểm đến</div><div class="destination-snapshot-grid"><div><small>🌤 Thời tiết</small><strong>${esc(weatherStrong)}</strong><span>${esc(weatherSub)}</span></div><div><small>👥 Độ đông</small><strong>${esc(crowdStrong)}</strong><span>${esc(crowdSub)}</span></div><div><small>★ Google</small><strong>${esc(ratingStrong)}</strong><span>${esc(ratingSub)}</span></div></div><p>${esc(summary)}</p>`;
+    $('#geo-note',root).innerHTML=`<div class="destination-snapshot-title">Tổng quan điểm đến</div><div class="destination-snapshot-grid"><div><small>🌤 Thời tiết</small><strong>${esc(weatherStrong)}</strong><span>${esc(weatherSub)}</span></div><div><small>👥 Độ đông</small><strong>${esc(crowdStrong)}</strong><span>${esc(crowdSub)}</span></div><div><small>★ ${esc(ratingSource)}</small><strong>${esc(ratingStrong)}</strong><span>${esc(ratingSub)}</span></div></div><p>${esc(summary)}</p>`;
   }
   function fallbackReviewSummary(place){
-    const rating=Number(place?.recentRating),count=Number(place?.recentReviewCount)||0;
-    if(Number.isFinite(rating)&&rating>0&&count)return `${count} review Google trong 3 tháng gần đây đạt trung bình ${rating.toFixed(1)}/5.`;
-    return place?.address||'Google chưa trả review nào trong 3 tháng gần đây.';
+    const recentRating=Number(place?.recentRating),recentCount=Number(place?.recentReviewCount)||0,rating=Number(place?.rating),count=Number(place?.userRatingCount)||0;
+    const source=/amap/i.test(String(place?.provider||''))?'AMap':'Google';
+    if(Number.isFinite(recentRating)&&recentRating>0&&recentCount)return `${recentCount} review ${source} trong 3 tháng gần đây đạt trung bình ${recentRating.toFixed(1)}/5.`;
+    if(Number.isFinite(rating)&&rating>0&&count)return `${source} đang ghi nhận rating tổng ${rating.toFixed(1)}/5 từ ${count.toLocaleString('vi-VN')} lượt; chưa có mẫu review 3 tháng để tóm tắt.`;
+    if(Number.isFinite(rating)&&rating>0)return `${source} đang ghi nhận rating tổng ${rating.toFixed(1)}/5; chưa có nội dung review gần đây.`;
+    return place?.address||`${source} chưa trả dữ liệu rating cho địa điểm này.`;
   }
   async function fastDestinationSnapshot(info,signal){
     const endpoint=mapWorker();if(!endpoint)return null;const body={name:info.name,address:info.address,country:info.country,placeId:info.poiId,center:{lat:info.lat,lng:info.lng},language:'vi',radius:3000,includeReviews:false};
@@ -101,7 +107,7 @@
     const [placeResult,weatherResult]=await Promise.allSettled([request('/poi/details',body),request('/weather/current',{location:{lat:info.lat,lng:info.lng},language:'vi'})]);
     const place=placeResult.status==='fulfilled'&&placeResult.value.response.ok?placeResult.value.data?.place:null;
     const weather=weatherResult.status==='fulfilled'&&weatherResult.value.response.ok?weatherResult.value.data?.weather:null;
-    return place||weather?{ok:true,place:place?{...place,recentRating:null,recentReviewCount:0}:info,weather,busyness:null,reviewSummary:place?.address||info.address||''}:null;
+    return place||weather?{ok:true,place:place?{...place,recentRating:null,recentReviewCount:0}:info,weather,busyness:null}:null;
   }
   async function loadDestinationSnapshot(info,id){
     const endpoint=aiWorker();summaryAbort?.abort();summaryAbort=new AbortController();const controller=summaryAbort,timer=setTimeout(()=>controller.abort(),30000);

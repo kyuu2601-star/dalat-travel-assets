@@ -1,7 +1,7 @@
 const CHAT_STORAGE_KEY = 'travelos_chat_history';
 const LEGACY_CHAT_STORAGE_KEY = 'dalatos_chat_history';
 const EXPIRY_TIME = 24 * 60 * 60 * 1000;
-const CHAT_HISTORY_VERSION = 2;
+const CHAT_HISTORY_VERSION = 3;
 
 function renderMarkdownSafe(text) {
     let html = escapeChatHtml(String(text ?? ''));
@@ -124,12 +124,13 @@ async function handleChat() {
                 let chatHistoryArray = localHistory ? localHistory.messages : [];
                 if (chatHistoryArray.length > 6) chatHistoryArray = chatHistoryArray.slice(-6);
                 chatHistoryArray = chatHistoryArray.map(message => ({ role:message.role, content:message.content }));
-                const latestNearby = [...(localHistory?.messages || [])].reverse().find(message => message?.nearby)?.nearby || null;
+                const latestStoredContext = [...(localHistory?.messages || [])].reverse().find(message => message?.travelContext || message?.nearby) || null;
+                const conversationContext = latestStoredContext?.travelContext || (latestStoredContext?.nearby ? { nearby:compactNearbySnapshot(latestStoredContext.nearby) } : null);
 
                 const requestBody = {
                     userMessage: text,
                     chatHistory: chatHistoryArray,
-                    conversationContext: latestNearby ? { nearby:compactNearbySnapshot(latestNearby) } : undefined,
+                    conversationContext: conversationContext || undefined,
                     khuVuc: selectedLocation,
                     userLocation
                 };
@@ -180,7 +181,8 @@ async function handleChat() {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
             const nearby = compactNearbySnapshot(data?.travelos?.nearby);
             if (nearby && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
-            saveMessage('ai', aiMsg, nearby ? { nearby } : {});
+            const travelContext = compactTravelContext(data?.travelos);
+            saveMessage('ai', aiMsg, { ...(nearby ? { nearby } : {}), ...(travelContext ? { travelContext } : {}) });
         }
     } catch (error) {
         console.error(error);
@@ -251,6 +253,60 @@ function compactNearbySnapshot(payload) {
     return { version:1, source:text(payload.source, 100), provider:text(payload.provider || pois[0].provider, 80), query, center, count:pois.length, pois };
 }
 
+function compactTravelContext(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    const numberOrNull = value => value === null || value === undefined || value === '' ? null : (Number.isFinite(Number(value)) ? Number(value) : null);
+    const text = (value, max = 500) => String(value ?? '').trim().slice(0, max);
+    const list = (value, max, mapper) => Array.isArray(value) ? value.slice(0, max).map(mapper) : [];
+    const nearby = compactNearbySnapshot(payload.nearby);
+    const rawPlace = payload.placeDetails;
+    const placeDetails = rawPlace && typeof rawPlace === 'object' ? {
+        id:text(rawPlace.id || rawPlace.poiId, 250), poiId:text(rawPlace.poiId || rawPlace.id, 250), name:text(rawPlace.name, 300),
+        localizedName:text(rawPlace.localizedName, 300), address:text(rawPlace.address, 700), localizedAddress:text(rawPlace.localizedAddress, 700),
+        lat:numberOrNull(rawPlace.lat ?? rawPlace.latitude), lng:numberOrNull(rawPlace.lng ?? rawPlace.lon ?? rawPlace.longitude),
+        country:text(rawPlace.country, 120), city:text(rawPlace.city, 160), provider:text(rawPlace.provider, 80), coordSystem:text(rawPlace.coordSystem, 20),
+        rating:numberOrNull(rawPlace.rating), userRatingCount:numberOrNull(rawPlace.userRatingCount), openNow:typeof rawPlace.openNow === 'boolean' ? rawPlace.openNow : null,
+        openTime:text(rawPlace.openTime, 500), phone:text(rawPlace.phone, 200), website:text(rawPlace.website, 500)
+    } : null;
+    const rawWeather = payload.weather;
+    const weather = rawWeather && typeof rawWeather === 'object' ? {
+        coordinates:rawWeather.coordinates ? { lat:numberOrNull(rawWeather.coordinates.lat), lng:numberOrNull(rawWeather.coordinates.lng) } : null,
+        timezone:text(rawWeather.timezone, 100),
+        current:rawWeather.current ? {
+            time:text(rawWeather.current.time, 80), temperature:numberOrNull(rawWeather.current.temperature), apparentTemperature:numberOrNull(rawWeather.current.apparentTemperature),
+            precipitation:numberOrNull(rawWeather.current.precipitation), rain:numberOrNull(rawWeather.current.rain), windSpeed:numberOrNull(rawWeather.current.windSpeed),
+            weatherCode:numberOrNull(rawWeather.current.weatherCode), condition:text(rawWeather.current.condition, 120)
+        } : null,
+        hourly:rawWeather.hourly ? {
+            time:list(rawWeather.hourly.time, 24, value => text(value, 80)), temperature:list(rawWeather.hourly.temperature, 24, numberOrNull),
+            precipitationProbability:list(rawWeather.hourly.precipitationProbability, 24, numberOrNull), precipitation:list(rawWeather.hourly.precipitation, 24, numberOrNull),
+            weatherCode:list(rawWeather.hourly.weatherCode, 24, numberOrNull), windSpeed:list(rawWeather.hourly.windSpeed, 24, numberOrNull)
+        } : null,
+        daily:rawWeather.daily ? {
+            time:list(rawWeather.daily.time, 7, value => text(value, 40)), weatherCode:list(rawWeather.daily.weatherCode, 7, numberOrNull),
+            temperatureMax:list(rawWeather.daily.temperatureMax, 7, numberOrNull), temperatureMin:list(rawWeather.daily.temperatureMin, 7, numberOrNull),
+            precipitationProbabilityMax:list(rawWeather.daily.precipitationProbabilityMax, 7, numberOrNull), sunrise:list(rawWeather.daily.sunrise, 7, value => text(value, 80)), sunset:list(rawWeather.daily.sunset, 7, value => text(value, 80))
+        } : null
+    } : null;
+    const rawBusyness = payload.busyness;
+    const busyness = rawBusyness && typeof rawBusyness === 'object' ? {
+        available:rawBusyness.available === true, basis:text(rawBusyness.basis, 30), score:numberOrNull(rawBusyness.score), label:text(rawBusyness.label, 100),
+        hourStart:numberOrNull(rawBusyness.hourStart), hourEnd:numberOrNull(rawBusyness.hourEnd),
+        venue:rawBusyness.venue ? { name:text(rawBusyness.venue.name, 300), address:text(rawBusyness.venue.address, 700) } : null
+    } : null;
+    const routes = list(payload.routes, 3, route => ({
+        distance:numberOrNull(route?.distance), duration:numberOrNull(route?.duration), trafficDelay:numberOrNull(route?.trafficDelay), description:text(route?.description, 400),
+        steps:list(route?.steps, 20, step => ({ instruction:text(step?.instruction, 400), road:text(step?.road, 180), distance:numberOrNull(step?.distance), duration:numberOrNull(step?.duration) }))
+    }));
+    const rawCurated = payload.curated;
+    const curated = rawCurated && typeof rawCurated === 'object' ? {
+        places:list(rawCurated.places, 18, place => ({ id:text(place?.id, 200), name:text(place?.name, 300), address:text(place?.address, 700), category:text(place?.category, 120), description:text(place?.description, 700), lat:numberOrNull(place?.lat), lng:numberOrNull(place?.lng), distanceKm:numberOrNull(place?._distance_km) })),
+        searchLocation:rawCurated.searchLocation || null
+    } : null;
+    if (!nearby && !placeDetails && !weather && !busyness && !routes.length && !curated) return null;
+    return { version:1, travelIntent:text(payload.travelIntent || payload.plan?.travelIntent, 40), nearby, placeDetails, weather, busyness, routes:routes.length ? routes : null, curated };
+}
+
 function readHistory() {
     let history = null;
     try { history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || 'null'); }
@@ -273,7 +329,7 @@ function saveMessage(role, content, extras = {}) {
     let history = readHistory() || { version:CHAT_HISTORY_VERSION, timestamp:Date.now(), messages:[] };
     if (Date.now() - history.timestamp > EXPIRY_TIME) history = { version:CHAT_HISTORY_VERSION, timestamp:Date.now(), messages:[] };
     history.version = CHAT_HISTORY_VERSION;
-    history.messages.push({ role, content, ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}) });
+    history.messages.push({ role, content, ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}), ...(extras.travelContext ? { travelContext:compactTravelContext(extras.travelContext) } : {}) });
     if (history.messages.length > 80) history.messages = history.messages.slice(-80);
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
 }
