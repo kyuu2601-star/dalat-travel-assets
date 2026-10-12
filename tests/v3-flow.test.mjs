@@ -582,21 +582,24 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261012-4/);
+  assert.match(index,/chat\.js\?v=20261012-5/);
 });
 
-test('Current-location chat requests refresh GPS before calling the backend', async () => {
-  const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
-  assert.match(source,/needsFreshGpsForChat\(text\)/);
-  assert.match(source,/navigator\.geolocation\.watchPosition/);
-  assert.match(source,/navigator\.geolocation\.getCurrentPosition/);
-  assert.match(source,/maximumAge:0/);
-  assert.match(source,/sampleTimer = setTimeout\(finish, 2500\)/);
-  assert.match(source,/accuracy:\s*Number\(position\.coords\.accuracy\)/);
-  assert.match(source,/gpsTimestamp/);
-  assert.match(source,/travelos:gps-fix/);
-  assert.match(source,/GPS_FRESH_REQUIRED/);
-  assert.match(source,/quanh day/);
+test('Current-location chat uses the GPS position already attached to the app', async () => {
+  const [chat,app]=await Promise.all([
+    readFile(new URL('../chat.js',import.meta.url),'utf8'),
+    readFile(new URL('../app.js',import.meta.url),'utf8')
+  ]);
+  assert.match(chat,/const currentPos = window\.userPos \|\| null/);
+  assert.match(chat,/const userLocation = getStructuredUserLocation\(\)/);
+  assert.doesNotMatch(chat,/refreshCurrentPositionForChat/);
+  assert.doesNotMatch(chat,/navigator\.geolocation/);
+  assert.doesNotMatch(chat,/GPS_FRESH_REQUIRED/);
+  assert.match(app,/navigator\.geolocation\.watchPosition/);
+  assert.match(app,/shouldAttachGpsFix\(newPos\)/);
+  assert.match(app,/progressiveMotionSamples/);
+  assert.match(app,/movedKm >= Math\.max\(GPS_LARGE_JUMP_KM/);
+  assert.match(app,/if \(shouldAttachGpsFix\(newPos\)\) attachGpsFix\(newPos\)/);
 });
 
 test('AI v3 switches Gemini models when the primary model is overloaded', async () => {
@@ -673,7 +676,7 @@ test('App keeps onboarding visible until places and bot readiness settle', async
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động TravelOS/);
-  assert.match(index,/app\.js\?v=20261012-2/);
+  assert.match(index,/app\.js\?v=20261012-3/);
   assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });
 

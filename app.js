@@ -8,6 +8,10 @@ let radarInterval = null;
 let currentIntervalTime = 0;
 let wakeLock = null;
 let bootStarted = false;
+const GPS_JITTER_FLOOR_KM = 0.02;
+const GPS_LARGE_JUMP_KM = 0.5;
+let pendingMotionFix = null;
+let progressiveMotionSamples = 0;
 
 function setLoadingStatus(message, isError = false) {
     const node = document.getElementById('loading-status');
@@ -133,6 +137,63 @@ function distanceBetweenCoords(lat1, lon1, lat2, lon2) {
     const dLon = (values[3] - values[1]) * Math.PI / 180;
     const a = Math.sin(dLat / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function resetPendingMotion() {
+    pendingMotionFix = null;
+    progressiveMotionSamples = 0;
+}
+
+function shouldAttachGpsFix(next) {
+    if (!userPos) return true;
+
+    const movedKm = distanceBetweenCoords(userPos.lat, userPos.lon, next.lat, next.lon);
+    const accuracyKm = Number.isFinite(next.accuracy) ? Math.max(0, next.accuracy / 1000) : 0;
+    const jitterKm = Math.max(GPS_JITTER_FLOOR_KM, Math.min(0.08, accuracyKm));
+
+    // Một dao động nhỏ không được phép làm điểm tìm kiếm "quanh đây" nhảy vị trí.
+    if (movedKm <= jitterKm) {
+        resetPendingMotion();
+        return false;
+    }
+
+    // Đổi Sensor/thành phố là một bước nhảy rõ ràng, không cần chờ thêm mẫu GPS.
+    if (movedKm >= Math.max(GPS_LARGE_JUMP_KM, accuracyKm * 5)) {
+        resetPendingMotion();
+        return true;
+    }
+
+    if (!pendingMotionFix) {
+        pendingMotionFix = next;
+        progressiveMotionSamples = 1;
+        return false;
+    }
+
+    const previousDistance = distanceBetweenCoords(userPos.lat, userPos.lon, pendingMotionFix.lat, pendingMotionFix.lon);
+    const currentDistance = movedKm;
+    const firstLat = pendingMotionFix.lat - userPos.lat;
+    const firstLon = pendingMotionFix.lon - userPos.lon;
+    const nextLat = next.lat - pendingMotionFix.lat;
+    const nextLon = next.lon - pendingMotionFix.lon;
+    const continuesForward = firstLat * nextLat + firstLon * nextLon > 0;
+    const movesFarther = currentDistance >= previousDistance;
+
+    progressiveMotionSamples = continuesForward && movesFarther ? progressiveMotionSamples + 1 : 1;
+    pendingMotionFix = next;
+    if (progressiveMotionSamples < 2) return false;
+
+    resetPendingMotion();
+    return true;
+}
+
+function attachGpsFix(next) {
+    lastPos = next;
+    userPos = next;
+    window.userPos = next;
+    updateGpsDisplay();
+    checkRadarStatus();
+    applyFilters();
+    maybeDetectGpsLocation(next);
 }
 
 function getDistanceKm(targetLat, targetLng) {
@@ -943,21 +1004,8 @@ navigator.geolocation.watchPosition(pos => {
         timestamp: Number(pos.timestamp) || Date.now()
     };
 
-    window.userPos = newPos;
-
-    if (
-        !lastPos ||
-        Math.abs(newPos.lat - lastPos.lat) > 0.00001 ||
-        Math.abs(newPos.lon - lastPos.lon) > 0.00001
-    ) {
-        lastPos = newPos;
-        userPos = newPos;
-
-        updateGpsDisplay();
-        checkRadarStatus();
-        applyFilters();
-        maybeDetectGpsLocation(newPos);
-    }
+    if (!Number.isFinite(newPos.lat) || !Number.isFinite(newPos.lon)) return;
+    if (shouldAttachGpsFix(newPos)) attachGpsFix(newPos);
 }, () => {
     const gpsNode = document.getElementById('gps-coords');
     if (gpsNode) gpsNode.textContent = 'GPS chưa bật';
@@ -965,18 +1013,6 @@ navigator.geolocation.watchPosition(pos => {
     enableHighAccuracy: true,
     maximumAge: 3000,
     timeout: 15000
-});
-
-window.addEventListener('travelos:gps-fix', event => {
-    const fix = event.detail;
-    if (!Number.isFinite(Number(fix?.lat)) || !Number.isFinite(Number(fix?.lon))) return;
-    userPos = fix;
-    lastPos = fix;
-    window.userPos = fix;
-    updateGpsDisplay();
-    checkRadarStatus();
-    applyFilters();
-    maybeDetectGpsLocation(fix);
 });
 
 document.addEventListener('click', () => requestWakeLock(), { once: true });
