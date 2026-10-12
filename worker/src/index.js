@@ -2281,6 +2281,7 @@ async function weatherTool(args, fallbackCoord, location, env) {
 
 function deterministicWeatherAdvice(weather, targetLabel='vị trí hiện tại') {
   const current=weather?.current||{},hourly=weather?.hourly||{},times=Array.isArray(hourly.time)?hourly.time:[];
+  const alerts=Array.isArray(weather?.alerts)?weather.alerts:[],activeAlert=alerts.find(alert=>!['MINOR','UNKNOWN_SEVERITY'].includes(String(alert?.severity||'')))||alerts[0]||null;
   const currentTime=clean(current.time,80),start=Math.max(0,times.findIndex(value=>String(value)>=currentTime));
   const end=Math.min(times.length,start+9),probabilities=(hourly.precipitationProbability||[]).slice(start,end).map(num).filter(value=>value!=null);
   const temperatures=(hourly.temperature||[]).slice(start,end).map(num).filter(value=>value!=null),winds=(hourly.windSpeed||[]).slice(start,end).map(num).filter(value=>value!=null);
@@ -2290,7 +2291,8 @@ function deterministicWeatherAdvice(weather, targetLabel='vị trí hiện tại
   const severe=googleSevere||codes.some(code=>code>=80)||Number(current.weatherCode)>=80,wet=(num(current.rain)||num(current.precipitation)||0)>0;
   const temp=num(current.temperature),feels=num(current.apparentTemperature),condition=clean(current.condition,120)||weatherCodeLabel(current.weatherCode);
   let verdict,action;
-  if(severe||maxRain>=75||wet) { verdict='không thật sự tiện để đi chơi ngoài trời';action='Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển.'; }
+  if(activeAlert) { verdict='không nên đi ngoài trời nếu chưa kiểm tra cảnh báo';const directive=clean(activeAlert?.safetyRecommendations?.[0]?.directive||activeAlert?.instructions?.[0],300);action=`Đang có cảnh báo **${clean(activeAlert.title||activeAlert.eventType,200)}**${activeAlert.areaName?` tại ${clean(activeAlert.areaName,300)}`:''}.${directive?` ${directive}`:' Bạn nên làm theo hướng dẫn của cơ quan phát cảnh báo.'}`; }
+  else if(severe||maxRain>=75||wet) { verdict='không thật sự tiện để đi chơi ngoài trời';action='Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển.'; }
   else if(maxRain>=40||maxWind>=35) { verdict='vẫn đi chơi được nhưng nên có phương án dự phòng';action=`Khả năng mưa cao nhất trong khoảng 8 giờ tới khoảng ${Math.round(maxRain)}%; bạn nên mang ô hoặc áo mưa mỏng.`; }
   else { verdict='khá tiện để đi chơi';action='Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở.'; }
   const tempRange=temperatures.length?`${Math.round(Math.min(...temperatures))}–${Math.round(Math.max(...temperatures))}°C`:(temp!=null?`${Math.round(temp)}°C`:'chưa rõ nhiệt độ');

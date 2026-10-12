@@ -12,11 +12,25 @@
   }
   function toGcj(input) { const p=point(window.AMapProvider?.toGcj?.(input) || input); return p ? { ...p, coordSystem:'gcj02' } : null; }
 
-  async function walkingRoute(origin, destination, options = {}) {
+  function normalizeMode(value) {
+    const mode=String(value || '').toLowerCase();
+    if (mode === 'drive' || mode === 'driving') return 'drive';
+    if (['electrobike','electric_bike','electric-bike','motorbike','two-wheeler'].includes(mode)) return 'electrobike';
+    return 'walk';
+  }
+
+  function expectedSource(mode) {
+    if (mode === 'drive') return 'amap-driving-v5';
+    if (mode === 'electrobike') return 'amap-electrobike-v5';
+    return SOURCE;
+  }
+
+  async function route(origin, destination, options = {}) {
     const endpoint = baseUrl();
     if (!endpoint) throw new Error('Route 2.0 Worker chưa được cấu hình.');
     const o = toGcj(origin), d = toGcj(destination);
     if (!o || !d) throw new Error('Route 2.0 thiếu tọa độ điểm đầu hoặc điểm đến.');
+    const mode=normalizeMode(options.mode);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Number(options.timeoutMs || 12000));
@@ -27,21 +41,24 @@
         origin:{ ...o, poiId:origin?.poiId || origin?.id || '' },
         destination:{ ...d, poiId:destination?.poiId || destination?.id || '' },
         alternativeRoute:Number(options.alternativeRoute || 3),
-        isIndoor:options.isIndoor !== false
+        isIndoor:mode === 'walk' && options.isIndoor !== false,
+        mode
       };
       const requestRoute = async body => {
-        const response = await fetch(`${endpoint}/route/walking`, { method:'POST', headers:{'Content-Type':'application/json'}, signal:controller.signal, body:JSON.stringify(body) });
+        const path=mode === 'walk' ? '/route/walking' : '/route/directions';
+        const response = await fetch(`${endpoint}${path}`, { method:'POST', headers:{'Content-Type':'application/json'}, signal:controller.signal, body:JSON.stringify(body) });
         return { response, data:await response.json().catch(() => ({})) };
       };
       const { response, data } = await requestRoute(payload);
       if (!response.ok || !Array.isArray(data?.routes) || !data.routes.length) throw new Error(data?.error || data?.message || `Route Worker HTTP ${response.status}`);
-      if (data.source && data.source !== SOURCE) throw new Error(`Route Worker trả nguồn không được phép: ${data.source}`);
+      if (data.source && data.source !== expectedSource(mode)) throw new Error(`Route Worker trả nguồn không được phép: ${data.source}`);
       const poiFallback = data.meta?.endpointFallback === 'coordinate-only';
-      return { ...data, source:SOURCE, meta:{ ...data.meta, provider:'amap', upstreamSource:data.source || '', poiFallback }, origin:data.origin || o, destination:data.destination || d };
+      return { ...data, source:expectedSource(mode), mode, meta:{ ...data.meta, provider:'amap', upstreamSource:data.source || '', poiFallback }, origin:data.origin || o, destination:data.destination || d };
     } catch (error) {
       if (error?.name === 'AbortError') throw new Error('Route Worker timeout.');
       throw error;
     } finally { clearTimeout(timer); }
   }
-  window.AMapRouteService = { configured, walkingRoute, source:SOURCE };
+  const walkingRoute=(origin,destination,options={})=>route(origin,destination,{...options,mode:'walk'});
+  window.AMapRouteService = { configured, route, walkingRoute, source:SOURCE };
 })();

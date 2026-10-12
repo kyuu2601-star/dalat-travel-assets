@@ -1,6 +1,7 @@
 (function () {
   let state = {
     map: null, route: null, rawRoute: null, origin: null, destination: null, routeSource: '', route2Error: '',
+    mode: 'walk', destinationInfo: null, routeOrigin: null, routeDestination: null, chongqing: false, routes: [],
     currentStep: -1, userMarker: null, gpsTimer: null,
     focusStep: -1, focusLine: null, specialAlertStep: -1, warned10m: new Set()
   };
@@ -30,6 +31,7 @@
   function blankState() {
     return {
       map: null, route: null, rawRoute: null, origin: null, destination: null, routeSource: '', route2Error: '',
+      mode: 'walk', destinationInfo: null, routeOrigin: null, routeDestination: null, chongqing: false, routes: [],
       currentStep: -1, userMarker: null, gpsTimer: null,
       focusStep: -1, focusLine: null, specialAlertStep: -1, warned10m: new Set()
     };
@@ -51,6 +53,11 @@
         </div>
         <aside class="tn-side">
           <div class="tn-head"><div><div class="tn-eyebrow">TRAVELOS · CHINA NAV</div><h2 id="tn-title">Chỉ đường đi bộ</h2><p id="tn-summary">--</p></div><button id="tn-close" class="tn-close" type="button">×</button></div>
+          <div id="tn-modes" class="tn-modes" aria-label="Chọn phương tiện">
+            <button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button>
+            <button type="button" data-mode="electrobike" aria-pressed="false">🛵 Xe điện</button>
+            <button type="button" data-mode="drive" aria-pressed="false">🚗 Ô tô</button>
+          </div>
           <div id="tn-routes" class="tn-routes" aria-label="Chọn tuyến đi bộ"></div>
           <div id="tn-ai" class="tn-ai"><strong>AI Route Notes</strong><span>Đang chờ route...</span></div>
           <div id="tn-special" class="tn-special"></div>
@@ -60,6 +67,10 @@
     document.body.appendChild(root);
     $('#tn-close').addEventListener('click', close);
     $('#tn-back').addEventListener('click', backToList);
+    $('#tn-modes').addEventListener('click', event => {
+      const button=event.target.closest?.('[data-mode]');
+      if (button && !button.disabled) switchMode(button.dataset.mode);
+    });
     root.addEventListener('click', e => { if (e.target === root) close(); });
   }
 
@@ -78,6 +89,7 @@
     $('#tn-map-status').classList.remove('hidden');
     $('#tn-map-status').textContent = 'Đang chuẩn bị AMap...';
     $('#tn-ai').innerHTML = '<strong>AI Route Notes</strong><span>AI chỉ dịch và diễn giải route AMap, không tự tạo đường.</span>';
+    $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=true; button.setAttribute('aria-pressed',String(button.dataset.mode === 'walk')); });
     hideSpecialAlert();
   }
 
@@ -114,7 +126,25 @@
     return (cfg().chongqingAliases || []).some(x => text.includes(String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()));
   }
 
+  function normalizeMode(value) {
+    return value === 'drive' ? 'drive' : value === 'electrobike' ? 'electrobike' : 'walk';
+  }
+
+  function modeInfo(mode = state.mode) {
+    if (mode === 'drive') return { label:'Ô tô', verb:'Lái xe', icon:'🚗' };
+    if (mode === 'electrobike') return { label:'Xe điện', verb:'Đi xe điện', icon:'🛵' };
+    return { label:'Đi bộ', verb:'Đi bộ', icon:'🚶' };
+  }
+
+  function renderModeState() {
+    const info=modeInfo();
+    $('#tn-modes')?.querySelectorAll('[data-mode]').forEach(button => button.setAttribute('aria-pressed',String(button.dataset.mode === state.mode)));
+    const routes=$('#tn-routes');
+    if (routes) routes.setAttribute('aria-label',`Chọn tuyến ${info.label.toLowerCase()}`);
+  }
+
   function featureOf(step) {
+    if (state.mode !== 'walk') return { type:'normal', label:modeInfo().label, icon:modeInfo().icon };
     return step?.feature || window.ChongqingRoute?.classify?.(step) || { type:'normal', label:'Đi bộ', icon:'🚶' };
   }
 
@@ -176,7 +206,7 @@
     const action = actionVi(step);
     const feature = featureOf(step);
 
-    let base = road ? `Đi dọc ${road}` : 'Đi bộ';
+    let base = road ? `${modeInfo().verb} dọc ${road}` : modeInfo().verb;
     if (dir) base += ` về hướng ${dir}`;
     if (distance) base += ` ${distance} m`;
     if (feature?.type && feature.type !== 'normal' && feature.label) base += ` qua ${feature.label.toLowerCase()}`;
@@ -241,13 +271,15 @@
 
   function sourceLabel(source) {
     if (source === 'amap-route-v2') return 'Route 2.0';
+    if (source === 'amap-electrobike-v5') return 'Route 2.0 xe điện';
+    if (source === 'amap-driving-v5') return 'Route 2.0 lái xe';
     return '';
   }
 
   function renderRouteMeta(route, chongqing, source = '') {
     const sourceText = sourceLabel(source);
     $('#tn-summary').textContent = `${fmtT(route.duration)} · ${fmtM(route.distance)}${sourceText ? ` · ${sourceText}` : ''}`;
-    if (chongqing && window.ChongqingRoute) {
+    if (state.mode === 'walk' && chongqing && window.ChongqingRoute) {
       const text = window.ChongqingRoute.summary(route);
       $('#tn-special').innerHTML = `<strong>Chongqing Terrain</strong><span>${esc(text)}</span>`;
     } else $('#tn-special').innerHTML = '';
@@ -256,17 +288,17 @@
     }
   }
 
-  async function planWalkingRoute(origin, destination) {
+  async function planRoute(origin, destination, mode = 'walk') {
     if (!window.AMapRouteService?.configured?.()) throw new Error('Route 2.0 Worker chưa được cấu hình.');
     try {
-      const planned = await window.AMapRouteService.walkingRoute(origin, destination, { alternativeRoute:3, isIndoor:true });
-      return { ...planned, source:'amap-route-v2', route2Error:'' };
+      const planned = await window.AMapRouteService.route(origin, destination, { mode, alternativeRoute:3, isIndoor:mode === 'walk' });
+      return { ...planned, route2Error:'' };
     } catch (error) {
       const detail = error?.message || String(error || 'Route 2.0 error');
       console.warn('[TravelNavigation Route 2.0]', error);
       throw new Error(/OUT_OF_SERVICE|20800/.test(detail)
         ? 'AMap Route 2.0 vẫn đánh giá điểm đầu hoặc điểm đến nằm ngoài vùng hỗ trợ. App không hạ xuống route khác để tránh mất dữ liệu địa hình.'
-        : `AMap Route 2.0 chưa tạo được tuyến: ${detail}`);
+        : `AMap Route 2.0 chưa tạo được tuyến ${modeInfo(mode).label.toLowerCase()}: ${detail}`);
     }
   }
 
@@ -520,8 +552,8 @@
         headers: { 'Content-Type':'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          systemPrompt: `Bạn là TravelOS Route Localizer. Dữ liệu AMap là nguồn sự thật tuyệt đối. Hãy dịch từng instruction sang tiếng Việt tự nhiên, dễ đi bộ theo. TUYỆT ĐỐI không thêm đường, không bỏ bước, không đổi thứ tự, không đổi khoảng cách, không tạo shortcut. Giữ nguyên tên riêng nếu không chắc cách dịch. Nếu step có feature như cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà thì phải nói rõ. Chỉ trả về JSON hợp lệ, không markdown, đúng schema: {"steps":[{"i":1,"vi":"..."}],"note":"..."}. Mảng steps phải có đúng số phần tử và đúng i như input. note chỉ được mô tả ngắn gọn các điểm đáng chú ý đã có trong route, không bịa thêm.`,
-          userMessage: `Điểm đến: ${destination?.name || ''}\nAMap route JSON: ${JSON.stringify(compactSteps)}`,
+          systemPrompt: `Bạn là TravelOS Route Localizer. Dữ liệu AMap là nguồn sự thật tuyệt đối. Hãy dịch từng instruction sang tiếng Việt tự nhiên, phù hợp với phương tiện đã chọn. TUYỆT ĐỐI không thêm đường, không bỏ bước, không đổi thứ tự, không đổi khoảng cách, không tạo shortcut. Giữ nguyên tên riêng nếu không chắc cách dịch. Với tuyến đi bộ, nếu step có feature như cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà thì phải nói rõ. Chỉ trả về JSON hợp lệ, không markdown, đúng schema: {"steps":[{"i":1,"vi":"..."}],"note":"..."}. Mảng steps phải có đúng số phần tử và đúng i như input. note chỉ được mô tả ngắn gọn các điểm đáng chú ý đã có trong route, không bịa thêm.`,
+          userMessage: `Phương tiện: ${modeInfo().label}\nĐiểm đến: ${destination?.name || ''}\nAMap route JSON: ${JSON.stringify(compactSteps)}`,
           chatHistory: [],
           matchedModules: [],
           userLocation: {
@@ -562,7 +594,7 @@
   function renderRouteChoices() {
     const routes = state.routes || [];
     $('#tn-routes').innerHTML = routes.map((route, index) => {
-      const summary = window.ChongqingRoute?.summary(route) || 'Chưa có thông tin địa hình.';
+      const summary = state.mode === 'walk' ? (window.ChongqingRoute?.summary(route) || 'Tuyến đi bộ AMap.') : `${modeInfo().label} · dữ liệu AMap Route 2.0`;
       return `<button type="button" class="tn-route-choice" data-route="${index}" aria-pressed="${state.route === route}"><strong>Tuyến ${index + 1} · ${esc(fmtM(route.distance))} · ${esc(fmtT(route.duration))}</strong><span>${esc(summary)}</span></button>`;
     }).join('');
     $('#tn-routes').querySelectorAll('[data-route]').forEach(button => {
@@ -591,12 +623,56 @@
     localizeRouteWithAI(route, state.destinationInfo);
   }
 
+  function applyPlannedRoute(planned) {
+    const walking=state.mode === 'walk';
+    const routes = planned.routes.map(route => walking ? (window.ChongqingRoute?.analyze(route) || route) : route);
+    if (!routes.length) throw new Error(`AMap không trả tuyến ${modeInfo().label.toLowerCase()}.`);
+    state.origin = planned.origin;
+    state.destination = planned.destination;
+    state.rawRoute = planned;
+    state.routes = routes;
+    state.routeSource = planned.source || '';
+    state.route2Error = planned.route2Error || '';
+    const preferred = walking && state.chongqing
+      ? [...routes].sort((a, b) => (a.difficulty || 0) - (b.difficulty || 0) || a.distance - b.distance)[0]
+      : routes[0];
+    selectRoute(routes.indexOf(preferred));
+  }
+
+  async function switchMode(nextMode) {
+    const mode=normalizeMode(nextMode);
+    if (!state.map || !state.origin || !state.destination || mode === state.mode) return;
+    state.mode=mode;
+    renderModeState();
+    selection++;
+    const requestSession=session;
+    $('#tn-summary').textContent=`Đang tính tuyến ${modeInfo().label.toLowerCase()} bằng AMap...`;
+    $('#tn-routes').innerHTML='';
+    $('#tn-steps').innerHTML='<div class="tn-loading">Đang lấy route thật từ AMap...</div>';
+    $('#tn-special').innerHTML='';
+    $('#tn-ai').innerHTML='<strong>AI Route Notes</strong><span>Đang chờ route AMap...</span>';
+    $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=true; });
+    try {
+      const planned=await planRoute(state.routeOrigin || state.origin,state.routeDestination || state.destination,mode);
+      if (requestSession !== session || state.mode !== mode) return;
+      applyPlannedRoute(planned);
+    } catch(error) {
+      if (requestSession !== session || state.mode !== mode) return;
+      $('#tn-summary').textContent='Không thể tạo route';
+      $('#tn-steps').innerHTML=`<div class="tn-error">${esc(error.message || 'Navigation error')}</div>`;
+    } finally {
+      if (requestSession === session && state.mode === mode) $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=false; });
+    }
+  }
+
   async function open(options = {}) {
     close();
     backAction = typeof options.onBack === 'function' ? options.onBack : null;
     const requestSession = session;
     const destination = options.destination || options;
     openModal(destination);
+    state.mode=normalizeMode(options.mode);
+    renderModeState();
     $('#tn-back').hidden = !backAction;
     try {
       const origin = options.origin || originFromApp();
@@ -605,6 +681,8 @@
         ...destination,
         coordSystem: destination.coordSystem || cfg().route?.destinationCoordinateSystem || 'wgs84'
       });
+      state.routeOrigin=origin;
+      state.routeDestination=resolvedDestination;
       if (requestSession !== session) return;
       const mapPromise = window.AMapProvider.createMap('tn-map', origin).then(map => {
         if (requestSession !== session) { map.destroy?.(); return map; }
@@ -614,7 +692,7 @@
       });
       const [mapResult, routeResult] = await Promise.allSettled([
         mapPromise,
-        planWalkingRoute(origin, resolvedDestination)
+        planRoute(origin, resolvedDestination, state.mode)
       ]);
       if (requestSession !== session) {
         if (mapResult.status === 'fulfilled') mapResult.value?.destroy?.();
@@ -628,22 +706,12 @@
       }
       const map = mapResult.value;
       const planned = routeResult.value;
-      const routes = planned.routes.map(route => window.ChongqingRoute?.analyze(route) || route);
-      if (!routes.length) throw new Error('AMap không trả tuyến đi bộ.');
-      state.origin = planned.origin;
-      state.destination = planned.destination;
       state.destinationInfo = destination;
       state.chongqing = isChongqing(destination);
-      state.rawRoute = planned;
-      state.routes = routes;
-      state.routeSource = planned.source || '';
-      state.route2Error = planned.route2Error || '';
       try { map.setCenter?.([planned.origin.lng, planned.origin.lat]); } catch {}
       $('#tn-map-status').classList.add('hidden');
-      const preferred = state.chongqing
-        ? [...routes].sort((a, b) => (a.difficulty || 0) - (b.difficulty || 0) || a.distance - b.distance)[0]
-        : routes[0];
-      selectRoute(routes.indexOf(preferred));
+      applyPlannedRoute(planned);
+      $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=false; });
       state.gpsTimer = setInterval(updateUserMarker, routeCfg().pollMs);
     } catch (error) {
       if (requestSession !== session) return;

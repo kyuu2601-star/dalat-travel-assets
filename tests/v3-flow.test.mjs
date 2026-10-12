@@ -188,6 +188,21 @@ test('Map Worker resolves and reads China places only through AMap', async () =>
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker translates Vietnamese China aliases before AMap geocoding', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='';
+  globalThis.fetch=async url=>{requestedUrl=String(url);return new Response(JSON.stringify({status:'1',info:'OK',geocodes:[{formatted_address:'重庆市',province:'重庆市',city:'重庆市',district:[],adcode:'500000',location:'106.551556,29.563009',level:'省'}]}),{status:200,headers:{'Content-Type':'application/json'}});};
+  try{
+    const response=await worker.fetch(new Request('https://map.test/place/resolve',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({country:'Trung Quốc',query:'Trùng Khánh',resolveMode:'geocode',limit:3})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),url=new URL(requestedUrl);
+    assert.equal(response.status,200);
+    assert.equal(url.hostname,'restapi.amap.com');
+    assert.equal(url.searchParams.get('address'),'重庆');
+    assert.equal(data.meta.resolvedQuery,'重庆');
+    assert.equal(data.places[0].name,'Trùng Khánh');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker geocodes weather locations before Google Places POI search', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch,urls=[];
@@ -235,6 +250,7 @@ test('Map Worker returns normalized Google Weather current conditions', async ()
   globalThis.fetch=async url=>{
     requestedUrls.push(String(url));
     if(String(url).includes('/forecast/hours:lookup'))return new Response(JSON.stringify({timeZone:{id:'Asia/Ho_Chi_Minh'},forecastHours:[{interval:{startTime:'2026-10-08T10:00:00Z'},weatherCondition:{type:'LIGHT_RAIN',description:{text:'Mưa nhẹ'}},temperature:{degrees:26.8},precipitation:{probability:{percent:60},qpf:{quantity:0.4}},wind:{speed:{value:9}}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    if(String(url).includes('/publicAlerts:lookup'))return new Response(JSON.stringify({regionCode:'GB',weatherAlerts:[{alertId:'alert-1',alertTitle:{text:'Cảnh báo mưa lớn'},eventType:'HEAVY_RAIN',areaName:'London',severity:'SEVERE',urgency:'IMMEDIATE',safetyRecommendations:[{directive:'Tránh khu vực ngập.'}]}]}),{status:200,headers:{'Content-Type':'application/json'}});
     return new Response(JSON.stringify({currentTime:'2026-10-08T09:00:00Z',timeZone:{id:'Asia/Ho_Chi_Minh'},weatherCondition:{type:'PARTLY_CLOUDY',description:{text:'Có mây rải rác'}},temperature:{degrees:27.4},feelsLikeTemperature:{degrees:29.1},relativeHumidity:74,uvIndex:3,precipitation:{probability:{percent:25},qpf:{quantity:0}},wind:{speed:{value:8}}}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try{
@@ -245,8 +261,10 @@ test('Map Worker returns normalized Google Weather current conditions', async ()
     assert.equal(data.weather.current.temperature,27.4);
     assert.equal(data.weather.current.condition,'Có mây rải rác');
     assert.equal(data.weather.hourly.precipitationProbability[0],60);
+    assert.equal(data.weather.alerts[0].severity,'SEVERE');
     assert.ok(requestedUrls.some(url=>/weather\.googleapis\.com\/v1\/currentConditions:lookup/.test(url)));
     assert.ok(requestedUrls.some(url=>/weather\.googleapis\.com\/v1\/forecast\/hours:lookup/.test(url)));
+    assert.ok(requestedUrls.some(url=>/weather\.googleapis\.com\/v1\/publicAlerts:lookup/.test(url)));
     assert.ok(requestedUrls.every(url=>/location\.latitude=10\.8/.test(url)));
   }finally{globalThis.fetch=originalFetch;}
 });
@@ -256,6 +274,7 @@ test('Map Worker skips unsupported Google Weather coverage in Vietnam', async ()
   const originalFetch=globalThis.fetch,urls=[];
   globalThis.fetch=async url=>{
     urls.push(String(url));
+    if(String(url).includes('/publicAlerts:lookup'))return new Response(JSON.stringify({regionCode:'VN',weatherAlerts:[]}),{status:200,headers:{'Content-Type':'application/json'}});
     assert.match(String(url),/^https:\/\/api\.open-meteo\.com\/v1\/forecast/);
     return new Response(JSON.stringify({timezone:'Asia/Ho_Chi_Minh',current:{time:'2026-10-12T10:00',temperature_2m:23,apparent_temperature:24,precipitation:0,rain:0,weather_code:3,wind_speed_10m:7,relative_humidity_2m:75},hourly:{time:['2026-10-12T10:00'],temperature_2m:[23],precipitation_probability:[20],precipitation:[0],weather_code:[3],wind_speed_10m:[7]},daily:{}}),{status:200,headers:{'Content-Type':'application/json'}});
   };
@@ -263,9 +282,39 @@ test('Map Worker skips unsupported Google Weather coverage in Vietnam', async ()
     const response=await worker.fetch(new Request('https://travelos-map.test/weather/current',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({location:{lat:11.94,lng:108.44,country:'Việt Nam'},country:'Việt Nam',language:'vi'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
     assert.equal(response.status,200);
-    assert.equal(data.source,'open-meteo-coverage-fallback');
+    assert.equal(data.source,'open-meteo+google-alerts');
+    assert.equal(data.alertsSource,'google-weather-alerts-v1');
     assert.equal(data.googleError,'GOOGLE_WEATHER_UNSUPPORTED_COUNTRY');
-    assert.equal(urls.length,1);
+    assert.equal(urls.length,2);
+    assert.ok(urls.some(url=>url.includes('/publicAlerts:lookup')));
+    assert.ok(urls.every(url=>!url.includes('/currentConditions:lookup')&&!url.includes('/forecast/hours:lookup')));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker uses AMap weather as truth in China and Open-Meteo only for hourly detail', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,urls=[];
+  globalThis.fetch=async url=>{
+    const href=String(url);urls.push(href);
+    if(href.includes('/v3/geocode/regeo'))return new Response(JSON.stringify({status:'1',info:'OK',regeocode:{formatted_address:'重庆市渝中区',addressComponent:{country:'中国',province:'重庆市',city:[],district:'渝中区',adcode:'500103'}}}),{status:200,headers:{'Content-Type':'application/json'}});
+    if(href.includes('/v3/weather/weatherInfo')&&href.includes('extensions=base'))return new Response(JSON.stringify({status:'1',info:'OK',lives:[{province:'重庆',city:'渝中区',adcode:'500103',weather:'多云',temperature:'25',winddirection:'东北',windpower:'≤3',humidity:'68',reporttime:'2026-10-12 12:00:00'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    if(href.includes('/v3/weather/weatherInfo')&&href.includes('extensions=all'))return new Response(JSON.stringify({status:'1',info:'OK',forecasts:[{city:'渝中区',adcode:'500103',casts:[{date:'2026-10-12',dayweather:'多云',nightweather:'小雨',daytemp:'27',nighttemp:'20',daywind:'东北',nightwind:'北'}]}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.match(href,/^https:\/\/api\.open-meteo\.com\/v1\/forecast/);
+    return new Response(JSON.stringify({timezone:'Asia/Shanghai',current:{time:'2026-10-12T12:00',temperature_2m:24,apparent_temperature:25,precipitation:0,rain:0,weather_code:2,wind_speed_10m:6,relative_humidity_2m:70},hourly:{time:['2026-10-12T12:00'],temperature_2m:[24],precipitation_probability:[20],precipitation:[0],weather_code:[2],wind_speed_10m:[6]},daily:{}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/weather/current',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({location:{lat:29.563,lng:106.551,country:'Trung Quốc',coordSystem:'wgs84'},country:'Trung Quốc',language:'vi'})}),{AMAP_WEB_KEY:'amap-test',GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'amap-weather-v3+open-meteo-hourly');
+    assert.equal(data.provider,'amap');
+    assert.equal(data.meta.adcode,'500103');
+    assert.equal(data.location.city,'重庆市');
+    assert.equal(data.weather.current.temperature,25);
+    assert.equal(data.weather.current.condition,'Có mây');
+    assert.equal(data.weather.daily.conditionNight[0],'Mưa nhẹ');
+    assert.equal(data.weather.hourly.precipitationProbability[0],20);
+    assert.ok(urls.every(url=>!url.includes('googleapis.com')));
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -336,6 +385,32 @@ test('Map Worker returns traffic-aware driving geometry and turn-by-turn steps',
     assert.ok(data.routes[0].path.length>=2);
     assert.equal(data.routes[0].steps[0].instruction,'Rẽ phải vào QL20');
     assert.equal(data.routes[0].steps[0].duration,80);
+  } finally { globalThis.fetch=originalFetch; }
+});
+
+test('Map Worker keeps China electric-bike routing on AMap Route 2.0', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;
+  let requestedUrl='';
+  globalThis.fetch=async url=>{
+    requestedUrl=String(url);
+    return new Response(JSON.stringify({status:'1',info:'OK',route:{paths:[{
+      distance:'1800',cost:{duration:'420'},steps:[{instruction:'向东骑行100米',orientation:'东',road_name:'测试路',step_distance:'100',cost:{duration:'30'},navi:{action:'直行'},polyline:'106.551000,29.562000;106.552000,29.563000'},{instruction:'到达目的地',orientation:'东',road_name:'',step_distance:'1700',cost:{duration:'390'},navi:{action:'到达'},polyline:'106.552000,29.563000;106.565000,29.575000'}]
+    }]}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try {
+    const response=await worker.fetch(new Request('https://travelos-map.test/route/directions',{
+      method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+      body:JSON.stringify({provider:'google',country:'Trung Quốc',mode:'motorbike',origin:{lat:29.562,lng:106.551,coordSystem:'gcj02'},destination:{lat:29.575,lng:106.565,coordSystem:'gcj02'}})
+    }),{AMAP_WEB_KEY:'amap-test',GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.provider,'amap');
+    assert.equal(data.source,'amap-electrobike-v5');
+    assert.equal(data.mode,'electrobike');
+    assert.match(requestedUrl,/^https:\/\/restapi\.amap\.com\/v5\/direction\/electrobike\?/);
+    assert.equal(new URL(requestedUrl).searchParams.get('alternative_route'),'3');
+    assert.equal(data.routes[0].steps[0].instruction,'向东骑行100米');
   } finally { globalThis.fetch=originalFetch; }
 });
 
@@ -440,6 +515,11 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(navigation,/openGoogleDirections\('driving'\)/);
   assert.match(navigation,/destination-summary/);
   assert.doesNotMatch(navigation,/Google tính tuyến và hướng dẫn/);
+  assert.match(chinaNavigation,/data-mode="walk"/);
+  assert.match(chinaNavigation,/data-mode="electrobike"/);
+  assert.match(chinaNavigation,/data-mode="drive"/);
+  assert.match(chinaNavigation,/AMapRouteService\.route/);
+  assert.match(chinaNavigation,/planRoute\(state\.routeOrigin \|\| state\.origin,state\.routeDestination \|\| state\.destination,mode\)/);
   assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
   assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk',onBack:/);
   assert.match(nearby,/navigator\.geolocation\.watchPosition/);

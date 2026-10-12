@@ -31,7 +31,7 @@
   function loadCss() {
     if (document.querySelector('link[data-china-nav-css]')) return;
     const link = document.createElement('link');
-    link.rel = 'stylesheet'; link.href = BASE + 'china-navigation.css?v=20261008-2'; link.dataset.chinaNavCss = '1';
+    link.rel = 'stylesheet'; link.href = BASE + 'china-navigation.css?v=20261012-1'; link.dataset.chinaNavCss = '1';
     document.head.appendChild(link);
   }
   async function ensureLoaded(city = '') {
@@ -41,8 +41,8 @@
         await loadScript('china-config.js');
         await loadScript('gcj02.js');
         await loadScript('amap-provider.js?v=20261009-3');
-        await loadScript('amap-route-service.js?v=20261009-3');
-        await loadScript('travel-navigation.js?v=20261009-4');
+        await loadScript('amap-route-service.js?v=20261012-1');
+        await loadScript('travel-navigation.js?v=20261012-1');
         active = true;
         // Warm the remote SDK as soon as China is selected. Navigation can then
         // paint the map immediately instead of paying this network cost on tap.

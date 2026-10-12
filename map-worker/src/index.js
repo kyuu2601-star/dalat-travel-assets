@@ -3,6 +3,8 @@ const AMAP_NEARBY_URL = 'https://restapi.amap.com/v5/place/around';
 const AMAP_TEXT_SEARCH_URL = 'https://restapi.amap.com/v5/place/text';
 const AMAP_PLACE_DETAIL_URL = 'https://restapi.amap.com/v5/place/detail';
 const AMAP_GEOCODING_URL = 'https://restapi.amap.com/v3/geocode/geo';
+const AMAP_REVERSE_GEOCODING_URL = 'https://restapi.amap.com/v3/geocode/regeo';
+const AMAP_WEATHER_URL = 'https://restapi.amap.com/v3/weather/weatherInfo';
 const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places';
 const GEOAPIFY_ROUTING_URL = 'https://api.geoapify.com/v1/routing';
 const GEOAPIFY_GEOCODING_URL = 'https://api.geoapify.com/v1/geocode/search';
@@ -13,7 +15,9 @@ const GOOGLE_PLACE_URL = 'https://places.googleapis.com/v1/places';
 const GOOGLE_ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const GOOGLE_WEATHER_URL = 'https://weather.googleapis.com/v1/currentConditions:lookup';
 const GOOGLE_WEATHER_HOURLY_URL = 'https://weather.googleapis.com/v1/forecast/hours:lookup';
+const GOOGLE_WEATHER_ALERTS_URL = 'https://weather.googleapis.com/v1/publicAlerts:lookup';
 const AMAP_DRIVING_URL = 'https://restapi.amap.com/v5/direction/driving';
+const AMAP_ELECTRIC_BIKE_URL = 'https://restapi.amap.com/v5/direction/electrobike';
 const REQUEST_BUDGET_MS = 9500;
 
 function allowedOrigin(request, env) {
@@ -288,7 +292,9 @@ async function walkingRoute(request, env, originHeader) {
 
 function routeMode(value) {
   const mode=clean(value,20).toLowerCase();
-  return mode==='walk'||mode==='walking'?'walk':'drive';
+  if(mode==='walk'||mode==='walking') return 'walk';
+  if(['electrobike','electric_bike','electric-bike','motorbike','two-wheeler'].includes(mode)) return 'electrobike';
+  return 'drive';
 }
 async function geoapifyDirectionsRoute(body, env, originHeader, origin, destination, mode) {
   if (!env.GEOAPIFY_API_KEY) return json({ error:'Worker chưa có secret GEOAPIFY_API_KEY.' },500,originHeader);
@@ -306,12 +312,26 @@ async function geoapifyDirectionsRoute(body, env, originHeader, origin, destinat
 async function amapDrivingRoute(body, env, originHeader, origin, destination) {
   if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
   const from=toAmapPoint(origin),to=toAmapPoint(destination);
-  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,origin:`${from.lng.toFixed(6)},${from.lat.toFixed(6)}`,destination:`${to.lng.toFixed(6)},${to.lat.toFixed(6)}`,show_fields:'navi,cost,polyline',alternative_route:'2',output:'json'});
+  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,origin:`${from.lng.toFixed(6)},${from.lat.toFixed(6)}`,destination:`${to.lng.toFixed(6)},${to.lat.toFixed(6)}`,strategy:'33',show_fields:'navi,cost,polyline',alternative_route:'2',output:'json'});
+  if(from.poiId) params.set('origin_id',from.poiId);
+  if(to.poiId) params.set('destination_id',to.poiId);
   const result=await fetchJson(`${AMAP_DRIVING_URL}?${params.toString()}`);
   const paths=Array.isArray(result.data?.route?.paths)?result.data.route.paths:[];
   if(!result.ok||String(result.data?.status)!=='1'||!paths.length) return json({error:result.data?.info||`AMap Driving HTTP ${result.status}`,provider:'amap'},502,originHeader);
   const routes=paths.map(normalizeAmapPath).filter(route=>route.steps.length||route.distance>0);
   return json({ok:true,source:'amap-driving-v5',provider:'amap',mode:'drive',origin:{lat:from.lat,lng:from.lng,coordSystem:'gcj02'},destination:{lat:to.lat,lng:to.lng,coordSystem:'gcj02'},routes,meta:{count:routes.length}},200,originHeader);
+}
+async function amapElectricBikeRoute(body, env, originHeader, origin, destination) {
+  if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
+  const from=toAmapPoint(origin),to=toAmapPoint(destination);
+  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,origin:`${from.lng.toFixed(6)},${from.lat.toFixed(6)}`,destination:`${to.lng.toFixed(6)},${to.lat.toFixed(6)}`,show_fields:'navi,cost,polyline',alternative_route:String(clampInt(body?.alternativeRoute,1,3,3)),output:'json'});
+  const result=await fetchJson(`${AMAP_ELECTRIC_BIKE_URL}?${params.toString()}`);
+  const paths=Array.isArray(result.data?.route?.paths)?result.data.route.paths:[];
+  if(!result.ok||String(result.data?.status)!=='1'||!paths.length) return json({error:result.data?.info||`AMap Electric Bike HTTP ${result.status}`,provider:'amap'},502,originHeader);
+  const routes=paths.map(normalizeAmapPath).filter(route=>route.steps.length||route.distance>0);
+  const checked=validateAmapRouteEndpoints(routes,from,to);
+  if(!checked.routes.length) return json({error:'AMap Electric Bike trả tuyến lệch điểm đầu hoặc điểm đến.',provider:'amap',diagnostic:checked.diagnostics},502,originHeader);
+  return json({ok:true,source:'amap-electrobike-v5',provider:'amap',mode:'electrobike',origin:{lat:from.lat,lng:from.lng,coordSystem:'gcj02'},destination:{lat:to.lat,lng:to.lng,coordSystem:'gcj02'},routes:checked.routes,meta:{count:checked.routes.length,endpointValidation:checked.diagnostics}},200,originHeader);
 }
 async function googleDirectionsRoute(body, env, originHeader, origin, destination, mode) {
   if(!env.GOOGLE_MAPS_API_KEY) return geoapifyDirectionsRoute({...body,_fallbackFrom:'google_routes',_fallbackReason:'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED'},env,originHeader,origin,destination,mode);
@@ -338,9 +358,14 @@ async function directionsRoute(request, env, originHeader) {
   const origin=finiteCoord(body?.origin),destination=finiteCoord(body?.destination),mode=routeMode(body?.mode);
   if(!origin||!destination) return json({error:'origin/destination không hợp lệ.'},400,originHeader);
   const provider=providerFor(body);
-  if(provider==='amap') return mode==='walk'?amapWalkingRoute(body,env,originHeader,origin,destination):amapDrivingRoute(body,env,originHeader,origin,destination);
-  if(provider==='geoapify') return geoapifyDirectionsRoute(body,env,originHeader,origin,destination,mode);
-  return googleDirectionsRoute(body,env,originHeader,origin,destination,mode);
+  if(provider==='amap') {
+    if(mode==='walk') return amapWalkingRoute(body,env,originHeader,origin,destination);
+    if(mode==='electrobike') return amapElectricBikeRoute(body,env,originHeader,origin,destination);
+    return amapDrivingRoute(body,env,originHeader,origin,destination);
+  }
+  const globalMode=mode==='walk'?'walk':'drive';
+  if(provider==='geoapify') return geoapifyDirectionsRoute(body,env,originHeader,origin,destination,globalMode);
+  return googleDirectionsRoute(body,env,originHeader,origin,destination,globalMode);
 }
 
 const SEARCH_RULES=[
@@ -496,14 +521,14 @@ async function amapResolve(body, env, originHeader, query, center) {
 
 async function amapGeocode(body, env, originHeader, query) {
   if(!env.AMAP_WEB_KEY)return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,address:query,output:'json'}),result=await fetchJson(`${AMAP_GEOCODING_URL}?${params.toString()}`);
+  const resolvedQuery=amapQueryVariants(query)[0]||query,params=new URLSearchParams({key:env.AMAP_WEB_KEY,address:resolvedQuery,output:'json'}),result=await fetchJson(`${AMAP_GEOCODING_URL}?${params.toString()}`);
   if(!result.ok||String(result.data?.status)!=='1')return json({error:clean(result.data?.info||`AMap Geocoding HTTP ${result.status}`,500),provider:'amap'},502,originHeader);
   const places=(Array.isArray(result.data?.geocodes)?result.data.geocodes:[]).map((item,index)=>{
     const point=parseLngLat(item?.location);if(!point)return null;
     return {id:`amap-geocode-${index}-${point.lat.toFixed(6)},${point.lng.toFixed(6)}`,poiId:'',name:query,address:clean(item?.formatted_address||query,1000),lat:point.lat,lng:point.lng,
       city:clean(item?.city,200),district:clean(item?.district,200),province:clean(item?.province,200),country:'Trung Quốc',provider:'amap',coordSystem:'gcj02',resultType:clean(item?.level,100)};
   }).filter(Boolean).slice(0,clampInt(body?.limit,1,10,5));
-  return places.length?json({ok:true,source:'amap-geocoding-v3',provider:'amap',query,places},200,originHeader):json({error:'AMap không geocode được địa danh này.',provider:'amap'},404,originHeader);
+  return places.length?json({ok:true,source:'amap-geocoding-v3',provider:'amap',query,places,meta:{resolvedQuery}},200,originHeader):json({error:'AMap không geocode được địa danh này.',provider:'amap'},404,originHeader);
 }
 
 async function geoapifyResolve(body, env, originHeader, query, center) {
@@ -730,6 +755,45 @@ function normalizeGoogleHourlyWeather(data) {
   };
 }
 
+function normalizeGoogleWeatherAlerts(data) {
+  return (Array.isArray(data?.weatherAlerts)?data.weatherAlerts:[]).slice(0,10).map(item=>({
+    id:clean(item?.alertId,300),title:clean(item?.alertTitle?.text||item?.eventType,300),eventType:clean(item?.eventType,120),
+    areaName:clean(item?.areaName,500),description:clean(item?.description,2000),severity:clean(item?.severity,80),
+    certainty:clean(item?.certainty,80),urgency:clean(item?.urgency,80),startTime:clean(item?.startTime,80),expirationTime:clean(item?.expirationTime,80),
+    instructions:(Array.isArray(item?.instruction)?item.instruction:[]).slice(0,5).map(value=>clean(value,500)).filter(Boolean),
+    safetyRecommendations:(Array.isArray(item?.safetyRecommendations)?item.safetyRecommendations:[]).slice(0,5).map(value=>({directive:clean(value?.directive,500),subtext:clean(value?.subtext,500)})).filter(value=>value.directive||value.subtext),
+    authority:clean(item?.dataSource?.name||item?.dataSource?.publisher,200),authorityUri:clean(item?.dataSource?.authorityUri,800)
+  }));
+}
+
+async function googleWeatherAlerts(coord, language, env) {
+  if(!env.GOOGLE_MAPS_API_KEY)return {ok:false,alerts:[],error:'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED'};
+  const params=new URLSearchParams({key:env.GOOGLE_MAPS_API_KEY,'location.latitude':String(coord.lat),'location.longitude':String(coord.lng),languageCode:clean(language,10)||'vi',pageSize:'10'});
+  try{
+    const result=await fetchJson(`${GOOGLE_WEATHER_ALERTS_URL}?${params.toString()}`,{},5000);
+    return result.ok?{ok:true,alerts:normalizeGoogleWeatherAlerts(result.data),regionCode:clean(result.data?.regionCode,10)}:{ok:false,alerts:[],error:clean(result.data?.error?.message||`Google Weather Alerts HTTP ${result.status}`,500)};
+  }catch(error){return {ok:false,alerts:[],error:clean(error?.message,500)};}
+}
+
+function translateAmapWeather(value) {
+  const raw=clean(value,100),labels={'晴':'Trời quang','少云':'Ít mây','晴间多云':'Trời quang xen mây','多云':'Có mây','阴':'Nhiều mây','阵雨':'Mưa rào','雷阵雨':'Mưa dông','雷阵雨并伴有冰雹':'Mưa dông kèm mưa đá','小雨':'Mưa nhẹ','中雨':'Mưa vừa','大雨':'Mưa lớn','暴雨':'Mưa rất lớn','大暴雨':'Mưa cực lớn','特大暴雨':'Mưa đặc biệt lớn','雾':'Sương mù','霾':'Khói mù','雨夹雪':'Mưa tuyết','小雪':'Tuyết nhẹ','中雪':'Tuyết vừa','大雪':'Tuyết lớn','暴雪':'Bão tuyết','浮尘':'Bụi lơ lửng','扬沙':'Cát bụi','沙尘暴':'Bão cát'};
+  return labels[raw]||raw;
+}
+
+async function amapWeather(coord, env) {
+  if(!env.AMAP_WEB_KEY)return {ok:false,error:'AMAP_WEB_KEY_NOT_CONFIGURED'};
+  const point=toAmapPoint(coord),regeoParams=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${point.lng.toFixed(6)},${point.lat.toFixed(6)}`,extensions:'base',output:'json'});
+  try{
+    const regeo=await fetchJson(`${AMAP_REVERSE_GEOCODING_URL}?${regeoParams.toString()}`,{},5000),component=regeo.data?.regeocode?.addressComponent||{},adcode=clean(component?.adcode,20);
+    if(!regeo.ok||String(regeo.data?.status)!=='1'||!adcode)return {ok:false,error:clean(regeo.data?.info||'AMAP_REVERSE_GEOCODING_FAILED',500)};
+    const base={key:env.AMAP_WEB_KEY,city:adcode,output:'json'},liveParams=new URLSearchParams({...base,extensions:'base'}),forecastParams=new URLSearchParams({...base,extensions:'all'});
+    const [liveResult,forecastResult]=await Promise.all([fetchJson(`${AMAP_WEATHER_URL}?${liveParams.toString()}`,{},5000),fetchJson(`${AMAP_WEATHER_URL}?${forecastParams.toString()}`,{},5000)]),live=Array.isArray(liveResult.data?.lives)?liveResult.data.lives[0]:null,forecast=Array.isArray(forecastResult.data?.forecasts)?forecastResult.data.forecasts[0]:null;
+    if(!liveResult.ok||String(liveResult.data?.status)!=='1'||!live)return {ok:false,error:clean(liveResult.data?.info||'AMAP_WEATHER_FAILED',500)};
+    const casts=Array.isArray(forecast?.casts)?forecast.casts.slice(0,4):[],reportTime=clean(live?.reporttime,80).replace(' ','T').slice(0,16);
+    return {ok:true,adcode,location:{country:'Trung Quốc',province:clean(component?.province,200),city:clean(component?.city,200)||clean(component?.province,200),district:clean(component?.district,200),address:clean(regeo.data?.regeocode?.formatted_address,500)},weather:{coordinates:{...coord,coordSystem:coord.coordSystem||'wgs84',country:'Trung Quốc'},timezone:'Asia/Shanghai',current:{time:reportTime,temperature:Number(live?.temperature),apparentTemperature:Number(live?.temperature),precipitation:0,windSpeed:null,windPower:clean(live?.windpower,50),windDirection:clean(live?.winddirection,80),weatherCode:clean(live?.weather,100),condition:translateAmapWeather(live?.weather),relativeHumidity:Number(live?.humidity),reportTime},daily:{time:casts.map(item=>clean(item?.date,30)),weatherCode:casts.map(item=>clean(item?.dayweather,100)),conditionDay:casts.map(item=>translateAmapWeather(item?.dayweather)),conditionNight:casts.map(item=>translateAmapWeather(item?.nightweather)),temperatureMax:casts.map(item=>Number(item?.daytemp)),temperatureMin:casts.map(item=>Number(item?.nighttemp)),windDay:casts.map(item=>clean(item?.daywind,80)),windNight:casts.map(item=>clean(item?.nightwind,80))}}};
+  }catch(error){return {ok:false,error:clean(error?.message,500)};}
+}
+
 function googleWeatherUnsupportedCountry(body) {
   const country=fold(body?.country||body?.location?.country||'');
   return /^(?:vn|vietnam|viet nam|cn|china|trung quoc|jp|japan|nhat ban|kr|south korea|korea|han quoc|kp|north korea|trieu tien|cu|cuba|ir|iran)$/.test(country);
@@ -750,25 +814,37 @@ async function weatherCurrent(request, env, originHeader) {
   let googleError='';
   const chinaContext=providerFor({...body,location:coord})==='amap';
   const unsupportedGoogleCoverage=googleWeatherUnsupportedCountry(body);
+  if(chinaContext){
+    const [amapResult,hourlyFallback]=await Promise.all([amapWeather(coord,env),openMeteoCurrent(coord).catch(()=>null)]);
+    if(amapResult.ok){
+      const weather=amapResult.weather;
+      if(hourlyFallback?.hourly)weather.hourly=hourlyFallback.hourly;
+      return json({ok:true,source:hourlyFallback?.hourly?'amap-weather-v3+open-meteo-hourly':'amap-weather-v3',provider:'amap',regionMode:'china',weather,location:amapResult.location,meta:{adcode:amapResult.adcode,...(!hourlyFallback?.hourly?{hourlyUnavailable:true}:{})}},200,originHeader);
+    }
+    if(hourlyFallback)return json({ok:true,source:'open-meteo-china-fallback',provider:'open_meteo',regionMode:'china',weather:hourlyFallback,fallbackFrom:'amap_weather',amapError:amapResult.error},200,originHeader);
+    return json({error:amapResult.error||'Không lấy được thời tiết Trung Quốc.',provider:'amap'},502,originHeader);
+  }
   if(env.GOOGLE_MAPS_API_KEY&&!chinaContext&&!unsupportedGoogleCoverage){
     const baseParams={key:env.GOOGLE_MAPS_API_KEY,'location.latitude':String(coord.lat),'location.longitude':String(coord.lng),languageCode:clean(body?.language,10)||'vi',unitsSystem:'METRIC'};
     const currentParams=new URLSearchParams(baseParams),hourlyParams=new URLSearchParams({...baseParams,hours:'24',pageSize:'24'});
     try{
-      const [currentResult,hourlyResult]=await Promise.all([
+      const [currentResult,hourlyResult,alertsResult]=await Promise.all([
         fetchJson(`${GOOGLE_WEATHER_URL}?${currentParams.toString()}`,{},5000),
-        fetchJson(`${GOOGLE_WEATHER_HOURLY_URL}?${hourlyParams.toString()}`,{},5000)
+        fetchJson(`${GOOGLE_WEATHER_HOURLY_URL}?${hourlyParams.toString()}`,{},5000),
+        googleWeatherAlerts(coord,body?.language,env)
       ]);
       if(currentResult.ok){
         const weather=normalizeGoogleWeather(currentResult.data,coord);
         if(hourlyResult.ok)weather.hourly=normalizeGoogleHourlyWeather(hourlyResult.data);
+        if(alertsResult.ok)weather.alerts=alertsResult.alerts;
         return json({ok:true,source:'google-weather-v1',provider:'google_weather',weather,...(!hourlyResult.ok?{partialErrors:{hourly:clean(hourlyResult.data?.error?.message||`Google Weather hourly HTTP ${hourlyResult.status}`,500)}}:{})},200,originHeader);
       }
       googleError=clean(currentResult.data?.error?.message||`Google Weather HTTP ${currentResult.status}`,500);
     }catch(error){googleError=clean(error?.message,500);}
   }else googleError=chinaContext?'CHINA_LOCAL_MODE':unsupportedGoogleCoverage?'GOOGLE_WEATHER_UNSUPPORTED_COUNTRY':'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED';
   try{
-    const fallback=await openMeteoCurrent(coord);
-    if(fallback)return json({ok:true,source:chinaContext?'open-meteo-china':unsupportedGoogleCoverage?'open-meteo-coverage-fallback':'open-meteo-fallback',provider:'open_meteo',weather:fallback,...(chinaContext?{regionMode:'china'}:{fallbackFrom:'google_weather',googleError})},200,originHeader);
+    const [fallback,alertsResult]=await Promise.all([openMeteoCurrent(coord),googleWeatherAlerts(coord,body?.language,env)]);
+    if(fallback){if(alertsResult.ok)fallback.alerts=alertsResult.alerts;return json({ok:true,source:alertsResult.ok?'open-meteo+google-alerts':unsupportedGoogleCoverage?'open-meteo-coverage-fallback':'open-meteo-fallback',provider:'open_meteo',weather:fallback,fallbackFrom:'google_weather',googleError,...(alertsResult.ok?{alertsSource:'google-weather-alerts-v1'}:{alertsError:alertsResult.error})},200,originHeader);}
   }catch{}
   return json({error:googleError||'Không lấy được thời tiết.',provider:'google_weather'},502,originHeader);
 }
@@ -817,7 +893,7 @@ export default {
     if(request.method==='OPTIONS') return origin?new Response(null,{status:204,headers:corsHeaders(origin)}):new Response(null,{status:403});
     if(!origin) return json({error:'Origin không được phép.'},403,'null');
     const url=new URL(request.url);
-    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',version:'google-primary-v3',amap:{route:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY),traffic:Boolean(env.AMAP_WEB_KEY)},google:{routes:Boolean(env.GOOGLE_MAPS_API_KEY),places:Boolean(env.GOOGLE_MAPS_API_KEY),traffic:Boolean(env.GOOGLE_MAPS_API_KEY)},geoapify:{fallbackRoutes:Boolean(env.GEOAPIFY_API_KEY),fallbackPlaces:Boolean(env.GEOAPIFY_API_KEY),fallbackGeocoding:Boolean(env.GEOAPIFY_API_KEY),fallbackDetails:Boolean(env.GEOAPIFY_API_KEY)},routing:'china-amap-global-google',retryProfiles:true},200,origin);
+    if(request.method==='GET'&&url.pathname==='/health') return json({ok:true,service:'travelos-map',version:'google-primary-v3',amap:{walking:Boolean(env.AMAP_WEB_KEY),electrobike:Boolean(env.AMAP_WEB_KEY),driving:Boolean(env.AMAP_WEB_KEY),weather:Boolean(env.AMAP_WEB_KEY),nearby:Boolean(env.AMAP_WEB_KEY)},google:{routes:Boolean(env.GOOGLE_MAPS_API_KEY),places:Boolean(env.GOOGLE_MAPS_API_KEY),weather:Boolean(env.GOOGLE_MAPS_API_KEY),traffic:Boolean(env.GOOGLE_MAPS_API_KEY)},geoapify:{fallbackRoutes:Boolean(env.GEOAPIFY_API_KEY),fallbackPlaces:Boolean(env.GEOAPIFY_API_KEY),fallbackGeocoding:Boolean(env.GEOAPIFY_API_KEY),fallbackDetails:Boolean(env.GEOAPIFY_API_KEY)},routing:'china-amap-global-google',retryProfiles:true},200,origin);
     if(request.method==='POST'&&url.pathname==='/route/walking') return walkingRoute(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/route/directions') return directionsRoute(request,env,origin);
     if(request.method==='POST'&&url.pathname==='/route/traffic') return trafficRoute(request,env,origin);

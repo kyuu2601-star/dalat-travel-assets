@@ -91,7 +91,7 @@ test('China mode preloads AMap and paints the map while Route 2.0 runs', async (
   ]);
   assert.match(loader, /AMapProvider\?\.ensureSdk\?\.\(\)/);
   assert.match(navigation, /Promise\.allSettled\(\[/);
-  assert.match(navigation, /mapPromise,[\s\S]*planWalkingRoute\(origin, resolvedDestination\)/);
+  assert.match(navigation, /mapPromise,[\s\S]*planRoute\(origin, resolvedDestination, state\.mode\)/);
   assert.match(provider, /viewMode:'2D'/);
   assert.doesNotMatch(provider, /viewMode:'3D'/);
 });
