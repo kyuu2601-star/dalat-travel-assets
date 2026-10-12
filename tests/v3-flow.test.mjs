@@ -231,8 +231,12 @@ test('Map Worker enriches place details by exact Google Place ID for review text
 
 test('Map Worker returns normalized Google Weather current conditions', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
-  const originalFetch=globalThis.fetch;let requestedUrl='';
-  globalThis.fetch=async url=>{requestedUrl=String(url);return new Response(JSON.stringify({currentTime:'2026-10-08T09:00:00Z',timeZone:{id:'Asia/Ho_Chi_Minh'},weatherCondition:{type:'PARTLY_CLOUDY',description:{text:'Có mây rải rác'}},temperature:{degrees:27.4},feelsLikeTemperature:{degrees:29.1},relativeHumidity:74,uvIndex:3,precipitation:{probability:{percent:25},qpf:{quantity:0}},wind:{speed:{value:8}}}),{status:200,headers:{'Content-Type':'application/json'}});};
+  const originalFetch=globalThis.fetch,requestedUrls=[];
+  globalThis.fetch=async url=>{
+    requestedUrls.push(String(url));
+    if(String(url).includes('/forecast/hours:lookup'))return new Response(JSON.stringify({timeZone:{id:'Asia/Ho_Chi_Minh'},forecastHours:[{interval:{startTime:'2026-10-08T10:00:00Z'},weatherCondition:{type:'LIGHT_RAIN',description:{text:'Mưa nhẹ'}},temperature:{degrees:26.8},precipitation:{probability:{percent:60},qpf:{quantity:0.4}},wind:{speed:{value:9}}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({currentTime:'2026-10-08T09:00:00Z',timeZone:{id:'Asia/Ho_Chi_Minh'},weatherCondition:{type:'PARTLY_CLOUDY',description:{text:'Có mây rải rác'}},temperature:{degrees:27.4},feelsLikeTemperature:{degrees:29.1},relativeHumidity:74,uvIndex:3,precipitation:{probability:{percent:25},qpf:{quantity:0}},wind:{speed:{value:8}}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/weather/current',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({location:{lat:10.8,lng:106.7},language:'vi'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
@@ -240,8 +244,28 @@ test('Map Worker returns normalized Google Weather current conditions', async ()
     assert.equal(data.source,'google-weather-v1');
     assert.equal(data.weather.current.temperature,27.4);
     assert.equal(data.weather.current.condition,'Có mây rải rác');
-    assert.match(requestedUrl,/weather\.googleapis\.com\/v1\/currentConditions:lookup/);
-    assert.match(requestedUrl,/location\.latitude=10\.8/);
+    assert.equal(data.weather.hourly.precipitationProbability[0],60);
+    assert.ok(requestedUrls.some(url=>/weather\.googleapis\.com\/v1\/currentConditions:lookup/.test(url)));
+    assert.ok(requestedUrls.some(url=>/weather\.googleapis\.com\/v1\/forecast\/hours:lookup/.test(url)));
+    assert.ok(requestedUrls.every(url=>/location\.latitude=10\.8/.test(url)));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker skips unsupported Google Weather coverage in Vietnam', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,urls=[];
+  globalThis.fetch=async url=>{
+    urls.push(String(url));
+    assert.match(String(url),/^https:\/\/api\.open-meteo\.com\/v1\/forecast/);
+    return new Response(JSON.stringify({timezone:'Asia/Ho_Chi_Minh',current:{time:'2026-10-12T10:00',temperature_2m:23,apparent_temperature:24,precipitation:0,rain:0,weather_code:3,wind_speed_10m:7,relative_humidity_2m:75},hourly:{time:['2026-10-12T10:00'],temperature_2m:[23],precipitation_probability:[20],precipitation:[0],weather_code:[3],wind_speed_10m:[7]},daily:{}}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/weather/current',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({location:{lat:11.94,lng:108.44,country:'Việt Nam'},country:'Việt Nam',language:'vi'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'open-meteo-coverage-fallback');
+    assert.equal(data.googleError,'GOOGLE_WEATHER_UNSUPPORTED_COUNTRY');
+    assert.equal(urls.length,1);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -557,42 +581,63 @@ test('Destination summary keeps aggregate rating when Google returns no review s
 
 test('AI v3 uses current GPS for outdoor weather and still answers when Gemini is unavailable', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
-  const originalFetch=globalThis.fetch,urls=[];
-  globalThis.fetch=async url=>{
-    urls.push(String(url));
-    assert.match(String(url),/^https:\/\/api\.open-meteo\.com\/v1\/forecast/);
-    return new Response(JSON.stringify({timezone:'Asia/Ho_Chi_Minh',current:{time:'2026-10-12T10:00',temperature_2m:29,apparent_temperature:32,precipitation:0,rain:0,weather_code:2,wind_speed_10m:8},hourly:{time:['2026-10-12T10:00','2026-10-12T11:00','2026-10-12T12:00'],temperature_2m:[29,30,31],precipitation_probability:[10,20,15],precipitation:[0,0,0],weather_code:[2,2,1],wind_speed_10m:[8,9,10]},daily:{}}),{status:200,headers:{'Content-Type':'application/json'}});
-  };
+  let weatherBody;
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    assert.equal(new URL(request.url).pathname,'/weather/current');weatherBody=await request.json();
+    return new Response(JSON.stringify({ok:true,source:'google-weather-v1',provider:'google_weather',weather:{coordinates:{lat:10.77,lng:106.69},timezone:'Asia/Ho_Chi_Minh',current:{time:'2026-10-12T10:00:00Z',temperature:29,apparentTemperature:32,precipitation:0,rain:0,weatherCode:'PARTLY_CLOUDY',condition:'Có mây rải rác',windSpeed:8},hourly:{time:['2026-10-12T10:00:00Z','2026-10-12T11:00:00Z','2026-10-12T12:00:00Z'],temperature:[29,30,31],precipitationProbability:[10,20,15],precipitation:[0,0,0],weatherCode:['PARTLY_CLOUDY','PARTLY_CLOUDY','MOSTLY_CLEAR'],windSpeed:[8,9,10]}}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
   try{
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết có tiện đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69,source:'gps'}})}),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
-    const data=await response.json(),weatherUrl=new URL(urls[0]);
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết có tiện đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69,source:'gps'}})}),env);
+    const data=await response.json();
     assert.equal(data.travelos.travelIntent,'WEATHER_OUTDOOR');
     assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['weather']);
-    assert.equal(weatherUrl.searchParams.get('latitude'),'10.77');
-    assert.equal(weatherUrl.searchParams.get('longitude'),'106.69');
+    assert.equal(weatherBody.location.lat,10.77);
+    assert.equal(weatherBody.location.lng,106.69);
+    assert.equal(data.travelos.sources[0].source,'google-weather-v1');
     assert.match(data.text,/vị trí hiện tại/);
     assert.match(data.text,/tiện để đi chơi/);
-  }finally{globalThis.fetch=originalFetch;}
+  }finally{}
 });
 
 test('AI v3 resolves remote weather instead of searching for a POI named weather', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
-  const originalFetch=globalThis.fetch,mapCalls=[];
-  globalThis.fetch=async url=>new Response(JSON.stringify({timezone:'Asia/Shanghai',current:{time:'2026-10-12T10:00',temperature_2m:20,apparent_temperature:20,precipitation:0,rain:0,weather_code:1,wind_speed_10m:5},hourly:{time:['2026-10-12T10:00'],temperature_2m:[20],precipitation_probability:[5],precipitation:[0],weather_code:[1],wind_speed_10m:[5]},daily:{}}),{status:200,headers:{'Content-Type':'application/json'}});
+  const mapCalls=[];
   const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
     const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
-    assert.equal(path,'/place/resolve');
-    return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',places:[{id:'cq',name:'重庆市',localizedName:'Trùng Khánh',lat:29.563,lng:106.551,country:'Trung Quốc',provider:'amap',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',places:[{id:'cq',name:'重庆市',localizedName:'Trùng Khánh',lat:29.563,lng:106.551,country:'Trung Quốc',provider:'amap',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.equal(path,'/weather/current');
+    return new Response(JSON.stringify({ok:true,source:'open-meteo-china',provider:'open_meteo',weather:{coordinates:{lat:29.563,lng:106.551},timezone:'Asia/Shanghai',current:{time:'2026-10-12T10:00',temperature:20,apparentTemperature:20,precipitation:0,rain:0,weatherCode:1,condition:'Chủ yếu quang',windSpeed:5},hourly:{time:['2026-10-12T10:00'],temperature:[20],precipitationProbability:[5],precipitation:[0],weatherCode:[1],windSpeed:[5]}}}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết ở Trùng Khánh có tiện để đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),env);
+  const data=await response.json();
+  assert.equal(mapCalls.length,2);
+  assert.equal(mapCalls[0].body.query,'Trùng Khánh');
+  assert.equal(mapCalls[0].body.resolveMode,'geocode');
+  assert.equal(mapCalls[1].path,'/weather/current');
+  assert.equal(mapCalls[1].body.location.lat,29.563);
+  assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['resolve_place','weather']);
+  assert.equal(data.travelos.weather.coordinates.lat,29.563);
+  assert.match(data.text,/Trùng Khánh/);
+});
+
+test('AI v3 ignores stale TP.HCM chat prose after resolving live weather for Đà Lạt', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;let externalCalls=0;
+  globalThis.fetch=async url=>{externalCalls++;throw new Error(`Weather flow must not call Gemini directly: ${url}`);};
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname;
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'geoapify-geocoding-v1',places:[{id:'dalat',name:'Đà Lạt',lat:11.9402,lng:108.4376,country:'Việt Nam',provider:'geoapify',coordSystem:'wgs84'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.equal(path,'/weather/current');
+    return new Response(JSON.stringify({ok:true,source:'google-weather-v1',provider:'google_weather',weather:{coordinates:{lat:11.9402,lng:108.4376},timezone:'Asia/Ho_Chi_Minh',current:{time:'2026-10-12T10:00:00Z',temperature:18,apparentTemperature:18,precipitation:0,weatherCode:'MOSTLY_CLOUDY',condition:'Nhiều mây',windSpeed:7},hourly:{time:['2026-10-12T10:00:00Z'],temperature:[18],precipitationProbability:[20],precipitation:[0],weatherCode:['MOSTLY_CLOUDY'],windSpeed:[7]}}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }},GEMINI_API_KEY:'configured-but-must-not-run'};
   try{
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết ở Trùng Khánh có tiện để đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),env);
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'thời tiết Đà Lạt',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69},chatHistory:[{role:'assistant',content:'Tôi chỉ có dữ liệu thời tiết TP.HCM và chưa có dữ liệu Đà Lạt.'}]})}),env);
     const data=await response.json();
-    assert.equal(mapCalls.length,1);
-    assert.equal(mapCalls[0].body.query,'Trùng Khánh');
-    assert.equal(mapCalls[0].body.resolveMode,'geocode');
-    assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['resolve_place','weather']);
-    assert.equal(data.travelos.weather.coordinates.lat,29.563);
-    assert.match(data.text,/Trùng Khánh/);
+    assert.equal(data.travelos.sources.find(source=>source.tool==='weather').source,'google-weather-v1');
+    assert.match(data.text,/Ở Đà Lạt/);
+    assert.match(data.text,/18°C/);
+    assert.doesNotMatch(data.text,/TP\.HCM|chưa có dữ liệu/i);
+    assert.equal(externalCalls,0);
   }finally{globalThis.fetch=originalFetch;}
 });
 

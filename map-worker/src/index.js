@@ -12,6 +12,7 @@ const GOOGLE_NEARBY_SEARCH_URL = 'https://places.googleapis.com/v1/places:search
 const GOOGLE_PLACE_URL = 'https://places.googleapis.com/v1/places';
 const GOOGLE_ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const GOOGLE_WEATHER_URL = 'https://weather.googleapis.com/v1/currentConditions:lookup';
+const GOOGLE_WEATHER_HOURLY_URL = 'https://weather.googleapis.com/v1/forecast/hours:lookup';
 const AMAP_DRIVING_URL = 'https://restapi.amap.com/v5/direction/driving';
 const REQUEST_BUDGET_MS = 9500;
 
@@ -716,13 +717,31 @@ function normalizeGoogleWeather(data, coord) {
   }};
 }
 
+function normalizeGoogleHourlyWeather(data) {
+  const hours=Array.isArray(data?.forecastHours)?data.forecastHours.slice(0,24):[];
+  return {
+    time:hours.map(item=>clean(item?.interval?.startTime,80)),
+    temperature:hours.map(item=>Number(item?.temperature?.degrees)),
+    precipitationProbability:hours.map(item=>Number(item?.precipitation?.probability?.percent)||0),
+    precipitation:hours.map(item=>Number(item?.precipitation?.qpf?.quantity)||0),
+    weatherCode:hours.map(item=>clean(item?.weatherCondition?.type,100)),
+    condition:hours.map(item=>clean(item?.weatherCondition?.description?.text,200)),
+    windSpeed:hours.map(item=>Number(item?.wind?.speed?.value)||0)
+  };
+}
+
+function googleWeatherUnsupportedCountry(body) {
+  const country=fold(body?.country||body?.location?.country||'');
+  return /^(?:vn|vietnam|viet nam|cn|china|trung quoc|jp|japan|nhat ban|kr|south korea|korea|han quoc|kp|north korea|trieu tien|cu|cuba|ir|iran)$/.test(country);
+}
+
 async function openMeteoCurrent(coord) {
-  const params=new URLSearchParams({latitude:String(coord.lat),longitude:String(coord.lng),timezone:'auto',current:'temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,relative_humidity_2m'});
+  const params=new URLSearchParams({latitude:String(coord.lat),longitude:String(coord.lng),timezone:'auto',forecast_days:'7',current:'temperature_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m,relative_humidity_2m',hourly:'temperature_2m,precipitation_probability,precipitation,rain,weather_code,wind_speed_10m',daily:'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset'});
   const result=await fetchJson(`https://api.open-meteo.com/v1/forecast?${params.toString()}`,{},5000);
   if(!result.ok)return null;
-  const current=result.data?.current||{};
+  const current=result.data?.current||{},hourly=result.data?.hourly||{},daily=result.data?.daily||{};
   const labels={0:'Trời quang',1:'Chủ yếu quang',2:'Có mây rải rác',3:'Nhiều mây',45:'Sương mù',48:'Sương mù đóng băng',51:'Mưa phùn nhẹ',53:'Mưa phùn',55:'Mưa phùn dày',61:'Mưa nhẹ',63:'Mưa vừa',65:'Mưa lớn',80:'Mưa rào nhẹ',81:'Mưa rào',82:'Mưa rào lớn',95:'Dông',96:'Dông kèm mưa đá nhẹ',99:'Dông kèm mưa đá'};
-  return {coordinates:coord,timezone:clean(result.data?.timezone,100),current:{time:clean(current.time,80),temperature:Number(current.temperature_2m),apparentTemperature:Number(current.apparent_temperature),precipitation:Number(current.precipitation)||0,windSpeed:Number(current.wind_speed_10m),weatherCode:Number(current.weather_code),condition:labels[Number(current.weather_code)]||'Thời tiết hiện tại',relativeHumidity:Number(current.relative_humidity_2m)}};
+  return {coordinates:coord,timezone:clean(result.data?.timezone,100),current:{time:clean(current.time,80),temperature:Number(current.temperature_2m),apparentTemperature:Number(current.apparent_temperature),precipitation:Number(current.precipitation)||0,rain:Number(current.rain)||0,windSpeed:Number(current.wind_speed_10m),weatherCode:Number(current.weather_code),condition:labels[Number(current.weather_code)]||'Thời tiết hiện tại',relativeHumidity:Number(current.relative_humidity_2m)},hourly:{time:(hourly.time||[]).slice(0,72),temperature:(hourly.temperature_2m||[]).slice(0,72),precipitationProbability:(hourly.precipitation_probability||[]).slice(0,72),precipitation:(hourly.precipitation||[]).slice(0,72),weatherCode:(hourly.weather_code||[]).slice(0,72),windSpeed:(hourly.wind_speed_10m||[]).slice(0,72)},daily:{time:(daily.time||[]).slice(0,7),weatherCode:(daily.weather_code||[]).slice(0,7),temperatureMax:(daily.temperature_2m_max||[]).slice(0,7),temperatureMin:(daily.temperature_2m_min||[]).slice(0,7),precipitationProbabilityMax:(daily.precipitation_probability_max||[]).slice(0,7),sunrise:(daily.sunrise||[]).slice(0,7),sunset:(daily.sunset||[]).slice(0,7)}};
 }
 
 async function weatherCurrent(request, env, originHeader) {
@@ -730,17 +749,26 @@ async function weatherCurrent(request, env, originHeader) {
   const coord=finiteCoord(body?.location||body?.center||body);if(!coord)return json({error:'location không hợp lệ.'},400,originHeader);
   let googleError='';
   const chinaContext=providerFor({...body,location:coord})==='amap';
-  if(env.GOOGLE_MAPS_API_KEY&&!chinaContext){
-    const params=new URLSearchParams({key:env.GOOGLE_MAPS_API_KEY,'location.latitude':String(coord.lat),'location.longitude':String(coord.lng),languageCode:clean(body?.language,10)||'vi',unitsSystem:'METRIC'});
+  const unsupportedGoogleCoverage=googleWeatherUnsupportedCountry(body);
+  if(env.GOOGLE_MAPS_API_KEY&&!chinaContext&&!unsupportedGoogleCoverage){
+    const baseParams={key:env.GOOGLE_MAPS_API_KEY,'location.latitude':String(coord.lat),'location.longitude':String(coord.lng),languageCode:clean(body?.language,10)||'vi',unitsSystem:'METRIC'};
+    const currentParams=new URLSearchParams(baseParams),hourlyParams=new URLSearchParams({...baseParams,hours:'24',pageSize:'24'});
     try{
-      const result=await fetchJson(`${GOOGLE_WEATHER_URL}?${params.toString()}`,{},5000);
-      if(result.ok)return json({ok:true,source:'google-weather-v1',provider:'google_weather',weather:normalizeGoogleWeather(result.data,coord)},200,originHeader);
-      googleError=clean(result.data?.error?.message||`Google Weather HTTP ${result.status}`,500);
+      const [currentResult,hourlyResult]=await Promise.all([
+        fetchJson(`${GOOGLE_WEATHER_URL}?${currentParams.toString()}`,{},5000),
+        fetchJson(`${GOOGLE_WEATHER_HOURLY_URL}?${hourlyParams.toString()}`,{},5000)
+      ]);
+      if(currentResult.ok){
+        const weather=normalizeGoogleWeather(currentResult.data,coord);
+        if(hourlyResult.ok)weather.hourly=normalizeGoogleHourlyWeather(hourlyResult.data);
+        return json({ok:true,source:'google-weather-v1',provider:'google_weather',weather,...(!hourlyResult.ok?{partialErrors:{hourly:clean(hourlyResult.data?.error?.message||`Google Weather hourly HTTP ${hourlyResult.status}`,500)}}:{})},200,originHeader);
+      }
+      googleError=clean(currentResult.data?.error?.message||`Google Weather HTTP ${currentResult.status}`,500);
     }catch(error){googleError=clean(error?.message,500);}
-  }else googleError=chinaContext?'CHINA_LOCAL_MODE':'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED';
+  }else googleError=chinaContext?'CHINA_LOCAL_MODE':unsupportedGoogleCoverage?'GOOGLE_WEATHER_UNSUPPORTED_COUNTRY':'GOOGLE_MAPS_API_KEY_NOT_CONFIGURED';
   try{
     const fallback=await openMeteoCurrent(coord);
-    if(fallback)return json({ok:true,source:chinaContext?'open-meteo-china':'open-meteo-fallback',provider:'open_meteo',weather:fallback,...(chinaContext?{regionMode:'china'}:{fallbackFrom:'google_weather',googleError})},200,originHeader);
+    if(fallback)return json({ok:true,source:chinaContext?'open-meteo-china':unsupportedGoogleCoverage?'open-meteo-coverage-fallback':'open-meteo-fallback',provider:'open_meteo',weather:fallback,...(chinaContext?{regionMode:'china'}:{fallbackFrom:'google_weather',googleError})},200,originHeader);
   }catch{}
   return json({error:googleError||'Không lấy được thời tiết.',provider:'google_weather'},502,originHeader);
 }

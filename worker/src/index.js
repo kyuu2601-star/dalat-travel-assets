@@ -1960,6 +1960,10 @@ function normalizeV3Plan(raw) {
 
 async function planV3(userMessage, history, location, previousContext, env) {
   const detectedIntent=detectTravelIntent(userMessage,previousContext);
+  if(detectedIntent==='WEATHER_OUTDOOR'){
+    const deterministic={goal:'Kiểm tra thời tiết live và đánh giá khả năng đi chơi',travelIntent:detectedIntent,responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]};
+    return enforceTravelIntentPlan(normalizeV3Plan(deterministic),detectedIntent,userMessage,location,previousContext);
+  }
   const contents=buildContents(history, `${userMessage}\n\nSYSTEM TRAVEL INTENT: ${detectedIntent}\n\nSYSTEM CONTEXT: ${JSON.stringify(plannerLocationContext(location))}\n\nPREVIOUS_TRAVEL_CONTEXT: ${JSON.stringify(previousContext||null)}`);
   let raw;
   try { raw=await callGeminiJson(V3_PLANNER_PROMPT,contents,V3_PLANNER_SCHEMA,env); }
@@ -2261,17 +2265,18 @@ function weatherCodeLabel(code) {
   return labels[Number(code)]||`mã thời tiết ${code}`;
 }
 
-async function weatherTool(args, fallbackCoord) {
+async function weatherTool(args, fallbackCoord, location, env) {
   const coord=coordFrom(args)||fallbackCoord;
   if(!coord) return {ok:false,error:'GPS_OR_DESTINATION_REQUIRED'};
-  const params=new URLSearchParams({latitude:String(coord.lat),longitude:String(coord.lng),timezone:'auto',forecast_days:'7',current:'temperature_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m',hourly:'temperature_2m,precipitation_probability,precipitation,rain,weather_code,wind_speed_10m',daily:'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset'});
   try {
-    const response=await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok) return {ok:false,error:clean(data?.reason||`Open-Meteo HTTP ${response.status}`,500)};
-    const current=data.current||{},hourly=data.hourly||{},daily=data.daily||{};
-    return {ok:true,source:'open-meteo',data:{coordinates:coord,timezone:clean(data.timezone,100),units:{current:data.current_units||{},hourly:data.hourly_units||{},daily:data.daily_units||{}},current:{time:current.time,temperature:current.temperature_2m,apparentTemperature:current.apparent_temperature,precipitation:current.precipitation,rain:current.rain,windSpeed:current.wind_speed_10m,weatherCode:current.weather_code,condition:weatherCodeLabel(current.weather_code)},hourly:{time:(hourly.time||[]).slice(0,72),temperature:(hourly.temperature_2m||[]).slice(0,72),precipitationProbability:(hourly.precipitation_probability||[]).slice(0,72),precipitation:(hourly.precipitation||[]).slice(0,72),weatherCode:(hourly.weather_code||[]).slice(0,72),windSpeed:(hourly.wind_speed_10m||[]).slice(0,72)},daily:{time:(daily.time||[]).slice(0,7),weatherCode:(daily.weather_code||[]).slice(0,7),temperatureMax:(daily.temperature_2m_max||[]).slice(0,7),temperatureMin:(daily.temperature_2m_min||[]).slice(0,7),precipitationProbabilityMax:(daily.precipitation_probability_max||[]).slice(0,7),sunrise:(daily.sunrise||[]).slice(0,7),sunset:(daily.sunset||[]).slice(0,7)}}};
-  } catch(error) { return {ok:false,error:errorText(error,'Open-Meteo unavailable',500)}; }
+    const country=clean(args?.country||coord?.country||location?.country,120);
+    const china=isChinaTravelContext({...location,latitude:coord.lat,longitude:coord.lng,country},args?.query,country);
+    const result=await mapTool('/weather/current',{...chinaProviderFields(china),location:{...coord,country:china?'Trung Quốc':country},country:china?'Trung Quốc':country,language:'vi'},env);
+    if(!result.ok)return {ok:false,error:result.error||'WEATHER_UNAVAILABLE',provider:result.provider};
+    const weather=result.data?.weather;
+    if(!weather?.current)return {ok:false,error:'WEATHER_DATA_EMPTY',provider:result.data?.provider};
+    return {ok:true,source:clean(result.data?.source||result.data?.provider,100),data:weather};
+  } catch(error) { return {ok:false,error:errorText(error,'Weather unavailable',500)}; }
 }
 
 function deterministicWeatherAdvice(weather, targetLabel='vị trí hiện tại') {
@@ -2279,9 +2284,10 @@ function deterministicWeatherAdvice(weather, targetLabel='vị trí hiện tại
   const currentTime=clean(current.time,80),start=Math.max(0,times.findIndex(value=>String(value)>=currentTime));
   const end=Math.min(times.length,start+9),probabilities=(hourly.precipitationProbability||[]).slice(start,end).map(num).filter(value=>value!=null);
   const temperatures=(hourly.temperature||[]).slice(start,end).map(num).filter(value=>value!=null),winds=(hourly.windSpeed||[]).slice(start,end).map(num).filter(value=>value!=null);
-  const codes=(hourly.weatherCode||[]).slice(start,end).map(int).filter(value=>value!=null);
+  const rawCodes=(hourly.weatherCode||[]).slice(start,end),codes=rawCodes.map(int).filter(value=>value!=null);
   const maxRain=probabilities.length?Math.max(...probabilities):0,maxWind=winds.length?Math.max(...winds):num(current.windSpeed)||0;
-  const severe=codes.some(code=>code>=80)||Number(current.weatherCode)>=80,wet=(num(current.rain)||num(current.precipitation)||0)>0;
+  const googleSevere=[current.weatherCode,...rawCodes].some(code=>/(?:THUNDER|STORM|HEAVY_RAIN|RAIN_SHOWERS|WIND_AND_RAIN)/i.test(String(code||'')));
+  const severe=googleSevere||codes.some(code=>code>=80)||Number(current.weatherCode)>=80,wet=(num(current.rain)||num(current.precipitation)||0)>0;
   const temp=num(current.temperature),feels=num(current.apparentTemperature),condition=clean(current.condition,120)||weatherCodeLabel(current.weatherCode);
   let verdict,action;
   if(severe||maxRain>=75||wet) { verdict='không thật sự tiện để đi chơi ngoài trời';action='Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển.'; }
@@ -2478,7 +2484,8 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         }
       } else if(args.name==='weather') {
         const weatherCoord=coordFrom(state.weatherTarget)||(!explicitWeatherQuery?gps:null);
-        result=await weatherTool({...args,latitude:null,longitude:null},weatherCoord);
+        const weatherCountry=clean(state.weatherTarget?.country||location.country,120);
+        result=await weatherTool({...args,latitude:null,longitude:null,country:weatherCountry},weatherCoord,location,env);
         if(result.ok) state.weather=result.data;
       } else if(args.name==='place_busyness') {
         result=await busynessTool(args,state.details||state.lastPlace||{},env);
@@ -2548,6 +2555,9 @@ async function handleAiV3(request, env) {
     if(requestedLive&&!successful.length) {
       const gpsProblem=evidence.some(item=>['GPS_REQUIRED','GPS_OR_DESTINATION_REQUIRED','ROUTE_ENDPOINT_REQUIRED'].includes(item.error));
       text=gpsProblem?'Tôi chưa có đủ vị trí để kiểm tra chính xác. Bạn bật Location hoặc nói rõ địa điểm cần tìm nhé.':'Tôi chưa lấy được dữ liệu live đã kiểm chứng cho yêu cầu này. Bạn thử lại sau một chút nhé.';
+    } else if(plan.travelIntent==='WEATHER_OUTDOOR'&&state.weather) {
+      const target=state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại';
+      text=deterministicWeatherAdvice(state.weather,target);
     } else {
       try { text=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env); }
       catch(error) {
