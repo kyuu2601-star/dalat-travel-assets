@@ -82,25 +82,42 @@ function needsFreshGpsForChat(message) {
 
 function refreshCurrentPositionForChat() {
     const current = window.userPos || null;
-    const age = Date.now() - Number(current?.timestamp || 0);
-    const accuracy = Number(current?.accuracy);
-    if (Number.isFinite(accuracy) && accuracy <= 75 && age >= 0 && age <= 5000) return Promise.resolve(current);
-    if (!navigator.geolocation?.getCurrentPosition) return Promise.resolve(current);
-    return new Promise(resolve => navigator.geolocation.getCurrentPosition(position => {
-        const next = {
-            lat:position.coords.latitude,
-            lon:position.coords.longitude,
-            accuracy:Number(position.coords.accuracy),
-            timestamp:Number(position.timestamp) || Date.now()
+    if (!navigator.geolocation?.watchPosition) return Promise.resolve(current);
+    return new Promise(resolve => {
+        let watchId = null, latest = null, sampleCount = 0, sampleTimer = null, finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(sampleTimer);
+            clearTimeout(deadlineTimer);
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            const accepted = latest || current;
+            if (accepted) {
+                window.userPos = accepted;
+                window.dispatchEvent(new CustomEvent('travelos:gps-fix', { detail:accepted }));
+            }
+            resolve(accepted);
         };
-        window.userPos = next;
-        window.dispatchEvent(new CustomEvent('travelos:gps-fix', { detail:next }));
-        resolve(next);
-    }, () => resolve(window.userPos || current), {
-        enableHighAccuracy:true,
-        maximumAge:0,
-        timeout:10000
-    }));
+        const deadlineTimer = setTimeout(finish, 10000);
+        watchId = navigator.geolocation.watchPosition(position => {
+            const next = {
+                lat:position.coords.latitude,
+                lon:position.coords.longitude,
+                accuracy:Number(position.coords.accuracy),
+                timestamp:Number(position.timestamp) || Date.now()
+            };
+            if (!Number.isFinite(next.lat) || !Number.isFinite(next.lon)) return;
+            latest = next;
+            sampleCount++;
+            clearTimeout(sampleTimer);
+            sampleTimer = setTimeout(finish, 2500);
+            if (sampleCount >= 2 && Number.isFinite(next.accuracy) && next.accuracy <= 20) finish();
+        }, finish, {
+            enableHighAccuracy:true,
+            maximumAge:0,
+            timeout:10000
+        });
+    });
 }
 
 async function initBot() {

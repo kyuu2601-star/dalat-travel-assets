@@ -582,13 +582,15 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261012-2/);
+  assert.match(index,/chat\.js\?v=20261012-3/);
 });
 
 test('Current-location chat requests refresh GPS before calling the backend', async () => {
   const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
   assert.match(source,/needsFreshGpsForChat\(text\)/);
+  assert.match(source,/navigator\.geolocation\.watchPosition/);
   assert.match(source,/maximumAge:0/);
+  assert.match(source,/sampleTimer = setTimeout\(finish, 2500\)/);
   assert.match(source,/accuracy:\s*Number\(position\.coords\.accuracy\)/);
   assert.match(source,/gpsTimestamp/);
   assert.match(source,/travelos:gps-fix/);
@@ -669,7 +671,8 @@ test('App keeps onboarding visible until places and bot readiness settle', async
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động TravelOS/);
-  assert.match(index,/app\.js\?v=20261012-1/);
+  assert.match(index,/app\.js\?v=20261012-2/);
+  assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });
 
 test('Destination summary combines Google reviews, weather, BestTime and AI copy', async () => {

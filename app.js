@@ -37,12 +37,12 @@ function finishBoot(failures = []) {
 }
 
 const GEO_CACHE_KEY = 'travelos_detected_location_v1';
-const GEO_CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
 const GEO_RECHECK_DISTANCE_KM = 25;
 let geoRequestInFlight = false;
 let detectedLocation = null;
 let lastGeocodedPos = null;
 let pendingDetectedLocation = null;
+try { localStorage.removeItem(GEO_CACHE_KEY); } catch (_) {}
 
 const CATEGORIES = [
     { id: 'Ăn', color: '#ffb38a', text: '#5c2d14' },
@@ -288,26 +288,12 @@ function applyDetectedLocation(data) {
 }
 
 function readGeoCache(position) {
-    try {
-        const cached = JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || 'null');
-        if (!cached?.timestamp || Date.now() - cached.timestamp > GEO_CACHE_MAX_AGE) return null;
-
-        const distance = distanceBetweenCoords(position.lat, position.lon, cached.latitude, cached.longitude);
-        return distance <= GEO_RECHECK_DISTANCE_KM ? cached : null;
-    } catch (_) {
-        return null;
-    }
+    try { localStorage.removeItem(GEO_CACHE_KEY); } catch (_) {}
+    return null;
 }
 
 function saveGeoCache(position, data) {
-    try {
-        localStorage.setItem(GEO_CACHE_KEY, JSON.stringify({
-            ...data,
-            latitude: position.lat,
-            longitude: position.lon,
-            timestamp: Date.now()
-        }));
-    } catch (_) {}
+    // Privacy: vị trí GPS và kết quả reverse-geocode chỉ sống trong RAM của phiên hiện tại.
 }
 
 function inferNativeLocation(position) {
