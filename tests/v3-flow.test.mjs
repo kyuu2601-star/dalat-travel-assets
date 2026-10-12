@@ -556,6 +556,10 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(nearby,/nearby-poi-note/);
   assert.match(nearby,/function coordinateSystemOf/);
   assert.match(nearby,/['"]gcj02['"]/);
+  assert.match(nearby,/map\.__travelosProvider='geoapify'/);
+  assert.match(nearby,/provider==='google'\?'geoapify':provider/);
+  assert.match(nearby,/fullMountToken/);
+  assert.match(nearby,/freshFullMapNode/);
   assert.match(provider,/attributionControl\?\.setPrefix/);
   assert.match(provider,/© <a href="https:\/\/www\.geoapify\.com\//);
   assert.match(nearbyCss,/nearby-mini-map \.leaflet-control-attribution/);

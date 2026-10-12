@@ -1,5 +1,5 @@
 (function () {
-  let fullMap=null, fullPayload=null, fullRoot=null, fullProvider='',fullWatchId=null,fullUserMarker=null,fullUserPosition=null;
+  let fullMap=null, fullPayload=null, fullRoot=null, fullProvider='',fullWatchId=null,fullUserMarker=null,fullUserPosition=null,fullMountToken=0,fullOpening=false;
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function validPoint(p){const lat=Number(p?.lat??p?.latitude),lng=Number(p?.lng??p?.lon??p?.longitude);return Number.isFinite(lat)&&Number.isFinite(lng)?{...p,lat,lng}:null;}
   function distanceText(v){const m=Number(v);if(!Number.isFinite(m)||m<0)return'';return m<1000?`${Math.max(1,Math.round(m))} m`:`${(m/1000).toFixed(m<10000?1:0)} km`;}
@@ -35,20 +35,22 @@
     if(provider==='geoapify'){
       const center=validPoint(payload.center)||validPoint(payload.pois[0]); if(!center)throw new Error('Nearby map thiếu tọa độ.');
       const map=await window.GeoapifyMapProvider.createMap(container,center,interactive);
+      map.__travelosProvider='geoapify';
       window.GeoapifyMapProvider.drawNearby(map,payload,poi=>interactive&&openRoute(poi,payload)); return map;
     }
     const AMap=window.AMap,country=payload?.center?.country||payload?.pois?.[0]?.country||'',center=amapPoint(payload.center,country)||amapPoint(payload.pois[0],country);
     if(!center)throw new Error('Nearby map thiếu tọa độ.');
-    const map=new AMap.Map(container,{zoom:15,center:[center.lng,center.lat],viewMode:'2D',resizeEnable:true,dragEnable:Boolean(interactive),zoomEnable:Boolean(interactive),doubleClickZoom:Boolean(interactive),keyboardEnable:Boolean(interactive),scrollWheel:Boolean(interactive),touchZoom:Boolean(interactive)});
+    const map=new AMap.Map(container,{zoom:15,center:[center.lng,center.lat],viewMode:'2D',resizeEnable:true,dragEnable:Boolean(interactive),zoomEnable:Boolean(interactive),doubleClickZoom:Boolean(interactive),keyboardEnable:Boolean(interactive),scrollWheel:Boolean(interactive),touchZoom:Boolean(interactive)});map.__travelosProvider='amap';
     const markers=[],areaMarker=new AMap.Marker({position:[center.lng,center.lat],anchor:'bottom-center',content:makeAmapMarker(0,false,true),title:'Địa điểm được dùng làm tâm tìm kiếm',zIndex:200});map.add(areaMarker);markers.push(areaMarker);
     payload.pois.forEach((poi,index)=>{const p=amapPoint(poi,country,poi?.provider||payload?.provider);if(!p)return;const marker=new AMap.Marker({position:[p.lng,p.lat],anchor:'bottom-center',content:makeAmapMarker(index),title:String(poi.name||'')});marker.on?.('click',()=>interactive&&openRoute(poi,payload));map.add(marker);markers.push(marker);});
     if(markers.length>1)map.setFitView(markers,false,interactive?[70,70,70,70]:[36,36,36,36]);return map;
   }
   function destroyMap(map,provider,container){
-    const effective=map?.__travelosProvider||provider;
+    const effective=map?.__travelosProvider||(provider==='google'?'geoapify':provider);
     try{if(effective==='amap')map?.destroy?.();else if(effective==='google')window.GoogleMapProvider?.destroy?.(map);else window.GeoapifyMapProvider?.destroy?.(map);}catch{}
     if(container&&effective!=='google')container.innerHTML='';
   }
+  function freshFullMapNode(root){const current=root?.querySelector?.('#nearby-full-map');if(!current)return null;const fresh=current.cloneNode(false);current.replaceWith(fresh);return fresh;}
   function poiRow(poi,index,compact=false){const distance=distanceText(poi.distance),name=poi.localizedName||poi.name||'POI',address=poi.localizedAddress||poi.address||[poi.district,poi.city].filter(Boolean).join(', '),rating=Number(poi.rating),ratingText=Number.isFinite(rating)&&rating>0?`⭐ ${rating.toFixed(1)}${poi.userRatingCount?` (${poi.userRatingCount})`:''}`:'',open=poi.openTime?`<span class="nearby-open">${esc(poi.openTime)}</span>`:'',note=poi.note?`<em class="nearby-poi-note">✦ ${esc(poi.note)}</em>`:'';const meta=[ratingText,distance].filter(Boolean).map(esc).join(' · ');return `<button type="button" class="nearby-poi-row${compact?' compact':''}" data-nearby-index="${index}"><span class="nearby-poi-index">${index+1}</span><span class="nearby-poi-copy"><strong>${esc(name)}</strong><small>${esc(address||poi.type||'')}</small><span>${meta}${meta&&open?' · ':''}${open}</span>${note}</span><span class="nearby-route-arrow">›</span></button>`;}
   function render(payload,messageElement){
     if(!messageElement||!Array.isArray(payload?.pois)||!payload.pois.length)return;
@@ -66,12 +68,12 @@
   function stopFullPositionTracking(){if(fullWatchId!=null&&navigator.geolocation)navigator.geolocation.clearWatch(fullWatchId);fullWatchId=null;fullUserMarker=null;fullUserPosition=null;const button=fullRoot?.querySelector('#nearby-user-location');if(button)button.hidden=true;}
   function startFullPositionTracking(){const current=appPosition();if(current)showUserPosition(current);if(!navigator.geolocation)return;fullWatchId=navigator.geolocation.watchPosition(position=>{const point={lat:position.coords.latitude,lng:position.coords.longitude};window.userPos={lat:point.lat,lon:point.lng};showUserPosition(point);},error=>console.warn('[TravelNearby GPS]',error),{enableHighAccuracy:true,maximumAge:5000,timeout:12000});}
   async function openFull(payload){
-    if(!Array.isArray(payload?.pois)||!payload.pois.length)return;stopFullPositionTracking();const root=ensureFullRoot(),previousProvider=fullProvider,nextProvider=providerOf(payload);fullPayload=payload;root.classList.add('open');root.setAttribute('aria-hidden','false');document.documentElement.classList.add('nearby-map-open');document.body.classList.add('nearby-map-open');
+    if(!Array.isArray(payload?.pois)||!payload.pois.length||fullOpening)return;const mountToken=++fullMountToken;fullOpening=true;stopFullPositionTracking();const root=ensureFullRoot(),previousProvider=fullProvider,nextProvider=providerOf(payload);fullPayload=payload;root.classList.add('open');root.setAttribute('aria-hidden','false');document.documentElement.classList.add('nearby-map-open');document.body.classList.add('nearby-map-open');
     root.querySelector('#nearby-full-provider').textContent=providerLabel(payload);root.querySelector('#nearby-full-title').textContent=queryLabel(payload);const list=root.querySelector('#nearby-full-list');list.innerHTML=payload.pois.map((p,i)=>poiRow(p,i)).join('');list.querySelectorAll('[data-nearby-index]').forEach(b=>b.addEventListener('click',()=>openRoute(payload.pois[Number(b.dataset.nearbyIndex)],payload)));
-    const status=root.querySelector('#nearby-full-status'),mapNode=root.querySelector('#nearby-full-map');status.textContent=`Đang tải ${providerLabel(payload)}...`;status.classList.remove('hidden');destroyMap(fullMap,previousProvider,mapNode);fullMap=null;fullProvider=nextProvider;
-    try{fullMap=await mountMap(mapNode,payload,true);status.classList.add('hidden');startFullPositionTracking();}catch(error){console.warn('[TravelNearby full map]',error);status.textContent=error.message||'Không tải được bản đồ.';}
+    const status=root.querySelector('#nearby-full-status'),oldMapNode=root.querySelector('#nearby-full-map');status.textContent=`Đang tải ${providerLabel(payload)}...`;status.classList.remove('hidden');destroyMap(fullMap,previousProvider,oldMapNode);fullMap=null;fullProvider=nextProvider;const mapNode=freshFullMapNode(root);
+    try{const mounted=await mountMap(mapNode,payload,true);if(mountToken!==fullMountToken||!root.classList.contains('open')){destroyMap(mounted,nextProvider,mapNode);return;}fullMap=mounted;status.classList.add('hidden');startFullPositionTracking();}catch(error){if(mountToken!==fullMountToken)return;console.warn('[TravelNearby full map]',error);status.textContent=error.message||'Không tải được bản đồ.';}finally{if(mountToken===fullMountToken)fullOpening=false;}
   }
-  function closeFull(){if(!fullRoot)return;stopFullPositionTracking();const mapNode=fullRoot.querySelector('#nearby-full-map');destroyMap(fullMap,fullProvider,mapNode);fullMap=null;fullPayload=null;fullProvider='';fullRoot.classList.remove('open');fullRoot.setAttribute('aria-hidden','true');document.documentElement.classList.remove('nearby-map-open');document.body.classList.remove('nearby-map-open');}
+  function closeFull(){if(!fullRoot)return;++fullMountToken;fullOpening=false;stopFullPositionTracking();const mapNode=fullRoot.querySelector('#nearby-full-map');destroyMap(fullMap,fullProvider,mapNode);fullMap=null;fullPayload=null;fullProvider='';freshFullMapNode(fullRoot);fullRoot.classList.remove('open');fullRoot.setAttribute('aria-hidden','true');document.documentElement.classList.remove('nearby-map-open');document.body.classList.remove('nearby-map-open');}
   async function openRoute(poi,payload=fullPayload){
     const destination=poiDestination(poi,payload);if(!destination)return;const provider=providerOf(payload);closeFull();
     try{
