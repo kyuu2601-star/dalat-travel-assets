@@ -3,6 +3,13 @@
   "appName": "TravelOS",
   "webDir": "www",
   "loggingBehavior": "debug",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover"
+    }
+  },
   "android": {
     "androidScheme": "https",
     "allowMixedContent": false,

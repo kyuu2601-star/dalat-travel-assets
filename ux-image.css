@@ -40,7 +40,7 @@ body.image-fullscreen-open {
     display: none;
     align-items: center;
     justify-content: center;
-    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    padding: max(12px, var(--app-safe-top)) max(12px, var(--app-safe-right)) max(12px, var(--app-safe-bottom)) max(12px, var(--app-safe-left));
     background: rgba(0,0,0,.96);
     cursor: zoom-out;
     touch-action: none;

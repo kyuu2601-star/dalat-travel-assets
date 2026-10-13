@@ -62,23 +62,52 @@
         };
     }
 
+    function readCssPixels(variableName, fallbackProperty) {
+        const rootStyle = getComputedStyle(document.documentElement);
+        const directValue = Number.parseFloat(rootStyle.getPropertyValue(variableName));
+        if (Number.isFinite(directValue)) return Math.max(0, directValue);
+
+        const fallbackValue = fallbackProperty
+            ? Number.parseFloat(getComputedStyle(document.body)[fallbackProperty])
+            : 0;
+        return Number.isFinite(fallbackValue) ? Math.max(0, fallbackValue) : 0;
+    }
+
+    function getSafeAreaInsets() {
+        return {
+            top: readCssPixels('--safe-area-inset-top', 'paddingTop'),
+            right: readCssPixels('--safe-area-inset-right', 'paddingRight'),
+            bottom: readCssPixels('--safe-area-inset-bottom', 'paddingBottom'),
+            left: readCssPixels('--safe-area-inset-left', 'paddingLeft')
+        };
+    }
+
     function syncWidgetToVisibleViewport() {
         viewportRaf = 0;
 
         const viewport = getVisibleViewport();
         const compact = viewport.width <= 680;
+        const native = Boolean(window.TRAVELOS_NATIVE);
+        const safe = getSafeAreaInsets();
+        const keyboardRect = navigator.virtualKeyboard?.boundingRect;
+        const keyboardOpen = Boolean(
+            (keyboardRect && keyboardRect.height > 100)
+            || (window.visualViewport && window.visualViewport.height < window.innerHeight - 120)
+        );
         const edgeX = compact ? 16 : 24;
         const edgeY = compact ? 16 : 24;
-        // Android three-button navigation is not consistently exposed through
-        // CSS safe-area insets inside a WebView, so keep an explicit clearance.
-        const bottomClearance = window.TRAVELOS_NATIVE ? Math.max(edgeY, 84) : edgeY;
+        // Capacitor 8 injects --safe-area-inset-* into the WebView. Keep a
+        // conservative fallback for Android devices that expose no inset.
+        const bottomClearance = native
+            ? Math.max(edgeY + safe.bottom, keyboardOpen ? edgeY : 76)
+            : edgeY + safe.bottom;
         const buttonSize = 52;
         const windowGap = compact ? 14 : 16;
 
         // Chat button: góc phải dưới của visual viewport.
         const buttonLeft = Math.max(
             viewport.left,
-            viewport.left + viewport.width - edgeX - buttonSize
+            viewport.left + viewport.width - edgeX - safe.right - buttonSize
         );
         const buttonTop = Math.max(
             viewport.top,
@@ -91,34 +120,54 @@
         btn.style.right = 'auto';
         btn.style.bottom = 'auto';
 
-        // Chat window: nằm phía trên button và luôn lọt trong visual viewport.
-        const availableWidth = Math.max(1, viewport.width - edgeX * 2);
-        const desiredWidth = Math.min(380, availableWidth);
+        const fullscreenChat = compact || native;
+        btn.style.visibility = fullscreenChat && win.classList.contains('open') ? 'hidden' : '';
 
-        const availableHeight = Math.max(
-            1,
-            viewport.height - edgeY - bottomClearance - buttonSize - windowGap
-        );
-        const desiredHeight = Math.min(600, availableHeight);
+        if (fullscreenChat) {
+            const topClearance = keyboardOpen ? 8 : Math.max(8, safe.top + 8);
+            const rightClearance = Math.max(8, safe.right + 8);
+            const bottomWindowClearance = keyboardOpen ? 8 : Math.max(8, safe.bottom + 8);
+            const leftClearance = Math.max(8, safe.left + 8);
 
-        const windowLeft = Math.max(
-            viewport.left,
-            viewport.left + viewport.width - edgeX - desiredWidth
-        );
-        const windowTop = Math.max(
-            viewport.top + edgeY,
-            viewport.top + viewport.height - bottomClearance - buttonSize - windowGap - desiredHeight
-        );
+            win.style.position = 'fixed';
+            win.style.left = `${Math.round(viewport.left + leftClearance)}px`;
+            win.style.top = `${Math.round(viewport.top + topClearance)}px`;
+            win.style.right = 'auto';
+            win.style.bottom = 'auto';
+            win.style.width = `${Math.max(1, Math.floor(viewport.width - leftClearance - rightClearance))}px`;
+            win.style.height = `${Math.max(1, Math.floor(viewport.height - topClearance - bottomWindowClearance))}px`;
+            win.style.maxWidth = 'none';
+            win.style.maxHeight = 'none';
+        } else {
+            // Desktop/tablet: chat window stays above the launcher button.
+            const availableWidth = Math.max(1, viewport.width - edgeX * 2);
+            const desiredWidth = Math.min(380, availableWidth);
 
-        win.style.position = 'fixed';
-        win.style.left = `${Math.round(windowLeft)}px`;
-        win.style.top = `${Math.round(windowTop)}px`;
-        win.style.right = 'auto';
-        win.style.bottom = 'auto';
-        win.style.width = `${Math.round(desiredWidth)}px`;
-        win.style.height = `${Math.round(desiredHeight)}px`;
-        win.style.maxWidth = 'none';
-        win.style.maxHeight = 'none';
+            const availableHeight = Math.max(
+                1,
+                viewport.height - edgeY - bottomClearance - buttonSize - windowGap
+            );
+            const desiredHeight = Math.min(600, availableHeight);
+
+            const windowLeft = Math.max(
+                viewport.left,
+                viewport.left + viewport.width - edgeX - desiredWidth
+            );
+            const windowTop = Math.max(
+                viewport.top + edgeY,
+                viewport.top + viewport.height - bottomClearance - buttonSize - windowGap - desiredHeight
+            );
+
+            win.style.position = 'fixed';
+            win.style.left = `${Math.round(windowLeft)}px`;
+            win.style.top = `${Math.round(windowTop)}px`;
+            win.style.right = 'auto';
+            win.style.bottom = 'auto';
+            win.style.width = `${Math.round(desiredWidth)}px`;
+            win.style.height = `${Math.round(desiredHeight)}px`;
+            win.style.maxWidth = 'none';
+            win.style.maxHeight = 'none';
+        }
 
         // Overlay chỉ phủ đúng phần màn hình đang nhìn thấy khi zoom/pan.
         overlay.style.position = 'fixed';
@@ -139,6 +188,9 @@
 
     window.addEventListener('resize', requestViewportSync, { passive: true });
     window.addEventListener('scroll', requestViewportSync, { passive: true });
+    window.addEventListener('pageshow', requestViewportSync, { passive: true });
+    window.addEventListener('focusin', requestViewportSync, { passive: true });
+    window.addEventListener('focusout', () => setTimeout(requestViewportSync, 80), { passive: true });
     window.addEventListener('orientationchange', () => {
         requestViewportSync();
         setTimeout(requestViewportSync, 120);
@@ -148,6 +200,13 @@
         window.visualViewport.addEventListener('resize', requestViewportSync, { passive: true });
         window.visualViewport.addEventListener('scroll', requestViewportSync, { passive: true });
     }
+
+    // SystemBars adds its inset variables after the first native render.
+    new MutationObserver(requestViewportSync).observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['style']
+    });
+    [120, 420, 900].forEach(delay => setTimeout(requestViewportSync, delay));
 
     function scrollBottom() {
         const chatBox = document.getElementById('chat-box');

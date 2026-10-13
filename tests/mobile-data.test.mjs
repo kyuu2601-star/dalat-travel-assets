@@ -74,14 +74,17 @@ test('native startup defers bot health and external reverse geocoding', async ()
 });
 
 test('native chat controls clear the Android navigation bar', async () => {
-  const [css, widget] = await Promise.all([
+  const [css, widget, capacitorConfig] = await Promise.all([
     readFile(new URL('../style.css', import.meta.url), 'utf8'),
-    readFile(new URL('../widget.js', import.meta.url), 'utf8')
+    readFile(new URL('../widget.js', import.meta.url), 'utf8'),
+    readFile(new URL('../capacitor.config.json', import.meta.url), 'utf8').then(JSON.parse)
   ]);
-  assert.match(css, /\.native-app #chat-widget-button \{ bottom: max\(84px,/);
-  assert.match(css, /\.native-app #chat-widget-window \{ bottom: max\(152px,/);
-  assert.match(widget, /bottomClearance = window\.TRAVELOS_NATIVE \? Math\.max\(edgeY, 84\) : edgeY/);
+  assert.match(css, /--app-safe-bottom: max\(env\(safe-area-inset-bottom, 0px\), var\(--safe-area-inset-bottom, 0px\)\)/);
+  assert.match(widget, /readCssPixels\('--safe-area-inset-bottom', 'paddingBottom'\)/);
+  assert.match(widget, /Math\.max\(edgeY \+ safe\.bottom, keyboardOpen \? edgeY : 76\)/);
   assert.match(widget, /viewport\.height - bottomClearance - buttonSize/);
+  assert.equal(capacitorConfig.plugins.SystemBars.insetsHandling, 'css');
+  assert.equal(capacitorConfig.plugins.SystemBars.initialViewportFitValueHint, 'cover');
 });
 
 test('China mode preloads AMap and paints the map while Route 2.0 runs', async () => {

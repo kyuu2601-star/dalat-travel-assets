@@ -18,5 +18,5 @@
 @media (max-width: 820px) {
   .google-maneuver { top: 10px; left: 10px; right: 68px; }
   .google-mode-switch { padding: 8px 10px 0; }
-  .google-nav-actions { padding: 8px 10px max(10px, env(safe-area-inset-bottom)); }
+  .google-nav-actions { padding: 8px 10px calc(10px + var(--app-safe-bottom)); }
 }
