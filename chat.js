@@ -223,7 +223,7 @@ async function handleChat() {
         if (messageElement) {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
             const nearby = compactNearbySnapshot(data?.travelos?.nearby);
-            if (nearby && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
+            if (nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
             const travelContext = compactTravelContext(data?.travelos);
             saveMessage('ai', aiMsg, { ...(nearby ? { nearby } : {}), ...(travelContext ? { travelContext } : {}) });
         }
@@ -264,7 +264,7 @@ function addMessage(role, content, isHtml = false) {
 }
 
 function compactNearbySnapshot(payload) {
-    if (!payload || !Array.isArray(payload.pois) || !payload.pois.length) return null;
+    if (!payload || !Array.isArray(payload.pois)) return null;
     const numberOrNull = value => value === null || value === undefined || value === '' ? null : (Number.isFinite(Number(value)) ? Number(value) : null);
     const text = (value, max = 500) => String(value ?? '').trim().slice(0, max);
     const center = payload.center && typeof payload.center === 'object' ? {
@@ -275,8 +275,11 @@ function compactNearbySnapshot(payload) {
     } : null;
     const query = typeof payload.query === 'string' ? text(payload.query, 300) : {
         keyword:text(payload.query?.keyword, 200),
+        keywords:Array.isArray(payload.query?.keywords) ? payload.query.keywords.slice(0, 10).map(value => text(value, 100)).filter(Boolean) : [],
+        category:text(payload.query?.category, 80),
         name:text(payload.query?.name, 200),
-        googleType:text(payload.query?.googleType, 100)
+        googleType:text(payload.query?.googleType, 100),
+        radius:numberOrNull(payload.query?.radius)
     };
     const pois = payload.pois.slice(0, 10).map(poi => {
         const provider=text(poi?.provider || payload.provider, 80),explicitCoordSystem=text(poi?.coordSystem || poi?.coordinate_system, 20).toLowerCase();
@@ -292,8 +295,13 @@ function compactNearbySnapshot(payload) {
             note:text(poi?.note, 500), noteConfidence:text(poi?.noteConfidence, 40)
         };
     }).filter(poi => poi.name && poi.lat !== null && poi.lng !== null);
-    if (!pois.length) return null;
-    return { version:1, source:text(payload.source, 100), provider:text(payload.provider || pois[0].provider, 80), query, center, count:pois.length, pois };
+    const hasQuery=typeof query === 'string' ? Boolean(query) : Boolean(query.keyword || query.category);
+    if (!pois.length && !center && !hasQuery) return null;
+    return {
+        version:1, source:text(payload.source, 100), provider:text(payload.provider || pois[0]?.provider, 80), query, center,
+        count:pois.length, pois,
+        attemptedRadii:Array.isArray(payload.attemptedRadii) ? payload.attemptedRadii.slice(0, 5).map(numberOrNull).filter(value => value !== null) : []
+    };
 }
 
 function compactTravelContext(payload) {
@@ -389,6 +397,6 @@ function loadChatHistory() {
     history.messages.forEach(msg => {
         const messageElement = addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content);
         const nearby = compactNearbySnapshot(msg.nearby);
-        if (messageElement && nearby && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
+        if (messageElement && nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
     });
 }

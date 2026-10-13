@@ -369,29 +369,29 @@ async function directionsRoute(request, env, originHeader) {
 }
 
 const SEARCH_RULES=[
-  {aliases:['pharmacy','drugstore','nha thuoc','hieu thuoc','tiem thuoc','mua thuoc'],geo:['healthcare.pharmacy','commercial.health_and_beauty.pharmacy','commercial.chemist'],google:'pharmacy',amap:'药店'},
-  {aliases:['hospital','benh vien','cap cuu'],geo:['healthcare.hospital'],google:'hospital',amap:'医院'},
-  {aliases:['clinic','phong kham','doctor','bac si'],geo:['healthcare.clinic_or_praxis'],google:'doctor',amap:'诊所'},
-  {aliases:['convenience store','cua hang tien loi','chtl','minimart','mini mart'],geo:['commercial.convenience'],google:'convenience_store',amap:'便利店'},
-  {aliases:['grocery','tap hoa','cua hang tap hoa'],geo:['commercial.food_and_drink'],google:'grocery_store',amap:'杂货店'},
-  {aliases:['supermarket','sieu thi'],geo:['commercial.supermarket'],google:'supermarket',amap:'超市'},
-  {aliases:['atm','rut tien'],geo:['service.financial.atm'],google:'atm',amap:'ATM'},
-  {aliases:['bank','ngan hang'],geo:['service.financial.bank'],google:'bank',amap:'银行'},
-  {aliases:['gas station','petrol','tram xang','cay xang','do xang','fuel'],geo:['service.vehicle.fuel'],google:'gas_station',amap:'加油站'},
-  {aliases:['police','cong an'],geo:['service.police'],google:'police',amap:'派出所'},
-  {aliases:['fire station','cuu hoa'],geo:['service.fire_station'],google:'fire_station',amap:'消防站'},
-  {aliases:['restaurant','quan an','an uong'],geo:['catering.restaurant','catering.fast_food','catering.food_court'],google:'restaurant',amap:'餐厅'},
-  {aliases:['cafe','coffee','quan cafe'],geo:['catering.cafe'],google:'cafe',amap:'咖啡店'},
-  {aliases:['hotel','khach san'],geo:['accommodation.hotel','accommodation.guest_house'],google:'hotel',amap:'酒店'},
-  {aliases:['tourist_attraction','attraction','diem tham quan','diem vui choi','dia diem du lich','gi choi','tham quan','check in','checkin','danh lam'],geo:['tourism.attraction','entertainment'],google:'tourist_attraction',amap:'旅游景点'},
-  {aliases:['park','cong vien','vuon hoa'],geo:['leisure.park','leisure.garden'],google:'park',amap:'公园'},
-  {aliases:['museum','bao tang'],geo:['entertainment.museum'],google:'museum',amap:'博物馆'},
-  {aliases:['shopping_mall','mall','trung tam thuong mai','tttm','mua sam'],geo:['commercial.shopping_mall'],google:'shopping_mall',amap:'购物中心'},
-  {aliases:['subway_station','metro station','ga metro','ga tau dien','tau dien ngam'],geo:['public_transport.subway'],google:'subway_station',amap:'地铁站'},
-  {aliases:['bus_stop','bus station','tram xe buyt','ben xe buyt'],geo:['public_transport.bus'],google:'bus_station',amap:'公交站'},
-  {aliases:['public_restroom','public bathroom','nha ve sinh','toilet','wc'],geo:['service.public_toilet'],google:'public_bathroom',amap:'公共厕所'},
-  {aliases:['bar','pub','quan bar','quan ruou','nightlife'],geo:['catering.bar'],google:'bar',amap:'酒吧'},
-  {aliases:['parking','bai do xe','giu xe'],geo:['parking'],google:'parking',amap:'停车场'}
+  {aliases:['pharmacy','drugstore','nha thuoc','hieu thuoc','tiem thuoc','mua thuoc'],geo:['healthcare.pharmacy','commercial.health_and_beauty.pharmacy','commercial.chemist'],google:'pharmacy',amap:'药店',amapVariants:['药房','大药房']},
+  {aliases:['hospital','benh vien','cap cuu'],geo:['healthcare.hospital'],google:'hospital',amap:'医院',amapVariants:['人民医院','急救中心']},
+  {aliases:['clinic','phong kham','doctor','bac si'],geo:['healthcare.clinic_or_praxis'],google:'doctor',amap:'诊所',amapVariants:['门诊部','卫生服务中心']},
+  {aliases:['convenience store','cua hang tien loi','chtl','minimart','mini mart'],geo:['commercial.convenience'],google:'convenience_store',amap:'便利店',amapVariants:['小卖部','副食店','杂货店']},
+  {aliases:['grocery','tap hoa','cua hang tap hoa'],geo:['commercial.food_and_drink'],google:'grocery_store',amap:'便利店',amapVariants:['杂货店','副食店','小卖部','超市']},
+  {aliases:['supermarket','sieu thi'],geo:['commercial.supermarket'],google:'supermarket',amap:'超市',amapVariants:['生活超市','生鲜超市','便利店']},
+  {aliases:['atm','rut tien'],geo:['service.financial.atm'],google:'atm',amap:'ATM',amapVariants:['自动取款机','自助银行']},
+  {aliases:['bank','ngan hang'],geo:['service.financial.bank'],google:'bank',amap:'银行',amapVariants:['银行营业厅']},
+  {aliases:['gas station','petrol','tram xang','cay xang','do xang','fuel'],geo:['service.vehicle.fuel'],google:'gas_station',amap:'加油站',amapVariants:['加气站','充电站']},
+  {aliases:['police','cong an'],geo:['service.police'],google:'police',amap:'派出所',amapVariants:['公安局','警务室']},
+  {aliases:['fire station','cuu hoa'],geo:['service.fire_station'],google:'fire_station',amap:'消防站',amapVariants:['消防救援站']},
+  {aliases:['restaurant','quan an','an uong'],geo:['catering.restaurant','catering.fast_food','catering.food_court'],google:'restaurant',amap:'餐厅',amapVariants:['饭店','餐馆','小吃店']},
+  {aliases:['cafe','coffee','quan cafe'],geo:['catering.cafe'],google:'cafe',amap:'咖啡店',amapVariants:['咖啡馆']},
+  {aliases:['hotel','khach san'],geo:['accommodation.hotel','accommodation.guest_house'],google:'hotel',amap:'酒店',amapVariants:['宾馆','旅馆','民宿']},
+  {aliases:['tourist_attraction','attraction','diem tham quan','diem vui choi','dia diem du lich','gi choi','tham quan','check in','checkin','danh lam'],geo:['tourism.attraction','entertainment'],google:'tourist_attraction',amap:'旅游景点',amapVariants:['景区','名胜古迹','观景台']},
+  {aliases:['park','cong vien','vuon hoa'],geo:['leisure.park','leisure.garden'],google:'park',amap:'公园',amapVariants:['城市公园','广场','植物园']},
+  {aliases:['museum','bao tang'],geo:['entertainment.museum'],google:'museum',amap:'博物馆',amapVariants:['纪念馆','展览馆','美术馆']},
+  {aliases:['shopping_mall','mall','trung tam thuong mai','tttm','mua sam'],geo:['commercial.shopping_mall'],google:'shopping_mall',amap:'购物中心',amapVariants:['商场','购物广场','商业街']},
+  {aliases:['subway_station','metro station','ga metro','ga tau dien','tau dien ngam'],geo:['public_transport.subway'],google:'subway_station',amap:'地铁站',amapVariants:['轨道交通站','轻轨站']},
+  {aliases:['bus_stop','bus station','tram xe buyt','ben xe buyt'],geo:['public_transport.bus'],google:'bus_station',amap:'公交站',amapVariants:['公交车站','汽车站']},
+  {aliases:['public_restroom','public bathroom','nha ve sinh','toilet','wc'],geo:['service.public_toilet'],google:'public_bathroom',amap:'公共厕所',amapVariants:['公厕','卫生间','洗手间']},
+  {aliases:['bar','pub','quan bar','quan ruou','nightlife'],geo:['catering.bar'],google:'bar',amap:'酒吧',amapVariants:['清吧','精酿啤酒','夜店']},
+  {aliases:['parking','bai do xe','giu xe'],geo:['parking'],google:'parking',amap:'停车场',amapVariants:['停车库','停车位']}
 ];
 const SEARCH_EXPANSIONS=[
   {
@@ -402,10 +402,10 @@ const SEARCH_EXPANSIONS=[
 function categoryInfo(keyword, category='', name='') {
   const q=fold(`${category} ${keyword}`);
   for(const rule of SEARCH_RULES) if(rule.aliases.some(x=>q.includes(fold(x)))) {
-    return {geoCategories:rule.geo,googleType:rule.google,amapKeyword:clean(name,120)||rule.amap,name:clean(name,120)};
+    return {geoCategories:rule.geo,googleType:rule.google,amapKeyword:clean(name,120)||rule.amap,amapVariants:clean(name,120)?[]:(rule.amapVariants||[]),name:clean(name,120)};
   }
   const freeText=clean(name||keyword,120);
-  return {geoCategories:['commercial','service','healthcare','catering','tourism','entertainment','accommodation'],googleType:'',amapKeyword:freeText,name:freeText};
+  return {geoCategories:['commercial','service','healthcare','catering','tourism','entertainment','accommodation'],googleType:'',amapKeyword:freeText,amapVariants:[],name:freeText};
 }
 function expandedSearchQuery(value='') {
   const q=fold(value);
@@ -414,7 +414,7 @@ function expandedSearchQuery(value='') {
 function uniqueSearchQueries(...values) {
   const seen=new Set(),queries=[];
   values.flat().forEach(value=>{const query=clean(value,300),key=fold(query);if(!query||!key||seen.has(key))return;seen.add(key);queries.push(query);});
-  return queries.slice(0,3);
+  return queries.slice(0,8);
 }
 function normalizeAmapPoi(poi, center, country) {
   const point=parseLngLat(poi?.location); if(!point) return null; const {lng,lat}=point;
@@ -423,7 +423,7 @@ function normalizeAmapPoi(poi, center, country) {
 }
 async function amapNearby(body, env, originHeader, center, keyword, types, radius, limit, candidateLimit, country) {
   if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const queryCenter=toAmapPoint(center),info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),mappedKeyword=clean(info.amapKeyword,300),useMappedKeyword=!specificChineseFood&&mappedKeyword&&mappedKeyword!==clean(keyword,300),amapQueries=useMappedKeyword?uniqueSearchQueries(mappedKeyword,body?.queryVariants):uniqueSearchQueries(keyword,body?.queryVariants,specificChineseFood?'':mappedKeyword),amapKeyword=amapQueries.join('|').slice(0,80);
+  const queryCenter=toAmapPoint(center),info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),mappedKeyword=clean(info.amapKeyword,300),useMappedKeyword=!specificChineseFood&&mappedKeyword&&mappedKeyword!==clean(keyword,300),amapQueries=useMappedKeyword?uniqueSearchQueries(mappedKeyword,info.amapVariants,body?.queryVariants):uniqueSearchQueries(keyword,body?.queryVariants,specificChineseFood?'':mappedKeyword,info.amapVariants),amapKeyword=amapQueries.join('|').slice(0,120);
   const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(candidateLimit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
   if(amapKeyword) params.set('keywords',amapKeyword); if(types) params.set('types',types);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
@@ -432,7 +432,7 @@ async function amapNearby(body, env, originHeader, center, keyword, types, radiu
     if(!response.ok||!raw) return json({error:`AMap Nearby HTTP ${response.status}`,provider:'amap'},502,originHeader);
     if(String(raw.status)!=='1') return json({error:`AMap Nearby: ${raw.info||'unknown error'}`,infocode:raw.infocode||'',provider:'amap'},502,originHeader);
     const sortBy=clean(body?.sortBy,30).toLowerCase(),pois=(Array.isArray(raw.pois)?raw.pois:[]).map(p=>normalizeAmapPoi(p,queryCenter,country)).filter(Boolean).sort((a,b)=>sortBy==='rating'?(Number(b.rating)||0)-(Number(a.rating)||0)||(a.distance??Infinity)-(b.distance??Infinity):(a.distance??Infinity)-(b.distance??Infinity)).slice(0,limit);
-    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,name:clean(body?.name,120),types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
+    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,keywords:amapQueries,category:clean(body?.category,80),name:clean(body?.name,120),types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
   }catch(error){return json({error:error?.name==='AbortError'?'AMap Nearby timeout.':`Không gọi được AMap Nearby: ${clean(error?.message,300)}`,provider:'amap'},502,originHeader);}finally{clearTimeout(timer);}
 }
 function normalizeGeoapifyPoi(feature, center, country) {

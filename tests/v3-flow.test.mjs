@@ -154,7 +154,7 @@ test('Map Worker sends translated dish variants to AMap and keeps food evidence'
     const data=await response.json(),url=new URL(requestedUrl);
     assert.equal(response.status,200);
     assert.equal(url.hostname,'restapi.amap.com');
-    assert.equal(url.searchParams.get('keywords'),'火锅|重庆火锅');
+    assert.match(url.searchParams.get('keywords'),/^火锅\|重庆火锅/);
     assert.equal(url.searchParams.get('show_fields'),'business,navi');
     assert.equal(data.pois[0].tag,'四川火锅;服务热情');
     assert.equal(data.pois[0].cost,'128');
@@ -173,7 +173,7 @@ test('Map Worker replaces a Vietnamese pharmacy category with the native AMap ke
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.5657,lng:106.5512},country:'Trung Quốc',query:'nhà thuốc',keyword:'nhà thuốc',category:'pharmacy',radius:3000,limit:10})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json(),url=new URL(requestedUrl);
     assert.equal(response.status,200);
-    assert.equal(url.searchParams.get('keywords'),'药店');
+    assert.equal(url.searchParams.get('keywords'),'药店|药房|大药房');
     assert.doesNotMatch(url.searchParams.get('keywords'),/nhà thuốc/i);
     assert.equal(data.pois[0].name,'唐氏药房');
   }finally{globalThis.fetch=originalFetch;}
@@ -187,7 +187,7 @@ test('Map Worker maps nearby sightseeing intent to a native AMap attraction sear
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',query:'điểm tham quan',keyword:'điểm tham quan',category:'tourist_attraction',radius:5000,limit:10})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json(),url=new URL(requestedUrl);
     assert.equal(response.status,200);
-    assert.equal(url.searchParams.get('keywords'),'旅游景点');
+    assert.equal(url.searchParams.get('keywords'),'旅游景点|景区|名胜古迹|观景台');
     assert.doesNotMatch(url.searchParams.get('keywords'),/tham quan/i);
     assert.equal(data.pois[0].name,'马鞍山堂里');
   }finally{globalThis.fetch=originalFetch;}
@@ -658,7 +658,7 @@ test('AI v3 switches Gemini models when the primary model is overloaded', async 
     const data=await response.json();
     assert.equal(response.status,200);
     assert.match(data.text,/nói nhỏ/);
-    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.5-flash-lite','gemini-3.8-flash']);
+    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.8-flash']);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -867,16 +867,14 @@ test('AI v3 declares eight specialized travel intent profiles', async () => {
   assert.match(source,/TRAVEL INTENT PROFILE/);
 });
 
-test('AI v3 plans tools server-side and returns structured nearby evidence', async () => {
+test('AI v3 plans tools deterministically on the backend and only uses Gemini for wording', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;
   let geminiCalls = 0;
   globalThis.fetch = async url => {
     if (!String(url).includes('generativelanguage.googleapis.com')) throw new Error(`Unexpected fetch ${url}`);
     geminiCalls++;
-    const text = geminiCalls === 1
-      ? JSON.stringify({ goal:'find nearest Pharmacity', responseMode:'LIVE', needsClarification:false, clarificationQuestion:'', isItinerary:false, tools:[{ name:'search_places', category:'pharmacy', placeName:'Pharmacity', radius:3000, limit:6, language:'vi' }] })
-      : 'Pharmacity gần nhất cách bạn 120 m.';
+    const text = 'Pharmacity gần nhất cách bạn 120 m.';
     return new Response(JSON.stringify({ candidates:[{ content:{ parts:[{ text }] } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
   };
   const env = {
@@ -906,7 +904,7 @@ test('AI v3 plans tools server-side and returns structured nearby evidence', asy
     assert.equal(data.travelos.plan.tools[0].placeName,'Pharmacity');
     assert.equal(data.travelos.nearby.pois[0].name,'Nhà thuốc Pharmacity');
     assert.equal(data.travelos.sources[0].source,'geoapify-places-v2');
-    assert.equal(geminiCalls,2);
+    assert.equal(geminiCalls,1);
   } finally {
     globalThis.fetch=originalFetch;
   }
@@ -1004,7 +1002,7 @@ test('AI v3 resolves a remote area before searching there instead of using curre
   const env={GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
     const path=new URL(request.url).pathname,body=await request.json();mapPaths.push(path);
     if(path==='/place/resolve'){
-      assert.equal(body.query,'Landmark 81, TP.HCM');
+      assert.equal(body.query,'Landmark 81');
       assert.equal(body.center,null);
       return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'landmark-81',name:'Landmark 81',address:'Bình Thạnh, TP.HCM',lat:10.7948,lng:106.7218,country:'Việt Nam',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
     }
@@ -1033,7 +1031,7 @@ test('AI v3 handles an explicit remote-area search even when Gemini is unavailab
   const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
     const path=new URL(request.url).pathname,body=await request.json();paths.push(path);
     if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'landmark-81',name:'Landmark 81',address:'Bình Thạnh, TP.HCM',lat:10.7951,lng:106.7221,country:'Việt Nam',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
-    assert.equal(body.query,'quán gà rán');
+    assert.equal(body.query,'gà rán');
     assert.equal(body.center.lat,10.7951);
     assert.equal(body.center.lng,106.7221);
     assert.equal(body.limit,10);
@@ -1046,7 +1044,7 @@ test('AI v3 handles an explicit remote-area search even when Gemini is unavailab
   assert.deepEqual(paths,['/place/resolve','/poi/nearby']);
   assert.equal(data.travelos.remoteSearch.resolvedArea.name,'Landmark 81');
   assert.equal(data.travelos.nearby.pois[0].name,'Haeduri Chicken');
-  assert.match(data.text,/Tôi hiểu khu vực cần tìm/);
+  assert.match(data.text,/Tôi tìm được 1 địa điểm/);
 });
 
 test('AI v3 translates a China dish query and returns Vietnamese AMap notes', async () => {
@@ -1122,7 +1120,7 @@ test('AI v3 cleans casual remote-area wording and requests ten highest-rated pla
   assert.equal(calls[0].path,'/place/resolve');
   assert.equal(calls[0].body.query,'Emart PVT');
   assert.equal(calls[1].path,'/poi/nearby');
-  assert.equal(calls[1].body.query,'quán gà rán');
+  assert.equal(calls[1].body.query,'gà rán');
   assert.equal(calls[1].body.limit,10);
   assert.equal(calls[1].body.sortBy,'rating');
   assert.match(data.text,/⭐ 4\.9/);
@@ -1147,15 +1145,13 @@ test('AI v3 strips trailing ranking words from a remote China area and forces AM
   assert.equal(data.travelos.nearby.provider,'amap');
 });
 
-test('AI v3 gives Gemini the structured previous place list for follow-up questions', async () => {
+test('AI v3 gives Gemini only the structured previous place list for follow-up wording', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const originalFetch=globalThis.fetch,prompts=[];
   globalThis.fetch=async (url,init={})=>{
     assert.match(String(url),/generativelanguage\.googleapis\.com/);
     const payload=JSON.parse(String(init.body||'{}'));prompts.push(payload);
-    const text=prompts.length===1
-      ? JSON.stringify({goal:'compare previous list ratings',responseMode:'DIRECT',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]})
-      : 'Trong danh sách vừa rồi, Quán B có rating cao nhất: 4,9/5.';
+    const text='Trong danh sách vừa rồi, Quán B có rating cao nhất: 4,9/5.';
     return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try{
@@ -1166,10 +1162,8 @@ test('AI v3 gives Gemini the structured previous place list for follow-up questi
     const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Trong danh sách vừa rồi, chỗ nào rating cao nhất?',chatHistory:[],conversationContext:{nearby},userLocation:{country:'Trung Quốc',city:'Trùng Khánh'}})}),{GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
     assert.equal(response.status,200);
-    assert.equal(prompts.length,2);
-    const plannerText=prompts[0].contents.at(-1).parts[0].text,answerText=prompts[1].contents.at(-1).parts[0].text;
-    assert.match(plannerText,/PREVIOUS_TRAVEL_CONTEXT/);
-    assert.match(plannerText,/Quán B/);
+    assert.equal(prompts.length,1);
+    const answerText=prompts[0].contents.at(-1).parts[0].text;
     assert.match(answerText,/"rating":4\.9/);
     assert.match(data.text,/Quán B/);
   }finally{globalThis.fetch=originalFetch;}
@@ -1183,9 +1177,7 @@ test('AI v3 resolves a venue and distinguishes live BestTime busyness from forec
     const target=String(url);
     if(target.includes('generativelanguage.googleapis.com')) {
       geminiCalls++;
-      const text=geminiCalls===1
-        ? JSON.stringify({goal:'check live venue busyness',responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[{name:'resolve_place',query:'Cafe Test',placeName:'Cafe Test',language:'vi'},{name:'place_busyness',placeName:'Cafe Test',language:'vi'}]})
-        : 'Cafe Test hiện đang khá đông.';
+      const text='Cafe Test hiện đang khá đông.';
       return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
     }
     assert.match(target,/besttime\.app\/api\/v1\/forecasts\/live/);
@@ -1210,7 +1202,7 @@ test('AI v3 resolves a venue and distinguishes live BestTime busyness from forec
     const data=await response.json();
     assert.equal(response.status,200);
     assert.equal(bestTimeCalls,1);
-    assert.equal(geminiCalls,2);
+    assert.equal(geminiCalls,1);
     assert.equal(data.travelos.busyness.basis,'live');
     assert.equal(data.travelos.busyness.score,72);
     assert.equal(data.travelos.busyness.label,'khá đông');
@@ -1226,9 +1218,7 @@ test('AI v3 falls back to current-hour BestTime forecast when live busyness is u
     const target=String(url);
     if(target.includes('generativelanguage.googleapis.com')) {
       geminiCalls++;
-      const text=geminiCalls===1
-        ? JSON.stringify({goal:'forecast venue busyness',responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[{name:'place_busyness',placeName:'Cafe Test',address:'123 Test, TP.HCM',language:'vi'}]})
-        : 'Cafe Test thường khá đông vào giờ này.';
+      const text='Cafe Test thường khá đông vào giờ này.';
       return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
     }
     assert.equal(init.method,'POST');bestTimeCalls++;
@@ -1237,13 +1227,61 @@ test('AI v3 falls back to current-hour BestTime forecast when live busyness is u
     return new Response(JSON.stringify({status:'OK',analysis:{hour_analysis:{hour:19,intensity_nr:2,intensity_txt:'Above average'},hour_raw:68},venue_info:{venue_id:'ven-test',venue_name:'Cafe Test',venue_current_localtime_iso:'Thursday 07:20PM'}}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try {
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Giờ Cafe Test có đông không?',userLocation:{country:'Việt Nam',city:'TP.HCM'},chatHistory:[]})}),{GEMINI_API_KEY:'test',BESTTIME_PRIVATE_KEY:'besttime-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Giờ Cafe Test có đông không?',userLocation:{country:'Việt Nam',city:'TP.HCM'},chatHistory:[]})}),{GEMINI_API_KEY:'test',BESTTIME_PRIVATE_KEY:'besttime-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+      assert.equal(new URL(request.url).pathname,'/place/resolve');
+      return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',places:[{id:'cafe-test',name:'Cafe Test',address:'123 Test, TP.HCM',lat:10.77,lng:106.69,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }}});
     const data=await response.json();
-    assert.equal(response.status,200);assert.equal(geminiCalls,2);assert.equal(bestTimeCalls,2);
+    assert.equal(response.status,200);assert.equal(geminiCalls,1);assert.equal(bestTimeCalls,2);
     assert.equal(data.travelos.busyness.basis,'forecast');
     assert.equal(data.travelos.busyness.score,68);
-    assert.equal(data.travelos.sources[0].source,'besttime-forecast');
+    assert.equal(data.travelos.sources.find(source=>source.tool==='place_busyness').source,'besttime-forecast');
   } finally {globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 has no Gemini planner and retries nearby radii in backend code', async () => {
+  const source=await readFile(new URL('../worker/src/index.js',import.meta.url),'utf8');
+  assert.doesNotMatch(source,/V3_PLANNER_PROMPT|V3_PLANNER_SCHEMA/);
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const radii=[];
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'tìm tạp hóa xung quanh',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551,source:'gps'}})}),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();radii.push(body.radius);
+    const pois=body.radius===10000?[{id:'store',name:'罗森便利店',address:'渝中区',lat:29.564,lng:106.552,distance:140,provider:'amap',coordSystem:'gcj02',country:'Trung Quốc'}]:[];
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,query:{keyword:body.keyword,category:body.category,radius:body.radius},pois}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}});
+  const data=await response.json();
+  assert.deepEqual(radii,[3000,5000,10000]);
+  assert.deepEqual(data.travelos.nearby.attemptedRadii,[3000,5000,10000]);
+  assert.equal(data.travelos.nearby.pois[0].name,'罗森便利店');
+});
+
+test('AI v3 preserves empty API evidence and expands the same backend search', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const initialRadii=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();initialRadii.push(body.radius);
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,query:{keyword:body.keyword,category:body.category,radius:body.radius},pois:[]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const first=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'tìm tạp hóa xung quanh',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551,source:'gps'}})}),env);
+  const firstData=await first.json();
+  assert.deepEqual(initialRadii,[3000,5000,10000]);
+  assert.equal(firstData.travelos.nearby.pois.length,0);
+  assert.match(firstData.text,/API bản đồ chưa trả kết quả/);
+  assert.doesNotMatch(firstData.text,/không có cửa hàng|chắc chắn không có/i);
+
+  initialRadii.length=0;
+  const second=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'mở rộng phạm vi tìm kiếm',conversationContext:{nearby:firstData.travelos.nearby},userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551,source:'gps'}})}),env);
+  const secondData=await second.json();
+  assert.deepEqual(initialRadii,[15000]);
+  assert.equal(secondData.travelos.plan.tools[0].category,'grocery_store');
+  assert.equal(secondData.travelos.plan.tools[0].radius,15000);
+});
+
+test('Browser stores empty nearby context but only renders maps with POIs', async () => {
+  const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
+  assert.match(source,/if \(!payload \|\| !Array\.isArray\(payload\.pois\)\) return null/);
+  assert.match(source,/nearby\?\.pois\?\.length && window\.TravelNearby\?\.render/g);
+  assert.match(source,/attemptedRadii/);
 });
 
 test('AMap walking retries without a mismatched POI ID so the path reaches the requested marker', async () => {
