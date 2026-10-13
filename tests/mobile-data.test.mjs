@@ -69,7 +69,8 @@ test('native startup defers bot health and external reverse geocoding', async ()
     readFile(new URL('../app.js', import.meta.url), 'utf8')
   ]);
   assert.match(chatSource, /if \(window\.TRAVELOS_NATIVE\) return \{ ok:true, deferred:true \}/);
-  assert.match(appSource, /if \(window\.TRAVELOS_NATIVE\)[\s\S]*inferNativeLocation\(position\)/);
+  assert.match(appSource, /const inferred = inferNativeLocation\(position\)[\s\S]*if \(window\.TRAVELOS_NATIVE\)/);
+  assert.match(appSource, /if \(inferred\)[\s\S]*applyDetectedLocation\(inferred\)/);
 });
 
 test('native chat controls clear the Android navigation bar', async () => {

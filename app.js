@@ -10,10 +10,13 @@ let wakeLock = null;
 let bootStarted = false;
 const GPS_JITTER_FLOOR_KM = 0.02;
 const GPS_LARGE_JUMP_KM = 0.5;
+const GPS_RELOCATION_CONFIRMATIONS = 2;
 let pendingMotionFix = null;
 let progressiveMotionSamples = 0;
 let appGpsWatchId = null;
 let appGpsRetryTimer = null;
+let appGpsConfirmationTimer = null;
+let pendingGeoDetectPos = null;
 
 function setLoadingStatus(message, isError = false) {
     const node = document.getElementById('loading-status');
@@ -159,8 +162,24 @@ function shouldAttachGpsFix(next) {
         return false;
     }
 
-    // Đổi Sensor/thành phố là một bước nhảy rõ ràng, không cần chờ thêm mẫu GPS.
+    // Một bước nhảy lớn có thể là Sensor vừa đổi, nhưng cũng có thể là một fix lỗi.
+    // Chỉ thay anchor sau khi app nhận thêm một mẫu xác nhận gần cùng vị trí mới.
     if (movedKm >= Math.max(GPS_LARGE_JUMP_KM, accuracyKm * 5)) {
+        const candidateDistance = pendingMotionFix
+            ? distanceBetweenCoords(pendingMotionFix.lat, pendingMotionFix.lon, next.lat, next.lon)
+            : Infinity;
+        const confirmationRadiusKm = Math.max(0.1, jitterKm * 2);
+
+        if (!pendingMotionFix || candidateDistance > confirmationRadiusKm) {
+            pendingMotionFix = next;
+            progressiveMotionSamples = 1;
+            return false;
+        }
+
+        pendingMotionFix = next;
+        progressiveMotionSamples += 1;
+        if (progressiveMotionSamples < GPS_RELOCATION_CONFIRMATIONS) return false;
+
         resetPendingMotion();
         return true;
     }
@@ -189,9 +208,22 @@ function shouldAttachGpsFix(next) {
 }
 
 function attachGpsFix(next) {
+    clearTimeout(appGpsConfirmationTimer);
+    appGpsConfirmationTimer = null;
     lastPos = next;
     userPos = next;
     window.userPos = next;
+    const oldAnchor = window.travelosLocationAnchor;
+    const sameAnchor = oldAnchor && distanceBetweenCoords(
+        oldAnchor.latitude, oldAnchor.longitude, next.lat, next.lon
+    ) <= 0.25;
+    window.travelosLocationAnchor = {
+        latitude: next.lat,
+        longitude: next.lon,
+        country: sameAnchor ? oldAnchor.country : '',
+        city: sameAnchor ? oldAnchor.city : '',
+        area: sameAnchor ? oldAnchor.area : ''
+    };
     updateGpsDisplay();
     checkRadarStatus();
     applyFilters();
@@ -344,6 +376,15 @@ function applyDetectedLocation(data) {
         matchedCountry: detectedCountry || '',
         matchedCity: detectedCity || ''
     };
+    if (userPos) {
+        window.travelosLocationAnchor = {
+            latitude: userPos.lat,
+            longitude: userPos.lon,
+            country: detectedCountry || canonicalDetectedCountry(data),
+            city: detectedCity || canonicalDetectedCity(data),
+            area: ''
+        };
+    }
     pendingDetectedLocation = null;
 
     updateGpsDisplay();
@@ -385,7 +426,10 @@ function inferNativeLocation(position) {
 }
 
 async function maybeDetectGpsLocation(position) {
-    if (geoRequestInFlight) return;
+    if (geoRequestInFlight) {
+        pendingGeoDetectPos = position;
+        return;
+    }
 
     if (lastGeocodedPos) {
         const movedKm = distanceBetweenCoords(position.lat, position.lon, lastGeocodedPos.lat, lastGeocodedPos.lon);
@@ -399,13 +443,16 @@ async function maybeDetectGpsLocation(position) {
         return;
     }
 
-    if (window.TRAVELOS_NATIVE) {
-        const inferred = inferNativeLocation(position);
+    const inferred = inferNativeLocation(position);
+    if (inferred) {
         lastGeocodedPos = { lat:position.lat, lon:position.lon };
-        if (inferred) {
-            saveGeoCache(position, inferred);
-            applyDetectedLocation(inferred);
-        }
+        saveGeoCache(position, inferred);
+        applyDetectedLocation(inferred);
+        return;
+    }
+
+    if (window.TRAVELOS_NATIVE) {
+        lastGeocodedPos = { lat:position.lat, lon:position.lon };
         return;
     }
 
@@ -430,6 +477,10 @@ async function maybeDetectGpsLocation(position) {
             localityInfo: raw.localityInfo || null
         };
 
+        const currentStillMatches = userPos &&
+            distanceBetweenCoords(userPos.lat, userPos.lon, position.lat, position.lon) <= 0.25;
+        if (!currentStillMatches) return;
+
         lastGeocodedPos = { lat: position.lat, lon: position.lon };
         saveGeoCache(position, data);
         applyDetectedLocation(data);
@@ -437,6 +488,11 @@ async function maybeDetectGpsLocation(position) {
         console.warn('Không xác định được Country/City từ GPS:', error);
     } finally {
         geoRequestInFlight = false;
+        const queued = pendingGeoDetectPos;
+        pendingGeoDetectPos = null;
+        if (queued && (!lastGeocodedPos || distanceBetweenCoords(
+            queued.lat, queued.lon, lastGeocodedPos.lat, lastGeocodedPos.lon
+        ) >= GEO_RECHECK_DISTANCE_KM)) maybeDetectGpsLocation(queued);
     }
 }
 
@@ -1007,7 +1063,23 @@ function handleAppGpsPosition(pos) {
     };
 
     if (!Number.isFinite(newPos.lat) || !Number.isFinite(newPos.lon)) return;
-    if (shouldAttachGpsFix(newPos)) attachGpsFix(newPos);
+    if (shouldAttachGpsFix(newPos)) {
+        attachGpsFix(newPos);
+        return;
+    }
+
+    // Chrome DevTools Sensor đôi khi chỉ phát một event khi đổi thành phố.
+    // Xin thêm một fix ở tầng app để xác nhận relocation; chat không tự gọi GPS.
+    if (pendingMotionFix && progressiveMotionSamples === 1 && !appGpsConfirmationTimer) {
+        appGpsConfirmationTimer = setTimeout(() => {
+            appGpsConfirmationTimer = null;
+            navigator.geolocation.getCurrentPosition(handleAppGpsPosition, () => {}, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+            });
+        }, 400);
+    }
 }
 
 function handleAppGpsError(error) {

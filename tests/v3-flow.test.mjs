@@ -596,7 +596,7 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261012-5/);
+  assert.match(index,/chat\.js\?v=20261013-2/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
@@ -612,11 +612,34 @@ test('Current-location chat uses the GPS position already attached to the app', 
   assert.match(app,/navigator\.geolocation\.watchPosition/);
   assert.match(app,/shouldAttachGpsFix\(newPos\)/);
   assert.match(app,/progressiveMotionSamples/);
-  assert.match(app,/movedKm >= Math\.max\(GPS_LARGE_JUMP_KM/);
-  assert.match(app,/if \(shouldAttachGpsFix\(newPos\)\) attachGpsFix\(newPos\)/);
+  assert.match(app,/GPS_RELOCATION_CONFIRMATIONS/);
+  assert.match(app,/getCurrentPosition\(handleAppGpsPosition/);
+  assert.match(app,/if \(shouldAttachGpsFix\(newPos\)\)/);
   assert.match(app,/function startAppGpsWatch\(\)/);
   assert.match(app,/setTimeout\(startAppGpsWatch, 3000\)/);
+  assert.match(chat,/locationMismatch/);
+  assert.match(chat,/window\.travelosLocationAnchor/);
   assert.doesNotMatch(chat,/getCurrentPosition/);
+});
+
+test('AI v3 rejects a China label mixed with stale Vietnam GPS for nearby search', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{
+    method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+    body:JSON.stringify({
+      userMessage:'quanh đây có cửa hàng tiện lợi nào không',
+      userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:10.798,longitude:106.689,source:'app-gps'}
+    })
+  }),{
+    ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',
+    MAP_WORKER:{fetch:async()=>{mapCalls++;return new Response('{}',{status:500});}}
+  });
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(data.error.code,'LOCATION_SYNCING');
+  assert.match(data.text,/chưa trùng nhau/);
+  assert.equal(mapCalls,0);
 });
 
 test('AI v3 switches Gemini models when the primary model is overloaded', async () => {
@@ -693,7 +716,7 @@ test('App keeps onboarding visible until places and bot readiness settle', async
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động TravelOS/);
-  assert.match(index,/app\.js\?v=20261013-1/);
+  assert.match(index,/app\.js\?v=20261013-2/);
   assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });
 

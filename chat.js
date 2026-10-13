@@ -52,26 +52,65 @@ function isChinaGpsPoint(value) {
     return inside || (lat >= 18 && lat <= 20.6 && lng >= 108.5 && lng <= 111.5);
 }
 
+function isChongqingGpsPoint(value) {
+    const lat = Number(value?.lat ?? value?.latitude);
+    const lng = Number(value?.lng ?? value?.lon ?? value?.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) &&
+        lat >= 28.0 && lat <= 32.3 && lng >= 105.2 && lng <= 110.3;
+}
+
+function sameGpsAnchor(position, anchor) {
+    const lat1 = Number(position?.lat ?? position?.latitude);
+    const lng1 = Number(position?.lng ?? position?.lon ?? position?.longitude);
+    const lat2 = Number(anchor?.latitude);
+    const lng2 = Number(anchor?.longitude);
+    if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return false;
+    const dy = (lat1 - lat2) * 111;
+    const dx = (lng1 - lng2) * 111 * Math.cos(lat1 * Math.PI / 180);
+    return Math.hypot(dx, dy) <= 0.25;
+}
+
 function getStructuredUserLocation() {
-    let country = document.getElementById('selectCountry')?.value || '';
-    const city = document.getElementById('selectCity')?.value || '';
-    const area = document.getElementById('selectArea')?.value || '';
+    const selectedCountry = document.getElementById('selectCountry')?.value || '';
+    const selectedCity = document.getElementById('selectCity')?.value || '';
+    const selectedArea = document.getElementById('selectArea')?.value || '';
     const currentPos = window.userPos || null;
+    const anchor = window.travelosLocationAnchor || null;
     const lat = Number(currentPos?.lat);
     const lon = Number(currentPos?.lon ?? currentPos?.lng);
     const accuracy = Number(currentPos?.accuracy);
     const gpsTimestamp = Number(currentPos?.timestamp);
-    if (isChinaGpsPoint(currentPos)) country = 'Trung Quốc';
+    const hasGps = Number.isFinite(lat) && Number.isFinite(lon);
+    const anchorMatches = hasGps && sameGpsAnchor(currentPos, anchor);
+    const chinaGps = hasGps && isChinaGpsPoint(currentPos);
+    const chongqingGps = chinaGps && isChongqingGpsPoint(currentPos);
+    let country = anchorMatches && anchor.country ? anchor.country : selectedCountry;
+    let city = anchorMatches && anchor.city ? anchor.city : selectedCity;
+    let area = anchorMatches && anchor.area ? anchor.area : selectedArea;
+    let locationMismatch = false;
+
+    if (chinaGps) {
+        country = 'Trung Quốc';
+        if (chongqingGps) city = 'Trùng Khánh';
+        if (selectedCountry && selectedCountry !== 'Trung Quốc') area = '';
+    } else if (hasGps && selectedCountry === 'Trung Quốc' &&
+        (!anchorMatches || anchor.country !== 'Trung Quốc')) {
+        // Không được ghép nhãn Trung Quốc với tọa độ GPS cũ ở Việt Nam.
+        locationMismatch = true;
+    }
 
     return {
         country,
         city,
         area,
-        latitude: Number.isFinite(lat) ? lat : null,
-        longitude: Number.isFinite(lon) ? lon : null,
+        latitude: hasGps ? lat : null,
+        longitude: hasGps ? lon : null,
         accuracy: Number.isFinite(accuracy) ? accuracy : null,
         gpsTimestamp: Number.isFinite(gpsTimestamp) ? gpsTimestamp : null,
-        source: Number.isFinite(lat) && Number.isFinite(lon) ? 'gps' : 'selector'
+        source: hasGps ? 'app-gps' : 'selector',
+        locationMismatch,
+        selectedCountry,
+        selectedCity
     };
 }
 

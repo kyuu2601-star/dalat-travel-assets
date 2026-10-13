@@ -863,8 +863,13 @@ function normalizeUserLocation(raw, khuVuc) {
     longitude: num(raw.longitude),
     accuracy: num(raw.accuracy),
     gpsTimestamp: num(raw.gpsTimestamp),
-    source: clean(raw.source, 40) || 'selector'
+    source: clean(raw.source, 40) || 'selector',
+    locationMismatch: raw.locationMismatch === true,
+    selectedCountry: clean(raw.selectedCountry,120),
+    selectedCity: clean(raw.selectedCity,120)
   };
+  if(Number.isFinite(location.latitude)&&Number.isFinite(location.longitude)&&
+    isChinaCountryValue(location.country)&&!isChinaCoordinate(location)) location.locationMismatch=true;
   if(isChinaTravelContext(location,khuVuc))location.country='Trung Quốc';
   return location;
 }
@@ -2640,6 +2645,12 @@ async function handleAiV3(request, env) {
   const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
   const currentNearbyIntent=liveNearbyIntent(userMessage);
   const explicitRemoteIntent=remoteAreaSearchIntent(userMessage);
+  if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent&&location.locationMismatch){
+    return json({
+      text:'Vị trí trong app đang đồng bộ: nhãn khu vực và tọa độ GPS chưa trùng nhau. Tôi chưa tìm “quanh đây” để tránh trả địa điểm sai. Bạn chờ vài giây để GPS cập nhật rồi gửi lại nhé.',
+      error:{code:'LOCATION_SYNCING'},travelos:{version:3,nearbyError:{code:'LOCATION_SYNCING',message:'App location label and GPS coordinates do not match.'}}
+    },200,request,env);
+  }
   if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent&&!hasGps(location)){
     return json({
       text:'Tôi chưa lấy được GPS hiện tại nên chưa thể tìm địa điểm “quanh đây”. Bạn bật quyền Vị trí hoặc kiểm tra Sensor rồi gửi lại câu hỏi nhé.',
