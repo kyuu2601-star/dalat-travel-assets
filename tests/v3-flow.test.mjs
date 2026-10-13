@@ -596,7 +596,7 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261013-2/);
+  assert.match(index,/chat\.js\?v=20261013-3/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
