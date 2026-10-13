@@ -12,6 +12,8 @@ const GPS_JITTER_FLOOR_KM = 0.02;
 const GPS_LARGE_JUMP_KM = 0.5;
 let pendingMotionFix = null;
 let progressiveMotionSamples = 0;
+let appGpsWatchId = null;
+let appGpsRetryTimer = null;
 
 function setLoadingStatus(message, isError = false) {
     const node = document.getElementById('loading-status');
@@ -996,7 +998,7 @@ window.addEventListener('travelos:data-updated', event => {
     checkRadarStatus();
 });
 
-navigator.geolocation.watchPosition(pos => {
+function handleAppGpsPosition(pos) {
     const newPos = {
         lat: pos.coords.latitude,
         lon: pos.coords.longitude,
@@ -1006,13 +1008,33 @@ navigator.geolocation.watchPosition(pos => {
 
     if (!Number.isFinite(newPos.lat) || !Number.isFinite(newPos.lon)) return;
     if (shouldAttachGpsFix(newPos)) attachGpsFix(newPos);
-}, () => {
+}
+
+function handleAppGpsError(error) {
     const gpsNode = document.getElementById('gps-coords');
     if (gpsNode) gpsNode.textContent = 'GPS chưa bật';
-}, {
-    enableHighAccuracy: true,
-    maximumAge: 3000,
-    timeout: 15000
+    if (appGpsWatchId !== null) navigator.geolocation.clearWatch?.(appGpsWatchId);
+    appGpsWatchId = null;
+    clearTimeout(appGpsRetryTimer);
+    // Permission denied phải chờ user tự bật lại. Các lỗi tạm thời (đặc biệt
+    // khi DevTools Sensor vừa đổi) được nối lại ở tầng app, không phải chat.
+    if (Number(error?.code) !== 1) appGpsRetryTimer = setTimeout(startAppGpsWatch, 3000);
+}
+
+function startAppGpsWatch() {
+    if (!navigator.geolocation || appGpsWatchId !== null) return;
+    clearTimeout(appGpsRetryTimer);
+    appGpsRetryTimer = null;
+    appGpsWatchId = navigator.geolocation.watchPosition(handleAppGpsPosition, handleAppGpsError, {
+        enableHighAccuracy: true,
+        maximumAge: 3000,
+        timeout: 15000
+    });
+}
+
+startAppGpsWatch();
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && appGpsWatchId === null) startAppGpsWatch();
 });
 
 document.addEventListener('click', () => requestWakeLock(), { once: true });

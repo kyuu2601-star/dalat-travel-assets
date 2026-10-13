@@ -1284,7 +1284,15 @@ const LIVE_NEARBY_RULES = [
   { category:'parking', keyword:'bãi đỗ xe', aliases:['bai do xe','bai dau xe','bai xe','gui xe','dau xe','parking'], requireNearby:true },
   { category:'hotel', keyword:'khách sạn', aliases:['khach san','hotel','homestay','resort','villa'], requireNearby:true },
   { category:'restaurant', keyword:'quán ăn', aliases:['quan an','tiem an','restaurant','cho an'], requireNearby:true, curatedFirst:true },
-  { category:'cafe', keyword:'cafe', aliases:['cafe','ca phe','quan cf','tiem cf','coffee'], requireNearby:true, curatedFirst:true }
+  { category:'cafe', keyword:'cafe', aliases:['cafe','ca phe','quan cf','tiem cf','coffee'], requireNearby:true, curatedFirst:true },
+  { category:'tourist_attraction', keyword:'điểm tham quan', aliases:['diem tham quan','diem vui choi','dia diem du lich','gi choi','tham quan','check in','checkin','danh lam'], requireNearby:true },
+  { category:'park', keyword:'công viên', aliases:['cong vien','vuon hoa','park'], requireNearby:true },
+  { category:'museum', keyword:'bảo tàng', aliases:['bao tang','museum'], requireNearby:true },
+  { category:'shopping_mall', keyword:'trung tâm thương mại', aliases:['trung tam thuong mai','tttm','mall','mua sam'], requireNearby:true },
+  { category:'subway_station', keyword:'ga metro', aliases:['ga metro','ga tau dien','tau dien ngam','subway station'], requireNearby:true },
+  { category:'bus_stop', keyword:'trạm xe buýt', aliases:['tram xe buyt','ben xe buyt','bus stop','bus station'], requireNearby:true },
+  { category:'public_restroom', keyword:'nhà vệ sinh', aliases:['nha ve sinh','toilet','wc','public bathroom'], requireNearby:true },
+  { category:'bar', keyword:'quán bar', aliases:['quan bar','quan ruou','bar','pub','nightlife'], requireNearby:true }
 ];
 
 const LIVE_CATEGORY_KEYWORDS = Object.fromEntries(LIVE_NEARBY_RULES.map(rule => [rule.category, rule.keyword]));
@@ -1602,6 +1610,11 @@ function requestedPlaceLimit(value) {
 
 function remoteAreaSearchIntent(userMessage) {
   const text=clean(userMessage,1000).replace(/[?!.]+$/,'').trim();
+  const leading=text.match(/^(?:ở|tại)\s+(.+?)\s+((?:có|tìm|kiếm|cho\s+(?:tôi|tui|mình))\s+.+)$/i);
+  if(leading){
+    const area=clean(leading[1],300),query=clean(leading[2],300).replace(/^(?:có|tìm|kiếm|cho\s+(?:tôi|tui|mình))\s+/i,'').replace(/\s+nào$/i,'').trim();
+    if(area&&query)return{query,area,radius:3000,limit:requestedPlaceLimit(text),sortBy:wantsRatingRanking(text)?'rating':'distance'};
+  }
   const patterns=[/\s+(?:quanh|xung quanh)\s+(.+)$/i,/\s+(?:gần)\s+(.+)$/i,/\s+(?:ở|tại)\s+(?:khu vực|khu|quận|huyện|phường)?\s*(.+)$/i];
   for(const pattern of patterns){
     const match=text.match(pattern);if(!match||match.index==null)continue;
@@ -1811,7 +1824,7 @@ const TRAVEL_INTENT_PROFILES = {
 function detectTravelIntent(userMessage, previousContext = null) {
   const text=fold(userMessage),hasPreviousPlace=Boolean(previousContext?.placeDetails||previousContext?.nearby?.pois?.length);
   const asksToFind=/\b(?:tim|kiem|gan toi|quanh|xung quanh|o dau|cho nao|quan nao|tiem nao|co (?:quan|tiem|cho|nha hang))\b/.test(text);
-  const namesPlaceType=/\b(?:nha thuoc|hieu thuoc|benh vien|phong kham|atm|cua hang tien loi|chtl|sieu thi|tap hoa|nha hang|quan|tiem|quan an|cafe|ca phe|khach san)\b/.test(text);
+  const namesPlaceType=/\b(?:nha thuoc|hieu thuoc|benh vien|phong kham|atm|cua hang tien loi|chtl|sieu thi|tap hoa|nha hang|quan|tiem|quan an|cafe|ca phe|khach san|diem tham quan|diem vui choi|gi choi|cong vien|bao tang|trung tam thuong mai|tttm|ga metro|ga tau dien|tram xe buyt|nha ve sinh|toilet|quan bar)\b/.test(text);
   if(asksToFind&&namesPlaceType)return'PLACE_DISCOVERY';
   const rules=[
     ['WEATHER_OUTDOOR',/\b(?:thoi tiet|troi|mua|nang|nong|lanh|nhiet do|du bao|ao mua|o du|gio manh|di choi.*(?:duoc|tien|on)|outdoor)\b/],
@@ -1820,7 +1833,7 @@ function detectTravelIntent(userMessage, previousContext = null) {
     ['SAFETY_HEALTH',/\b(?:an toan|nguy hiem|canh bao|lua dao|moc tui|cap cuu|benh vien|phong kham|nha thuoc|thuoc|dau bung|sot|bi thuong|canh sat|cong an)\b/],
     ['VENUE_INTELLIGENCE',/\b(?:rating|review|danh gia|mo cua|dong cua|dang mo|may gio|dong khong|dong duc|so dien thoai|website|dat ban|tien ich)\b/],
     ['TRAVEL_UTILITY',/\b(?:atm|rut tien|doi tien|ty gia|sim|esim|wifi|wi fi|internet|cua hang tien loi|chtl|sieu thi|tap hoa|gui do|hanh ly|ve|hotline|lien he)\b/],
-    ['PLACE_DISCOVERY',/\b(?:tim|kiem|gan toi|quanh toi|quanh day|xung quanh|o dau|cho nao|quan nao|tiem nao|nha hang|quan an|cafe|ca phe|khach san|diem choi|check in|mua o dau)\b/]
+    ['PLACE_DISCOVERY',/\b(?:tim|kiem|gan toi|quanh toi|quanh day|xung quanh|o dau|cho nao|quan nao|tiem nao|nha hang|quan an|cafe|ca phe|khach san|diem choi|diem tham quan|diem vui choi|gi choi|tham quan|check in|cong vien|bao tang|trung tam thuong mai|tttm|nha ve sinh|toilet|mua o dau)\b/]
   ];
   for(const [id,pattern] of rules)if(pattern.test(text)){
     if(id==='VENUE_INTELLIGENCE'&&!hasPreviousPlace&&/\b(?:quan nao|tiem nao|cho nao)\b/.test(text))return'PLACE_DISCOVERY';
@@ -2121,6 +2134,14 @@ function isFoodPlaceSearch(query, category='') {
 function inferredPlaceCategory(query) {
   const q=` ${fold(query)} `;
   if([' ca phe ',' cafe ',' coffee ',' tra sua '].some(term=>q.includes(term)))return'cafe';
+  if([' diem tham quan ',' diem vui choi ',' dia diem du lich ',' gi choi ',' tham quan ',' check in ',' checkin ',' danh lam '].some(term=>q.includes(term)))return'tourist_attraction';
+  if([' cong vien ',' vuon hoa ',' park '].some(term=>q.includes(term)))return'park';
+  if([' bao tang ',' museum '].some(term=>q.includes(term)))return'museum';
+  if([' trung tam thuong mai ',' tttm ',' mall ',' mua sam '].some(term=>q.includes(term)))return'shopping_mall';
+  if([' ga metro ',' ga tau dien ',' tau dien ngam ',' subway station '].some(term=>q.includes(term)))return'subway_station';
+  if([' tram xe buyt ',' ben xe buyt ',' bus stop ',' bus station '].some(term=>q.includes(term)))return'bus_stop';
+  if([' nha ve sinh ',' toilet ',' wc ',' public bathroom '].some(term=>q.includes(term)))return'public_restroom';
+  if([' quan bar ',' quan ruou ',' bar ',' pub ',' nightlife '].some(term=>q.includes(term)))return'bar';
   return isFoodPlaceSearch(query)?'restaurant':'';
 }
 
@@ -2515,13 +2536,19 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
     try {
       if(args.name==='search_places') {
         const resolvedCenter=coordFrom(state.lastPlace),center=coordFrom(args)||resolvedCenter||gps;
-        const china=isChinaTravelContext({...location,latitude:center?.lat,longitude:center?.lng,country:state.lastPlace?.country||location.country},userMessage,args.query,args.placeName,args.address,state.lastPlace?.city);
+        let searchCenter=center;
+        if(!searchCenter&&!isNearbyIntent(userMessage)&&(location.area||location.city)){
+          const selectedQuery=[location.area,location.city].filter(Boolean).join(', '),selectedChina=isChinaTravelContext(location,userMessage,selectedQuery);
+          const selected=await mapTool('/place/resolve',{...chinaProviderFields(selectedChina),query:selectedQuery,center:null,country:selectedChina?'Trung Quốc':location.country,language:selectedChina?'zh':'vi',limit:3,resolveMode:'geocode'},env);
+          if(selected.ok)searchCenter=coordFrom(selected.data?.places?.[0]);
+        }
+        const china=isChinaTravelContext({...location,latitude:searchCenter?.lat,longitude:searchCenter?.lng,country:state.lastPlace?.country||location.country},userMessage,args.query,args.placeName,args.address,state.lastPlace?.city);
         const searchCountry=china?'Trung Quốc':clean(state.lastPlace?.country||location.country,120);
-        if(!center) result={ok:false,error:'GPS_REQUIRED'};
+        if(!searchCenter) result={ok:false,error:'GPS_REQUIRED'};
         else {
           const resultLimit=requestedPlaceLimit(userMessage),sortBy=wantsRatingRanking(userMessage)?'rating':'distance';
           const originalQuery=args.query||args.placeName||args.category,searchPlan=await semanticPlaceSearch(originalQuery,searchCountry,args.category,env);
-          result=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...center,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category:args.category,radius:args.radius,limit:resultLimit,candidateLimit:Math.max(20,resultLimit*4),sortBy,language:nearbyLanguage({country:searchCountry})},env);
+          result=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category:args.category,radius:args.radius,limit:resultLimit,candidateLimit:Math.max(20,resultLimit*4),sortBy,language:nearbyLanguage({country:searchCountry})},env);
           if(result.ok){
             const pois=result.data?.pois||[];
             result={...result,data:{...result.data,pois:isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};

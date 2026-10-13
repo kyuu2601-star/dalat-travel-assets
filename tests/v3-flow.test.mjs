@@ -179,6 +179,20 @@ test('Map Worker replaces a Vietnamese pharmacy category with the native AMap ke
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker maps nearby sightseeing intent to a native AMap attraction search', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='';
+  globalThis.fetch=async url=>{requestedUrl=String(url);return new Response(JSON.stringify({status:'1',info:'OK',count:'1',pois:[{id:'cq-attraction',name:'马鞍山堂里',address:'渝中区',location:'106.552,29.563',type:'风景名胜;旅游景点',cityname:'重庆市',adname:'渝中区',business:{rating:'4.5'}}]}),{status:200,headers:{'Content-Type':'application/json'}});};
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',query:'điểm tham quan',keyword:'điểm tham quan',category:'tourist_attraction',radius:5000,limit:10})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),url=new URL(requestedUrl);
+    assert.equal(response.status,200);
+    assert.equal(url.searchParams.get('keywords'),'旅游景点');
+    assert.doesNotMatch(url.searchParams.get('keywords'),/tham quan/i);
+    assert.equal(data.pois[0].name,'马鞍山堂里');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker hard-locks Chongqing GPS to AMap even with a stale Google/Vietnam hint', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='';
@@ -600,6 +614,9 @@ test('Current-location chat uses the GPS position already attached to the app', 
   assert.match(app,/progressiveMotionSamples/);
   assert.match(app,/movedKm >= Math\.max\(GPS_LARGE_JUMP_KM/);
   assert.match(app,/if \(shouldAttachGpsFix\(newPos\)\) attachGpsFix\(newPos\)/);
+  assert.match(app,/function startAppGpsWatch\(\)/);
+  assert.match(app,/setTimeout\(startAppGpsWatch, 3000\)/);
+  assert.doesNotMatch(chat,/getCurrentPosition/);
 });
 
 test('AI v3 switches Gemini models when the primary model is overloaded', async () => {
@@ -676,7 +693,7 @@ test('App keeps onboarding visible until places and bot readiness settle', async
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động TravelOS/);
-  assert.match(index,/app\.js\?v=20261012-3/);
+  assert.match(index,/app\.js\?v=20261013-1/);
   assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });
 
@@ -894,6 +911,49 @@ test('AI v3 understands CHTL and deterministically searches nearest convenience 
   assert.equal(data.travelos.plan.tools[0].category,'convenience_store');
   assert.equal(data.travelos.nearby.pois[0].name,'GS25');
   assert.match(data.text,/GS25/);
+});
+
+test('AI v3 understands generic nearby sightseeing in Chongqing without relying on Gemini', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    mapCalls++;
+    assert.equal(new URL(request.url).pathname,'/poi/nearby');
+    const body=await request.json();
+    assert.equal(body.provider,'amap');
+    assert.equal(body.query,'điểm tham quan');
+    assert.equal(body.category,'tourist_attraction');
+    assert.equal(body.center.lat,29.563);
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'cq-view',name:'马鞍山堂里',address:'渝中区',lat:29.5631,lng:106.552,distance:58,provider:'amap',coordSystem:'gcj02',country:'Trung Quốc',city:'重庆市',district:'渝中区'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Có gì chơi quanh đây?',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551,source:'gps'},chatHistory:[]})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(mapCalls,1);
+  assert.equal(data.travelos.plan.tools[0].category,'tourist_attraction');
+  assert.equal(data.travelos.nearby.pois[0].name,'马鞍山堂里');
+  assert.match(data.text,/马鞍山堂里/);
+});
+
+test('AI v3 treats a leading Chongqing location as a remote AMap search area', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const paths=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();paths.push(path);
+    assert.equal(body.provider,'amap');
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',provider:'amap',places:[{id:'cq',name:'重庆',lat:29.563,lng:106.551,country:'Trung Quốc',provider:'amap',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    assert.equal(path,'/poi/nearby');
+    assert.equal(body.category,'tourist_attraction');
+    assert.equal(body.center.lat,29.563);
+    assert.notEqual(body.center.lat,10.77);
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'cq-view',name:'马鞍山堂里',address:'渝中区',lat:29.5631,lng:106.552,distance:58,provider:'amap',coordSystem:'gcj02',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Ở Trùng Khánh có gì chơi?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69,source:'gps'},chatHistory:[]})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.deepEqual(paths,['/place/resolve','/poi/nearby']);
+  assert.equal(data.travelos.remoteSearch.requestedArea,'Trùng Khánh');
+  assert.equal(data.travelos.nearby.pois[0].name,'马鞍山堂里');
 });
 
 test('AI v3 never turns a missing fresh GPS fix into an empty nearby result', async () => {
@@ -1231,7 +1291,7 @@ test('AMap walking never falls back outside Route 2.0', async () => {
   }finally{globalThis.fetch=originalFetch;}
 });
 
-test('AMap provider paints directly in 2D without waiting for a 3D timeout', async () => {
+test('AMap provider restores 3D buildings and pitch for China navigation', async () => {
   const source=await readFile(new URL('../china-navigation/amap-provider.js',import.meta.url),'utf8');
   const instances=[];
   const container={clears:0,replaceChildren(){this.clears++;},querySelector(){return null;}};
@@ -1246,8 +1306,10 @@ test('AMap provider paints directly in 2D without waiting for a 3D timeout', asy
   vm.runInNewContext(source,context);
   const map=await context.window.AMapProvider.createMap('tn-map',{lat:29.55,lng:106.57,coordSystem:'gcj02',country:'China'});
   assert.equal(instances.length,1);
-  assert.equal(instances[0].options.viewMode,'2D');
-  assert.equal(instances[0].options.pitchEnable,false);
-  assert.equal(map.__travelosFallback2D,true);
+  assert.equal(instances[0].options.viewMode,'3D');
+  assert.equal(instances[0].options.pitch,45);
+  assert.equal(instances[0].options.pitchEnable,true);
+  assert.equal(instances[0].options.showBuildingBlock,true);
+  assert.equal(map.__travelosFallback2D,false);
   assert.equal(container.clears,1);
 });

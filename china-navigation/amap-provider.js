@@ -136,17 +136,26 @@
     const node = mapContainer(container);
     if (!node) throw new Error('Không tìm thấy vùng hiển thị AMap.');
     node.replaceChildren();
-    const map = new AMap.Map(node, {
+    const baseOptions = {
       zoom:16,
       center:c ? [c.lng, c.lat] : undefined,
-      viewMode:'2D',
-      pitch:0,
+      viewMode:'3D',
+      pitch:45,
       rotation:0,
-      showBuildingBlock:false,
-      pitchEnable:false,
+      showBuildingBlock:true,
+      pitchEnable:true,
       resizeEnable:true
-    });
-    map.__travelosFallback2D = true;
+    };
+    let map;
+    try {
+      map = new AMap.Map(node, baseOptions);
+      map.__travelosFallback2D = false;
+    } catch (error) {
+      console.warn('[AMapProvider 3D fallback]', error);
+      node.replaceChildren();
+      map = new AMap.Map(node, { ...baseOptions, viewMode:'2D', pitch:0, showBuildingBlock:false, pitchEnable:false });
+      map.__travelosFallback2D = true;
+    }
     requestAnimationFrame(() => {
       try { map.resize?.(); if (c) map.setCenter?.([c.lng, c.lat]); } catch {}
     });

@@ -383,6 +383,14 @@ const SEARCH_RULES=[
   {aliases:['restaurant','quan an','an uong'],geo:['catering.restaurant','catering.fast_food','catering.food_court'],google:'restaurant',amap:'餐厅'},
   {aliases:['cafe','coffee','quan cafe'],geo:['catering.cafe'],google:'cafe',amap:'咖啡店'},
   {aliases:['hotel','khach san'],geo:['accommodation.hotel','accommodation.guest_house'],google:'hotel',amap:'酒店'},
+  {aliases:['tourist_attraction','attraction','diem tham quan','diem vui choi','dia diem du lich','gi choi','tham quan','check in','checkin','danh lam'],geo:['tourism.attraction','entertainment'],google:'tourist_attraction',amap:'旅游景点'},
+  {aliases:['park','cong vien','vuon hoa'],geo:['leisure.park','leisure.garden'],google:'park',amap:'公园'},
+  {aliases:['museum','bao tang'],geo:['entertainment.museum'],google:'museum',amap:'博物馆'},
+  {aliases:['shopping_mall','mall','trung tam thuong mai','tttm','mua sam'],geo:['commercial.shopping_mall'],google:'shopping_mall',amap:'购物中心'},
+  {aliases:['subway_station','metro station','ga metro','ga tau dien','tau dien ngam'],geo:['public_transport.subway'],google:'subway_station',amap:'地铁站'},
+  {aliases:['bus_stop','bus station','tram xe buyt','ben xe buyt'],geo:['public_transport.bus'],google:'bus_station',amap:'公交站'},
+  {aliases:['public_restroom','public bathroom','nha ve sinh','toilet','wc'],geo:['service.public_toilet'],google:'public_bathroom',amap:'公共厕所'},
+  {aliases:['bar','pub','quan bar','quan ruou','nightlife'],geo:['catering.bar'],google:'bar',amap:'酒吧'},
   {aliases:['parking','bai do xe','giu xe'],geo:['parking'],google:'parking',amap:'停车场'}
 ];
 const SEARCH_EXPANSIONS=[
