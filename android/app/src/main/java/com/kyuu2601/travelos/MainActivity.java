@@ -1,11 +1,14 @@
 package com.kyuu2601.travelos;
 
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.WebView;
 import androidx.activity.EdgeToEdge;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
@@ -20,7 +23,16 @@ public class MainActivity extends BridgeActivity {
         EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
 
+        EdgeToEdge.enable(this);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setBackgroundDrawable(new ColorDrawable(Color.rgb(2, 6, 23)));
         getWindow().getDecorView().setBackgroundColor(Color.rgb(2, 6, 23));
+        View content = findViewById(android.R.id.content);
+        if (content != null) {
+            content.setPadding(0, 0, 0, 0);
+            content.setBackgroundColor(Color.rgb(2, 6, 23));
+        }
+        getBridge().getWebView().setBackgroundColor(Color.rgb(2, 6, 23));
         getBridge().addWebViewListener(new WebViewListener() {
             @Override
             public void onPageCommitVisible(WebView view, String url) {

@@ -74,11 +74,13 @@ test('native startup defers bot health and external reverse geocoding', async ()
 });
 
 test('native UI draws edge-to-edge while interactive controls respect system bars', async () => {
-  const [css, widget, capacitorConfig, activity] = await Promise.all([
+  const [css, widget, capacitorConfig, activity, manifest, styles] = await Promise.all([
     readFile(new URL('../style.css', import.meta.url), 'utf8'),
     readFile(new URL('../widget.js', import.meta.url), 'utf8'),
     readFile(new URL('../capacitor.config.json', import.meta.url), 'utf8').then(JSON.parse),
-    readFile(new URL('../android/app/src/main/java/com/kyuu2601/travelos/MainActivity.java', import.meta.url), 'utf8')
+    readFile(new URL('../android/app/src/main/java/com/kyuu2601/travelos/MainActivity.java', import.meta.url), 'utf8'),
+    readFile(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8'),
+    readFile(new URL('../android/app/src/main/res/values/styles.xml', import.meta.url), 'utf8')
   ]);
   assert.match(css, /--app-safe-bottom: max\(env\(safe-area-inset-bottom, 0px\), var\(--safe-area-inset-bottom, 0px\)\)/);
   assert.match(css, /body \{[\s\S]*padding: 0;/);
@@ -89,7 +91,13 @@ test('native UI draws edge-to-edge while interactive controls respect system bar
   assert.equal(capacitorConfig.plugins.SystemBars.initialViewportFitValueHint, 'cover');
   assert.match(activity, /setOnApplyWindowInsetsListener/);
   assert.match(activity, /--safe-area-inset-bottom/);
-  assert.doesNotMatch(activity, /\.setPadding\(/);
+  assert.match(activity, /content\.setPadding\(0, 0, 0, 0\)/);
+  assert.doesNotMatch(activity, /setPadding\([\s\S]{0,80}systemBarInsets/);
+  assert.match(activity, /setBackgroundDrawable\(new ColorDrawable\(Color\.rgb\(2, 6, 23\)\)\)/);
+  assert.match(activity, /setDecorFitsSystemWindows\(getWindow\(\), false\)/);
+  assert.match(manifest, /android:theme="@style\/AppTheme\.NoActionBar"/);
+  assert.doesNotMatch(manifest, /android:theme="@style\/AppTheme\.NoActionBarLaunch"/);
+  assert.match(styles, /android:windowBackground">#020617/);
 });
 
 test('China mode preloads AMap and paints the map while Route 2.0 runs', async () => {
