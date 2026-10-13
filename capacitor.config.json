@@ -6,7 +6,7 @@
   "plugins": {
     "SystemBars": {
       "style": "DARK",
-      "insetsHandling": "css",
+      "insetsHandling": "disable",
       "initialViewportFitValueHint": "cover"
     }
   },

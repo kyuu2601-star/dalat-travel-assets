@@ -73,18 +73,23 @@ test('native startup defers bot health and external reverse geocoding', async ()
   assert.match(appSource, /if \(inferred\)[\s\S]*applyDetectedLocation\(inferred\)/);
 });
 
-test('native chat controls clear the Android navigation bar', async () => {
-  const [css, widget, capacitorConfig] = await Promise.all([
+test('native UI draws edge-to-edge while interactive controls respect system bars', async () => {
+  const [css, widget, capacitorConfig, activity] = await Promise.all([
     readFile(new URL('../style.css', import.meta.url), 'utf8'),
     readFile(new URL('../widget.js', import.meta.url), 'utf8'),
-    readFile(new URL('../capacitor.config.json', import.meta.url), 'utf8').then(JSON.parse)
+    readFile(new URL('../capacitor.config.json', import.meta.url), 'utf8').then(JSON.parse),
+    readFile(new URL('../android/app/src/main/java/com/kyuu2601/travelos/MainActivity.java', import.meta.url), 'utf8')
   ]);
   assert.match(css, /--app-safe-bottom: max\(env\(safe-area-inset-bottom, 0px\), var\(--safe-area-inset-bottom, 0px\)\)/);
+  assert.match(css, /body \{[\s\S]*padding: 0;/);
   assert.match(widget, /readCssPixels\('--safe-area-inset-bottom', 'paddingBottom'\)/);
   assert.match(widget, /Math\.max\(edgeY \+ safe\.bottom, keyboardOpen \? edgeY : 76\)/);
   assert.match(widget, /viewport\.height - bottomClearance - buttonSize/);
-  assert.equal(capacitorConfig.plugins.SystemBars.insetsHandling, 'css');
+  assert.equal(capacitorConfig.plugins.SystemBars.insetsHandling, 'disable');
   assert.equal(capacitorConfig.plugins.SystemBars.initialViewportFitValueHint, 'cover');
+  assert.match(activity, /setOnApplyWindowInsetsListener/);
+  assert.match(activity, /--safe-area-inset-bottom/);
+  assert.doesNotMatch(activity, /\.setPadding\(/);
 });
 
 test('China mode preloads AMap and paints the map while Route 2.0 runs', async () => {
