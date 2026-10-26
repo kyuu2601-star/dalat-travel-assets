@@ -41,8 +41,8 @@
         await loadScript('china-config.js');
         await loadScript('gcj02.js');
         await loadScript('amap-provider.js?v=20261013-1');
-        await loadScript('amap-route-service.js?v=20261012-1');
-        await loadScript('travel-navigation.js?v=20261012-1');
+        await loadScript('amap-route-service.js?v=20261026-1');
+        await loadScript('travel-navigation.js?v=20261026-1');
         active = true;
         // Warm the remote SDK as soon as China is selected. Navigation can then
         // paint the map immediately instead of paying this network cost on tap.

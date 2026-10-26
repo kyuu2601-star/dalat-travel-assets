@@ -59,6 +59,32 @@
       throw error;
     } finally { clearTimeout(timer); }
   }
+
+  async function routeWithFallback(origin, destination, options = {}) {
+    const requestedMode=normalizeMode(options.mode);
+    try {
+      return await route(origin,destination,{...options,mode:requestedMode});
+    } catch (walkingError) {
+      if (requestedMode !== 'walk' || options.fallbackToRide === false) throw walkingError;
+      const fallbackReason=String(walkingError?.message || walkingError || 'Walking route unavailable').slice(0,500);
+      console.warn('[AMap Route 2.0] Walking unavailable, switching to electric bike.', walkingError);
+      try {
+        const fallback=await route(origin,destination,{...options,mode:'electrobike',isIndoor:false,fallbackToRide:false});
+        return {
+          ...fallback,
+          requestedMode,
+          mode:'electrobike',
+          meta:{...fallback.meta,fallbackFrom:'walk',fallbackReason}
+        };
+      } catch (rideError) {
+        const detail=String(rideError?.message || rideError || 'Electric-bike route unavailable');
+        const error=new Error(`Tuyến đi bộ lỗi (${fallbackReason}); tuyến xe điện thay thế cũng lỗi (${detail}).`);
+        error.walkingError=walkingError;
+        error.rideError=rideError;
+        throw error;
+      }
+    }
+  }
   const walkingRoute=(origin,destination,options={})=>route(origin,destination,{...options,mode:'walk'});
-  window.AMapRouteService = { configured, route, walkingRoute, source:SOURCE };
+  window.AMapRouteService = { configured, route, routeWithFallback, walkingRoute, source:SOURCE };
 })();

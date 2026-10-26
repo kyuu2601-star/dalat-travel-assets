@@ -646,7 +646,7 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(chinaNavigation,/data-mode="walk"/);
   assert.match(chinaNavigation,/data-mode="electrobike"/);
   assert.match(chinaNavigation,/data-mode="drive"/);
-  assert.match(chinaNavigation,/AMapRouteService\.route/);
+  assert.match(chinaNavigation,/AMapRouteService\.routeWithFallback/);
   assert.match(chinaNavigation,/planRoute\(state\.routeOrigin \|\| state\.origin,state\.routeDestination \|\| state\.destination,mode\)/);
   assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
   assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk',onBack:/);
@@ -675,6 +675,31 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(chinaNavigation,/backToList/);
   assert.doesNotMatch(index,/src="google-maps-provider\.js/);
   assert.doesNotMatch(index,/src="google-navigation\.js/);
+});
+
+test('AMap navigation falls back from a failed walking route to electric bike', async () => {
+  const source=await readFile(new URL('../china-navigation/amap-route-service.js',import.meta.url),'utf8');
+  const calls=[];
+  const context={
+    console,AbortController,Response,URL,setTimeout,clearTimeout,
+    fetch:async url=>{
+      const path=new URL(String(url)).pathname;calls.push(path);
+      if(path==='/route/walking')return new Response(JSON.stringify({error:'AMap Route 2.0: REQUEST_TIMEOUT'}),{status:502,headers:{'Content-Type':'application/json'}});
+      return new Response(JSON.stringify({ok:true,source:'amap-electrobike-v5',provider:'amap',mode:'electrobike',origin:{lat:29.56,lng:106.55},destination:{lat:29.57,lng:106.56},routes:[{routeIndex:0,distance:1200,duration:420,steps:[]}],meta:{count:1}}),{status:200,headers:{'Content-Type':'application/json'}});
+    },
+    window:{CONFIG:{MAP_WORKER_URL:'https://travelos-map.test'},AMapProvider:{toGcj:value=>value}}
+  };
+  vm.runInNewContext(source,context);
+  const result=await context.window.AMapRouteService.routeWithFallback(
+    {lat:29.56,lng:106.55,coordSystem:'gcj02'},
+    {lat:29.57,lng:106.56,coordSystem:'gcj02',country:'Trung Quốc'},
+    {mode:'walk'}
+  );
+  assert.deepEqual(calls,['/route/walking','/route/directions']);
+  assert.equal(result.requestedMode,'walk');
+  assert.equal(result.mode,'electrobike');
+  assert.equal(result.meta.fallbackFrom,'walk');
+  assert.match(result.meta.fallbackReason,/REQUEST_TIMEOUT/);
 });
 
 test('AI chat consistently uses tôi and bạn instead of tui and fen', async () => {

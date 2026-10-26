@@ -286,13 +286,17 @@
     if (state.rawRoute?.meta?.poiFallback) {
       $('#tn-special').innerHTML += '<small>Đang dẫn tới tọa độ địa điểm. AMap chưa xác nhận lối vào hoặc đường lên tầng của quán.</small>';
     }
+    if (state.rawRoute?.meta?.fallbackFrom === 'walk' && state.mode === 'electrobike') {
+      $('#tn-special').innerHTML += '<strong>Đã chuyển sang tuyến xe điện</strong><span>AMap chưa tạo được tuyến đi bộ nên app tự dùng tuyến xe điện để bạn không bị kẹt ở màn hình lỗi.</span>';
+    }
   }
 
   async function planRoute(origin, destination, mode = 'walk') {
     if (!window.AMapRouteService?.configured?.()) throw new Error('Route 2.0 Worker chưa được cấu hình.');
     try {
-      const planned = await window.AMapRouteService.route(origin, destination, { mode, alternativeRoute:3, isIndoor:mode === 'walk' });
-      return { ...planned, route2Error:'' };
+      const requestRoute=window.AMapRouteService.routeWithFallback || window.AMapRouteService.route;
+      const planned = await requestRoute(origin, destination, { mode, alternativeRoute:3, isIndoor:mode === 'walk', fallbackToRide:mode === 'walk' });
+      return { ...planned, requestedMode:mode, effectiveMode:normalizeMode(planned.mode || mode), route2Error:'' };
     } catch (error) {
       const detail = error?.message || String(error || 'Route 2.0 error');
       console.warn('[TravelNavigation Route 2.0]', error);
@@ -624,6 +628,11 @@
   }
 
   function applyPlannedRoute(planned) {
+    const effectiveMode=normalizeMode(planned.effectiveMode || planned.mode || state.mode);
+    if (effectiveMode !== state.mode) {
+      state.mode=effectiveMode;
+      renderModeState();
+    }
     const walking=state.mode === 'walk';
     const routes = planned.routes.map(route => walking ? (window.ChongqingRoute?.analyze(route) || route) : route);
     if (!routes.length) throw new Error(`AMap không trả tuyến ${modeInfo().label.toLowerCase()}.`);
@@ -661,7 +670,7 @@
       $('#tn-summary').textContent='Không thể tạo route';
       $('#tn-steps').innerHTML=`<div class="tn-error">${esc(error.message || 'Navigation error')}</div>`;
     } finally {
-      if (requestSession === session && state.mode === mode) $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=false; });
+      if (requestSession === session) $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=false; });
     }
   }
 
