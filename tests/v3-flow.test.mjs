@@ -188,9 +188,9 @@ test('Map Worker sends translated dish variants to AMap and keeps food evidence'
 
 test('Map Worker translates and similarity-ranks a named China place with AMap', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
-  const originalFetch=globalThis.fetch;let requestedUrl='';
+  const originalFetch=globalThis.fetch,requestedUrls=[];
   globalThis.fetch=async url=>{
-    requestedUrl=String(url);
+    requestedUrls.push(String(url));
     return new Response(JSON.stringify({status:'1',info:'OK',count:'2',pois:[
       {id:'near-other',name:'重庆来福士探索舱观景台',address:'接圣街8号',location:'106.585,29.565',cityname:'重庆市',business:{rating:'4.6'}},
       {id:'exact-raffles',name:'重庆来福士广场',address:'接圣街8号',location:'106.586,29.566',cityname:'重庆市',business:{rating:'4.7',business_status:'营业中',opentime_today:'10:00-22:00'}}
@@ -198,13 +198,40 @@ test('Map Worker translates and similarity-ranks a named China place with AMap',
   };
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',query:'Raffles City Trùng Khánh',keyword:'Raffles City Trùng Khánh',name:'Raffles City Trùng Khánh',radius:50000,limit:5,sortBy:'name_similarity'})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
-    const data=await response.json(),url=new URL(requestedUrl);
+    const data=await response.json(),urls=requestedUrls.map(value=>new URL(value));
     assert.equal(response.status,200);
-    assert.match(url.searchParams.get('keywords'),/重庆来福士广场/);
-    assert.equal(url.searchParams.get('radius'),'50000');
+    assert.ok(urls.some(url=>/重庆来福士广场/.test(url.searchParams.get('keywords')||'')));
+    assert.ok(urls.every(url=>url.searchParams.get('radius')==='50000'));
     assert.equal(data.query.sortBy,'name_similarity');
     assert.equal(data.pois[0].id,'exact-raffles');
     assert.equal(data.pois[0].openNow,true);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker strips the Vietnamese hotel prefix and expands Yitel to its AMap Chinese names', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requestedUrls=[];
+  globalThis.fetch=async url=>{
+    requestedUrls.push(String(url));
+    return new Response(JSON.stringify({status:'1',info:'OK',infocode:'10000',count:'3',pois:[
+      {id:'wrong-yitel-shop',name:'Yitel',address:'购物点',location:'106.578725,29.561525',type:'购物服务;服装鞋帽皮具店;服装鞋帽皮具店',business:{rating:'3.0'}},
+      {id:'yitel-hongyadong',name:'和颐至尚酒店(重庆解放碑洪崖洞店)',address:'临江支路30号',location:'106.579100,29.559900',type:'住宿服务;宾馆酒店;宾馆酒店',business:{rating:'4.8',alias:'Yitel'}},
+      {id:'yitel-nanping',name:'和颐酒店(重庆南坪万达广场轻轨站店)',address:'南坪惠工路186号',location:'106.571000,29.528000',type:'住宿服务;宾馆酒店;宾馆酒店',business:{rating:'4.7',alias:'Yitel'}},
+      {id:'wrong-yitel-restaurant',name:'和颐酒店(重庆南坪步行街店)·餐厅',address:'南坪惠工路186号',location:'106.571100,29.528100',type:'餐饮服务;中餐厅;中餐厅',business:{rating:'5.0'}}
+    ]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.5596,lng:106.5774},country:'Trung Quốc',provider:'amap',query:'khách sạn Yitel',name:'khách sạn Yitel',radius:50000,limit:5,sortBy:'name_similarity',language:'zh'})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),keywords=requestedUrls.map(value=>new URL(value).searchParams.get('keywords'));
+    assert.equal(response.status,200);
+    assert.ok(keywords.includes('Yitel'));
+    assert.ok(keywords.includes('和颐酒店'));
+    assert.ok(keywords.includes('和颐至尚酒店'));
+    assert.ok(!keywords.slice(0,3).some(value=>/^khách sạn Yitel$/i.test(value)));
+    assert.equal(data.pois[0].id,'yitel-hongyadong');
+    assert.ok(!data.pois.some(item=>item.id==='wrong-yitel-shop'));
+    assert.ok(!data.pois.some(item=>item.id==='wrong-yitel-restaurant'));
+    assert.ok(data.pois[0].nameMatchScore>.8);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -642,7 +669,21 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261013-3/);
+  assert.match(index,/chat\.js\?v=20261026-1/);
+});
+
+test('AI chat shows staged progress while backend tools are working', async () => {
+  const [chat,style,index]=await Promise.all([
+    readFile(new URL('../chat.js',import.meta.url),'utf8'),
+    readFile(new URL('../style.css',import.meta.url),'utf8'),
+    readFile(new URL('../index.html',import.meta.url),'utf8')
+  ]);
+  for(const phase of ['Đang phân tích câu hỏi...','Đang tìm kiếm thông tin...','Đang phân tích khu vực xung quanh...','Đang soạn tin nhắn...'])assert.match(chat,new RegExp(phase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  assert.match(chat,/startChatProgress\(loadingId\)/);
+  assert.match(chat,/timers\.forEach\(timer => clearTimeout\(timer\)\)/);
+  assert.match(style,/\.chat-progress-step\.is-active/);
+  assert.match(style,/prefers-reduced-motion/);
+  assert.match(index,/style\.css\?v=20261026-1/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
@@ -1002,7 +1043,7 @@ test('AI v3 keeps unsupported live needs safe when Gemini rejects the Worker loc
   }finally{globalThis.fetch=originalFetch;console.warn=originalWarn;}
 });
 
-test('AI v3 plans tools deterministically on the backend and only uses Gemini for wording', async () => {
+test('AI v3 accepts compact lat/lng and plans tools deterministically on the backend', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;
   let geminiCalls = 0;const mapCalls=[];
@@ -1036,7 +1077,7 @@ test('AI v3 plans tools deterministically on the backend and only uses Gemini fo
   try {
     const response=await worker.fetch(new Request('https://ai.test/ai-v3', {
       method:'POST', headers:{ Origin:'https://kyuu2601-star.github.io', 'Content-Type':'application/json' },
-      body:JSON.stringify({ userMessage:'Pharmacity gần nhất?', userLocation:{ country:'Việt Nam', city:'TP.HCM', latitude:10.77, longitude:106.69, source:'gps' }, chatHistory:[] })
+      body:JSON.stringify({ userMessage:'Pharmacity gần nhất?', userLocation:{ country:'Việt Nam', city:'TP.HCM', lat:10.77, lng:106.69, source:'gps' }, chatHistory:[] })
     }), env);
     const data=await response.json();
     assert.equal(response.status,200);

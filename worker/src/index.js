@@ -863,8 +863,10 @@ function normalizeUserLocation(raw, khuVuc) {
     country: clean(raw.country || legacy.country, 120),
     city: clean(raw.city || legacy.city, 120),
     area: clean(raw.area || legacy.area, 160),
-    latitude: num(raw.latitude),
-    longitude: num(raw.longitude),
+    // Accept both the public API shape and the compact map shape. Older APKs
+    // and a few native bridges still send lat/lng (or lat/lon).
+    latitude: num(raw.latitude ?? raw.lat),
+    longitude: num(raw.longitude ?? raw.lng ?? raw.lon),
     accuracy: num(raw.accuracy),
     gpsTimestamp: num(raw.gpsTimestamp),
     source: clean(raw.source, 40) || 'selector',
@@ -2755,7 +2757,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
             const pois=result.data?.pois||[];
             const normalizedQuery=typeof result.data?.query==='object'?result.data.query:{};
             result={...result,data:{...result.data,
-              query:{...normalizedQuery,keyword:searchPlan.providerQuery,keywords:[searchPlan.providerQuery,...searchPlan.queryVariants],category:args.category,radius:attempts.at(-1)?.radius||firstRadius},
+              query:{...normalizedQuery,...(args.placeName?{}:{keyword:searchPlan.providerQuery,keywords:[searchPlan.providerQuery,...searchPlan.queryVariants]}),category:args.category||normalizedQuery.category,radius:attempts.at(-1)?.radius||firstRadius},
               attemptedRadii:attempts.map(item=>item.radius),searchAttempts:attempts,
               pois:args.placeName?(china?await localizeChinaPlaces(pois,searchCountry,env):pois):isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};
           }
@@ -2782,7 +2784,8 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         const detailCenter=coordFrom(target)||gps;
         result=await mapTool('/poi/details',{...chinaProviderFields(china),placeId:args.placeId||target.id,name:args.placeName||target.name,address:args.address||target.address,query:args.query||[target.name,target.address].filter(Boolean).join(' '),center:detailCenter,country:china?'Trung Quốc':clean(target.country||location.country,120),language:china?'zh':args.language,radius:args.radius},env);
         if(result.ok) {
-          const place=compactPoi(result.data?.place||(result.data?.places||[])[0]);
+          const detailPlace=compactPoi(result.data?.place||(result.data?.places||[])[0]);
+          const place={...target,...detailPlace,localizedName:detailPlace.localizedName||target.localizedName,localizedAddress:detailPlace.localizedAddress||target.localizedAddress,distance:num(target.distance)??detailPlace.distance};
           const recent=recentReviewStats(place),enrichedPlace={...place,...recent,reviews:recent.reviews};
           const reviewSummary=await summarizePlaceReviews(enrichedPlace,env);
           result={ok:true,source:result.data?.source||result.data?.provider,data:{place:enrichedPlace,reviewSummary}};
