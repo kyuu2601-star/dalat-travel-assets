@@ -4,8 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 async function importWorker(path) {
-  const source = await readFile(new URL(path, import.meta.url), 'utf8');
-  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}#${Date.now()}-${Math.random()}`);
+  return import(`${new URL(path,import.meta.url).href}?test=${Date.now()}-${Math.random()}`);
 }
 
 test('Map Worker keeps pharmacy category coverage and brand name', async () => {
@@ -909,9 +908,98 @@ test('AI v3 never falls back to current GPS when a requested weather location ca
 });
 
 test('AI v3 declares eight specialized travel intent profiles', async () => {
-  const source=await readFile(new URL('../worker/src/index.js',import.meta.url),'utf8');
+  const source=await readFile(new URL('../worker/src/bot/prompts/index.js',import.meta.url),'utf8');
   for(const intent of ['PLACE_DISCOVERY','WEATHER_OUTDOOR','ROUTE_MOBILITY','ITINERARY_PLANNING','VENUE_INTELLIGENCE','SAFETY_HEALTH','TRAVEL_UTILITY','LOCAL_GUIDE'])assert.match(source,new RegExp(`${intent}:`));
-  assert.match(source,/TRAVEL INTENT PROFILE/);
+  for(const file of ['place-discovery','weather-outdoor','route-mobility','itinerary-planning','venue-intelligence','safety-health','travel-utility','local-guide']){
+    const prompt=await readFile(new URL(`../worker/src/bot/prompts/${file}.js`,import.meta.url),'utf8');
+    assert.ok(prompt.length>80,`${file} prompt must remain independent and non-empty`);
+  }
+  assert.match(source,/answerPromptFor/);
+});
+
+test('AI v3 semantic planner selects one answer prompt and does not duplicate backend tools', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,geminiPrompts=[],mapCalls=[];
+  let geminiCalls=0;
+  globalThis.fetch=async (url,init={})=>{
+    assert.match(String(url),/generativelanguage\.googleapis\.com/);
+    const payload=JSON.parse(String(init.body||'{}'));
+    geminiPrompts.push(payload.systemInstruction?.parts?.[0]?.text||'');
+    geminiCalls++;
+    if(payload.generationConfig?.responseMimeType==='application/json'){
+      const plan={primaryIntent:'PLACE_DISCOVERY',needs:[
+        {kind:'WEATHER',query:'',target:'current_location',area:'',time:'hiện tại',travelMode:'',sourceText:'Trời đang mưa',required:true,confidence:.92},
+        {kind:'PLACE_SEARCH',query:'cửa hàng tiện lợi',target:'current_location',area:'',time:'',travelMode:'',sourceText:'tìm cửa hàng tiện lợi quanh đây',required:true,confidence:.96},
+        {kind:'WALKING_ROUTE',query:'',target:'best_place_result',area:'',time:'',travelMode:'WALK',sourceText:'chỉ đường đi bộ',required:true,confidence:.94}
+      ],answerContract:['Cho biết thời tiết hiện tại','Tìm cửa hàng tiện lợi gần nhất','Chỉ đường đi bộ tới kết quả tốt nhất'],clarificationQuestion:'',overallConfidence:.95,shouldUseLiveData:true};
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(plan)}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Có một cửa hàng tiện lợi gần bạn và tôi đã chuẩn bị tuyến đi bộ.'}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  const env={
+    GEMINI_API_KEY:'test',SEMANTIC_PLANNER_ENABLED:'true',SEMANTIC_PLANNER_MODE:'adaptive',
+    ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+      const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
+      if(path==='/weather/current')return new Response(JSON.stringify({ok:true,source:'google-weather-v1',provider:'google_weather',weather:{current:{time:'2026-10-26T12:00:00Z',temperature:27,condition:'Mưa nhẹ',precipitation:1,windSpeed:8},hourly:{time:['2026-10-26T12:00:00Z'],temperature:[27],precipitationProbability:[70],precipitation:[1],weatherCode:['LIGHT_RAIN'],windSpeed:[8]}}}),{status:200,headers:{'Content-Type':'application/json'}});
+      if(path==='/poi/nearby')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',query:{keyword:'cửa hàng tiện lợi'},center:body.center,pois:[{id:'store-1',name:'GS25 gần nhất',address:'123 Test',lat:10.771,lng:106.691,distance:150,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+      if(path==='/route/walking')return new Response(JSON.stringify({ok:true,source:'google-routes-v2',provider:'google_routes',routes:[{routeIndex:0,distance:180,duration:150,steps:[{instruction:'Đi bộ tới điểm đến',distance:180,duration:150}]}]}),{status:200,headers:{'Content-Type':'application/json'}});
+      throw new Error(`Unexpected map path ${path}`);
+    }}
+  };
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Trời đang mưa, tìm cửa hàng tiện lợi quanh đây rồi chỉ đường đi bộ',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69,source:'gps'}})}),env);
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(geminiCalls,2);
+    assert.deepEqual(mapCalls.map(item=>item.path),['/weather/current','/poi/nearby','/route/walking']);
+    assert.equal(mapCalls.filter(item=>item.path==='/poi/nearby').length,1);
+    assert.equal(data.travelos.plan.planner,'gemini-structured');
+    assert.deepEqual(data.travelos.plan.tools.map(item=>item.name),['weather','search_places','walking_route']);
+    assert.match(geminiPrompts[0],/semantic planner/i);
+    assert.match(geminiPrompts[1],/TÌM ĐỊA ĐIỂM/);
+    assert.doesNotMatch(geminiPrompts[1],/LỊCH TRÌNH|AN TOÀN VÀ SỨC KHỎE|THỜI TIẾT VÀ HOẠT ĐỘNG NGOÀI TRỜI/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 reports provider suggestions for a live need that has no adapter', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;let call=0;
+  globalThis.fetch=async (url,init={})=>{
+    assert.match(String(url),/generativelanguage\.googleapis\.com/);call++;
+    const payload=JSON.parse(String(init.body||'{}'));
+    if(payload.generationConfig?.responseMimeType==='application/json'){
+      const plan={primaryIntent:'TRAVEL_UTILITY',needs:[{kind:'CURRENCY_RATE',query:'CNY sang VND',target:'',area:'',time:'hôm nay',travelMode:'',sourceText:'tỷ giá CNY sang VND hôm nay',required:true,confidence:.98}],answerContract:['Cho biết tỷ giá CNY sang VND hôm nay'],clarificationQuestion:'',overallConfidence:.97,shouldUseLiveData:true};
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(plan)}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Tôi chưa có nguồn tỷ giá live đã xác minh.'}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'tỷ giá CNY sang VND hôm nay',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),{GEMINI_API_KEY:'test',SEMANTIC_PLANNER_ENABLED:'true',SEMANTIC_PLANNER_MODE:'adaptive',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(call,2);
+    assert.equal(data.travelos.missingApiSuggestions[0].need,'CURRENCY_RATE');
+    assert.ok(data.travelos.missingApiSuggestions[0].suggestedProviders.includes('Frankfurter API'));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('AI v3 keeps unsupported live needs safe when Gemini rejects the Worker location', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,calls=[];
+  globalThis.fetch=async url=>{
+    calls.push(String(url));
+    return new Response(JSON.stringify({error:{message:'User location is not supported for the API use.'}}),{status:400,headers:{'Content-Type':'application/json'}});
+  };
+  const originalWarn=console.warn;console.warn=()=>{};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'tỷ giá CNY sang VND hôm nay',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),{GEMINI_API_KEY:'test',SEMANTIC_PLANNER_ENABLED:'true',SEMANTIC_PLANNER_MODE:'adaptive',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.error,undefined);
+    assert.match(data.text,/chưa có nguồn dữ liệu đã xác minh cho tỷ giá live/i);
+    assert.equal(data.travelos.plan.planner,'deterministic-fallback');
+    assert.equal(data.travelos.missingApiSuggestions[0].need,'CURRENCY_RATE');
+    assert.equal(calls.length,6);
+  }finally{globalThis.fetch=originalFetch;console.warn=originalWarn;}
 });
 
 test('AI v3 plans tools deterministically on the backend and only uses Gemini for wording', async () => {
