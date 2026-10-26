@@ -235,6 +235,24 @@ test('Map Worker strips the Vietnamese hotel prefix and expands Yitel to its AMa
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker expands the Vietnamese People Auditorium name before querying AMap', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,keywords=[];
+  globalThis.fetch=async url=>{
+    const keyword=new URL(String(url)).searchParams.get('keywords');keywords.push(keyword);
+    const pois=keyword==='重庆市人民大礼堂'?[{id:'cq-auditorium',name:'重庆市人民大礼堂',address:'人民路173号',location:'106.552800,29.564000',type:'科教文化服务;会展中心;会展中心',business:{rating:'4.7'}}]:[];
+    return new Response(JSON.stringify({status:'1',info:'OK',infocode:'10000',count:String(pois.length),pois}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',provider:'amap',query:'Lễ Đường Nhân Dân',name:'Lễ Đường Nhân Dân',radius:50000,limit:5,sortBy:'name_similarity'})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.ok(keywords.includes('重庆市人民大礼堂'));
+    assert.equal(data.pois[0].id,'cq-auditorium');
+    assert.equal(data.pois[0].name,'重庆市人民大礼堂');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker replaces a Vietnamese pharmacy category with the native AMap keyword', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='';
@@ -1089,7 +1107,8 @@ test('AI v3 accepts compact lat/lng and plans tools deterministically on the bac
     assert.equal(data.travelos.reviewSummary,'Google đang ghi nhận rating tổng 4.7/5 từ 250 lượt; API chưa trả mẫu review 3 tháng để tóm tắt nội dung.');
     assert.deepEqual(mapCalls.map(call=>call.path),['/poi/nearby','/poi/details']);
     assert.equal(data.travelos.sources[0].source,'google-places-text-v1');
-    assert.equal(geminiCalls,1);
+    assert.equal(geminiCalls,0);
+    assert.match(data.text,/Nhà thuốc Pharmacity/);
   } finally {
     globalThis.fetch=originalFetch;
   }
@@ -1125,6 +1144,68 @@ test('AI v3 preserves an arbitrary venue name and returns verified details even 
   assert.match(data.travelos.reviewSummary,/1 review Google trong mẫu 3 tháng/);
   assert.match(data.text,/28 Võ Văn Tần/);
   assert.match(data.text,/đang mở/);
+});
+
+test('AI v3 translates a Vietnamese China landmark name before AMap search', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/poi/nearby'){
+      assert.equal(body.provider,'amap');
+      assert.equal(body.query,'重庆市人民大礼堂');
+      assert.ok(body.queryVariants.includes('重庆市人民大礼堂'));
+      assert.ok(body.queryVariants.includes('人民大礼堂'));
+      assert.equal(body.translationSource,'official-alias');
+      return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',query:{name:body.name,keywords:body.queryVariants,radius:50000},center:body.center,pois:[
+        {id:'B00170BPJJ',name:'重庆市人民大礼堂',address:'人民路173号',lat:29.564,lng:106.5528,distance:219,rating:'4.7',type:'科教文化服务;会展中心;会展中心',provider:'amap',country:'Trung Quốc'}
+      ]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    assert.equal(path,'/poi/details');
+    assert.equal(body.placeId,'B00170BPJJ');
+    return new Response(JSON.stringify({ok:true,source:'amap-place-detail-v5',provider:'amap',place:{id:'B00170BPJJ',name:'重庆市人民大礼堂',address:'人民路173号',lat:29.564,lng:106.5528,distance:219,rating:'4.7',type:'科教文化服务;会展中心;会展中心',provider:'amap',country:'Trung Quốc'}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'vị trí Lễ Đường Nhân Dân',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551},chatHistory:[]})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.deepEqual(calls.map(call=>call.path),['/poi/nearby','/poi/details']);
+  assert.equal(data.travelos.placeDetails.id,'B00170BPJJ');
+  assert.equal(data.travelos.nearby.pois[0].id,'B00170BPJJ');
+  assert.match(data.text,/重庆市人民大礼堂/);
+});
+
+test('AI v3 uses structured AI translation for an unknown Vietnamese venue name, then lets AMap verify it', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,translationPrompts=[];
+  globalThis.fetch=async (_url,init={})=>{
+    const payload=JSON.parse(String(init.body||'{}')),system=payload?.systemInstruction?.parts?.[0]?.text||'';
+    if(system.includes('bộ chuyển tên địa điểm')){
+      translationPrompts.push(system);
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({primary:'湖广会馆',variants:['重庆湖广会馆','湖广会馆古建筑群']})}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    if(system.includes('dịch tên và địa chỉ địa điểm Trung Quốc')){
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({items:[{id:'huguang',localizedName:'Hội quán Hồ Quảng (湖广会馆)',localizedAddress:'Trùng Khánh · địa chỉ gốc: 芭蕉园1号',note:'Di tích kiến trúc lịch sử.',confidence:'high'}]})}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Tôi đã xác minh được Hội quán Hồ Quảng trên AMap.'}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  const mapCalls=[],env={GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
+    if(path==='/poi/nearby'){
+      assert.equal(body.query,'湖广会馆');
+      assert.ok(body.queryVariants.includes('重庆湖广会馆'));
+      assert.equal(body.translationSource,'gemini-zh-query');
+      return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',query:{name:body.name,keywords:body.queryVariants,radius:50000},center:body.center,pois:[{id:'huguang',name:'湖广会馆',address:'芭蕉园1号',lat:29.558,lng:106.581,distance:900,rating:'4.6',type:'风景名胜;人文景观;古迹',provider:'amap',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    return new Response(JSON.stringify({ok:true,source:'amap-place-detail-v5',provider:'amap',place:{id:'huguang',name:'湖广会馆',address:'芭蕉园1号',lat:29.558,lng:106.581,distance:900,rating:'4.6',type:'风景名胜;人文景观;古迹',provider:'amap',country:'Trung Quốc'}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'vị trí Hội quán Hồ Quảng',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551}})}),env);
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(translationPrompts.length,1);
+    assert.equal(mapCalls[0].body.name,'Hội quán Hồ Quảng');
+    assert.equal(data.travelos.placeDetails.id,'huguang');
+  }finally{globalThis.fetch=originalFetch;}
 });
 
 test('AI v3 understands CHTL and deterministically searches nearest convenience stores', async () => {
@@ -1425,10 +1506,11 @@ test('AI v3 resolves a venue and distinguishes live BestTime busyness from forec
     const data=await response.json();
     assert.equal(response.status,200);
     assert.equal(bestTimeCalls,1);
-    assert.equal(geminiCalls,1);
+    assert.equal(geminiCalls,0);
     assert.equal(data.travelos.busyness.basis,'live');
     assert.equal(data.travelos.busyness.score,72);
     assert.equal(data.travelos.busyness.label,'khá đông');
+    assert.match(data.text,/khá đông/);
     assert.equal(data.travelos.sources.find(source=>source.tool==='place_busyness').source,'besttime-live');
   } finally { globalThis.fetch=originalFetch; }
 });

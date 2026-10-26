@@ -584,6 +584,7 @@ function amapQueryVariants(value) {
     .trim();
   const aliases=[];
   if(/\byitel\b|和颐/iu.test(coreName))aliases.push('Yitel','和颐酒店','和颐至尚酒店');
+  if(/\b(?:le duong nhan dan|people s auditorium)\b/.test(fold(coreName))||/人民大礼堂/u.test(coreName))aliases.push('重庆市人民大礼堂','重庆人民大礼堂','人民大礼堂');
   return uniqueSearchQueries(translated,coreName,aliases,original);
 }
 

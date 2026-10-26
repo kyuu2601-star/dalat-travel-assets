@@ -1605,7 +1605,9 @@ function deterministicNearbyText(nearby) {
     const query=typeof nearby?.query==='string'?nearby.query:(nearby?.query?.keyword||nearby?.query?.category||'địa điểm này');
     const radii=(nearby?.attemptedRadii||nearby?.searchAttempts?.map(item=>item.radius)||[]).map(Number).filter(Number.isFinite);
     const range=radii.length?` trong các bán kính ${radii.map(value=>value>=1000?`${value/1000} km`:`${value} m`).join(', ')}`:'';
-    return `API bản đồ chưa trả kết quả cho “${clean(query,200)}”${range}. Bộ từ khóa hiện tại có thể chưa khớp dữ liệu nhà cung cấp, nên chưa thể kết luận tình trạng thực tế của khu vực.`;
+    const queryObject=nearby?.query&&typeof nearby.query==='object'?nearby.query:null,attempted=(queryObject?.keywords||[]).map(value=>clean(value,120)).filter(Boolean).slice(0,4);
+    const attemptedText=attempted.length?` Backend đã thử các tên AMap: ${attempted.map(value=>`“${value}”`).join(', ')}.`:'';
+    return `API bản đồ chưa trả kết quả cho “${clean(query,200)}”${range}.${attemptedText} Tôi chưa kết luận địa điểm không tồn tại vì AMap có thể dùng một tên tiếng Trung khác.`;
   }
   const lines = pois.map((poi, index) => {
     const distance = formatNearbyDistance(poi?.distance);
@@ -2303,7 +2305,7 @@ const FOOD_QUERY_LEXICON=[
   {aliases:['burger','hamburger'],vi:['burger','hamburger'],zh:['汉堡','汉堡店']}
 ];
 
-const PLACE_BRANDS=['pharmacity','long chau','an khang','gs25','circle k','familymart','7 eleven','lawson','kfc','jollibee','lotteria','popeyes','chicken plus','haidilao','starbucks','highlands coffee','the coffee house','phuc long'];
+const PLACE_BRANDS=['pharmacity','long chau','an khang','gs25','circle k','familymart','7 eleven','lawson','kfc','jollibee','lotteria','popeyes','chicken plus','haidilao','yitel','starbucks','highlands coffee','the coffee house','phuc long'];
 
 function placeBrandInQuery(query) {
   const q=` ${fold(query)} `;
@@ -2349,6 +2351,46 @@ function semanticPlaceSearch(query, country, category) {
     if(key&&!seen.has(key)){seen.add(key);queryVariants.push(value);}
   }
   return {providerQuery,queryVariants:queryVariants.slice(0,7),requestedDish:original};
+}
+
+const CHINA_NAMED_PLACE_QUERY_SCHEMA={
+  type:'OBJECT',
+  properties:{primary:{type:'STRING'},variants:{type:'ARRAY',maxItems:5,items:{type:'STRING'}}},
+  required:['primary','variants']
+};
+
+function knownChinaNamedPlaceQueries(query, location={}) {
+  const q=fold(query),city=fold(location?.city||location?.area),variants=[];
+  if(/(?:le duong nhan dan|people s auditorium)/.test(q)){
+    if(!city||/(?:trung khanh|chongqing)/.test(city))variants.push('重庆市人民大礼堂','重庆人民大礼堂','人民大礼堂');
+    else variants.push('人民大礼堂');
+  }
+  if(/(?:hong nhai dong|hongyadong)/.test(q))variants.push('洪崖洞民俗风貌区','洪崖洞');
+  if(/(?:giai phong bi|jiefangbei)/.test(q))variants.push('解放碑步行街','解放碑');
+  if(/(?:tu khi khau|ciqikou)/.test(q))variants.push('磁器口古镇','磁器口');
+  if(/(?:cap treo song duong tu|yangtze river cableway)/.test(q))variants.push('长江索道');
+  if(/(?:bao tang tam hiep|three gorges museum)/.test(q))variants.push('重庆中国三峡博物馆','中国三峡博物馆');
+  return [...new Set(variants)].slice(0,5);
+}
+
+async function chinaNamedPlaceSearch(query, location, env) {
+  const original=clean(query,300),known=knownChinaNamedPlaceQueries(original,location);
+  if(/[\u3400-\u9fff]/u.test(original))return {providerQuery:original,queryVariants:known.filter(value=>value!==original),translationSource:'already-zh'};
+  if(known.length)return {providerQuery:known[0],queryVariants:[...known.slice(1),original],translationSource:'official-alias'};
+  if(placeBrandInQuery(original)||!env.GEMINI_API_KEY)return {providerQuery:original,queryVariants:[],translationSource:'original'};
+  const prompt=`Bạn là bộ chuyển tên địa điểm cho truy vấn AMap tại Trung Quốc.
+- Chuyển đúng tên riêng tiếng Việt/Anh sang tên chính thức hoặc tên thường dùng bằng tiếng Trung giản thể.
+- Dựa vào city/area để phân biệt các địa danh trùng tên.
+- primary phải là truy vấn tiếng Trung có khả năng khớp AMap cao nhất.
+- variants tối đa 5 cách viết tiếng Trung ngắn; không thêm địa điểm khác và không bịa địa chỉ.
+- Chỉ dịch truy vấn, không trả lời người dùng.`;
+  try{
+    const translated=await callGeminiJson(prompt,buildContents([],JSON.stringify({query:original,country:'Trung Quốc',city:clean(location?.city,160),area:clean(location?.area,160)})),CHINA_NAMED_PLACE_QUERY_SCHEMA,env,'planner');
+    const candidates=[clean(translated?.primary,300),...(Array.isArray(translated?.variants)?translated.variants:[]).map(value=>clean(value,300))].filter(value=>/[\u3400-\u9fff]/u.test(value));
+    const unique=[...new Set(candidates)];
+    if(unique.length)return {providerQuery:unique[0],queryVariants:[...unique.slice(1,5),original],translationSource:'gemini-zh-query'};
+  }catch(error){console.warn('[China named-place translation fallback]',errorText(error,'Translation unavailable',240));}
+  return {providerQuery:original,queryVariants:[],translationSource:'original-fallback'};
 }
 
 const REVIEW_HIGHLIGHTS=[
@@ -2437,7 +2479,8 @@ const CHINA_AREA_NAMES={
 function chinaFallbackName(place) {
   const name=clean(place?.name,300),source=`${name} ${clean(place?.tag,500)} ${clean(place?.primaryType,120)} ${(place?.types||[]).join(' ')}`,tags=translateChinaTags(place?.tag);
   let kind='Địa điểm';
-  if(/药房|药店|pharmacy/.test(source))kind='Nhà thuốc';
+  if(/重庆市?人民大礼堂/.test(source))kind='Lễ đường Nhân dân Trùng Khánh';
+  else if(/药房|药店|pharmacy/.test(source))kind='Nhà thuốc';
   else if(/便利店|convenience/.test(source))kind='Cửa hàng tiện lợi';
   else if(/超市|supermarket/.test(source))kind='Siêu thị';
   else if(/医院|hospital/.test(source))kind='Bệnh viện';
@@ -2460,11 +2503,11 @@ function chinaFallbackAddress(place) {
   return `${prefix}${address?` · địa chỉ gốc: ${address}`:''}`;
 }
 
-async function localizeChinaPlaces(pois, country, env) {
+async function localizeChinaPlaces(pois, country, env, options={}) {
   const source=(Array.isArray(pois)?pois:[]).slice(0,10).map(compactPoi);
   if(nearbyLanguage({country})!=='zh'||!source.length)return source;
   const fallback=source.map(place=>({...place,localizedName:place.localizedName||chinaFallbackName(place),localizedAddress:place.localizedAddress||chinaFallbackAddress(place)}));
-  if(!env.GEMINI_API_KEY)return fallback;
+  if(options.useAi===false||!env.GEMINI_API_KEY)return fallback;
   const prompt=`Bạn dịch tên và địa chỉ địa điểm Trung Quốc sang tiếng Việt cho khách du lịch. Chỉ trả JSON theo schema.
 - localizedName phải dễ hiểu, giữ tên gốc tiếng Trung trong ngoặc; không dịch sai tên thương hiệu.
 - localizedAddress dịch các cấp hành chính/đường khi chắc chắn và giữ địa chỉ gốc sau dấu ·.
@@ -2743,12 +2786,12 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         if(!searchCenter) result={ok:false,error:'GPS_REQUIRED'};
         else {
           const resultLimit=args.placeName?clamp(args.limit,1,12,5):requestedPlaceLimit(userMessage),sortBy=args.placeName?'name_similarity':(wantsRatingRanking(userMessage)?'rating':'distance');
-          const originalQuery=args.query||args.placeName||args.category,searchPlan=args.placeName?{providerQuery:args.placeName,queryVariants:[],requestedDish:''}:semanticPlaceSearch(originalQuery,searchCountry,args.category);
+          const originalQuery=args.query||args.placeName||args.category,searchPlan=args.placeName?(china?await chinaNamedPlaceSearch(args.placeName,{...location,city:state.lastPlace?.city||location.city,area:location.area},env):{providerQuery:args.placeName,queryVariants:[],requestedDish:'',translationSource:'original'}):semanticPlaceSearch(originalQuery,searchCountry,args.category);
           const firstRadius=clamp(args.radius,100,50000,3000),radii=[firstRadius];
           for(const candidate of firstRadius<5000?[5000,10000]:firstRadius<10000?[10000,15000]:firstRadius<15000?[15000]:[])if(!radii.includes(candidate))radii.push(candidate);
           const attempts=[];
           for(const radius of radii){
-            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category:args.category,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy,language:nearbyLanguage({country:searchCountry})},env);
+            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy,language:nearbyLanguage({country:searchCountry})},env);
             attempts.push({radius,ok:attempt.ok,count:Array.isArray(attempt.data?.pois)?attempt.data.pois.length:0,error:clean(attempt.error,300)});
             result=attempt;
             if(!attempt.ok||(attempt.data?.pois||[]).length)break;
@@ -2759,7 +2802,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
             result={...result,data:{...result.data,
               query:{...normalizedQuery,...(args.placeName?{}:{keyword:searchPlan.providerQuery,keywords:[searchPlan.providerQuery,...searchPlan.queryVariants]}),category:args.category||normalizedQuery.category,radius:attempts.at(-1)?.radius||firstRadius},
               attemptedRadii:attempts.map(item=>item.radius),searchAttempts:attempts,
-              pois:args.placeName?(china?await localizeChinaPlaces(pois,searchCountry,env):pois):isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};
+              pois:args.placeName?(china?await localizeChinaPlaces(pois,searchCountry,env,{useAi:false}):pois):isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};
           }
         }
         if(result.ok) {
@@ -2882,6 +2925,10 @@ async function handleAiV3(request, env) {
       text=deterministicWeatherAdvice(state.weather,target);
     } else if(state.nearby&&!(state.nearby.pois||[]).length) {
       text=deterministicNearbyText(state.nearby);
+    } else if(state.namedPlaceSearch) {
+      // A named-place lookup already has verified provider evidence. Avoid two
+      // extra Gemini calls (localization + prose) after AMap/Google succeeds.
+      text=deterministicEvidenceAnswer(state);
     } else {
       try { text=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env); }
       catch(error) {
