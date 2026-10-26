@@ -437,6 +437,13 @@ const SEARCH_EXPANSIONS=[
     query:'fried chicken KFC Jollibee Chicken Plus Lotteria Popeyes Texas Chicken'
   }
 ];
+const AMAP_TYPE_EVIDENCE={
+  pharmacy:/医疗保健服务|药店|药房|大药房/u,hospital:/医疗保健服务|医院|急救/u,doctor:/诊所|门诊|卫生服务/u,
+  convenience_store:/购物服务|便利店|小卖部|副食店|杂货店/u,grocery_store:/购物服务|杂货店|副食店|小卖部|超市/u,
+  supermarket:/购物服务|超市|生鲜/u,restaurant:/餐饮服务|餐厅|饭店|餐馆|小吃/u,cafe:/餐饮服务|咖啡/u,
+  hotel:/住宿服务|宾馆|酒店|旅馆|民宿/u,tourist_attraction:/风景名胜|旅游景点|景区|名胜古迹|观景台/u,
+  park:/公园|园林|广场|植物园/u,museum:/博物馆|纪念馆|展览馆|美术馆/u,shopping_mall:/购物服务|购物中心|商场|购物广场/u
+};
 function categoryInfo(keyword, category='', name='') {
   const q=fold(`${category} ${keyword}`);
   for(const rule of SEARCH_RULES) if(rule.aliases.some(x=>q.includes(fold(x)))) {
@@ -464,15 +471,38 @@ function normalizeAmapPoi(poi, center, country) {
 async function amapNearby(body, env, originHeader, center, keyword, types, radius, limit, candidateLimit, country) {
   if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
   const queryCenter=toAmapPoint(center),info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),mappedKeyword=clean(info.amapKeyword,300),useMappedKeyword=!specificChineseFood&&mappedKeyword&&mappedKeyword!==clean(keyword,300),namedQueries=info.name?amapQueryVariants(info.name):[],amapQueries=info.name?uniqueSearchQueries(namedQueries,body?.queryVariants):useMappedKeyword?uniqueSearchQueries(mappedKeyword,info.amapVariants,body?.queryVariants):uniqueSearchQueries(keyword,body?.queryVariants,specificChineseFood?'':mappedKeyword,info.amapVariants),amapKeyword=amapQueries.join('|').slice(0,120);
-  const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(candidateLimit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
-  if(amapKeyword) params.set('keywords',amapKeyword); if(types) params.set('types',types);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
   try{
-    const response=await fetch(`${AMAP_NEARBY_URL}?${params}`,{signal:controller.signal}),raw=await response.json().catch(()=>null);
-    if(!response.ok||!raw) return json({error:`AMap Nearby HTTP ${response.status}`,provider:'amap'},502,originHeader);
-    if(String(raw.status)!=='1') return json({error:`AMap Nearby: ${raw.info||'unknown error'}`,infocode:raw.infocode||'',provider:'amap'},502,originHeader);
-    const sortBy=clean(body?.sortBy,30).toLowerCase(),normalized=(Array.isArray(raw.pois)?raw.pois:[]).map(p=>normalizeAmapPoi(p,queryCenter,country)).filter(Boolean),ranked=info.name?rankNamedPlaces(normalized,amapQueries):normalized.sort((a,b)=>sortBy==='rating'?(Number(b.rating)||0)-(Number(a.rating)||0)||(a.distance??Infinity)-(b.distance??Infinity):(a.distance??Infinity)-(b.distance??Infinity)),pois=ranked.slice(0,limit);
-    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,keywords:amapQueries,category:clean(body?.category,80),name:clean(body?.name,120),sortBy:info.name?'name_similarity':sortBy,types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
+    const requestKeywords=info.name?amapQueries.slice(0,4):[amapKeyword],attempts=await Promise.all(requestKeywords.map(async query=>{
+      const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(candidateLimit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
+      if(query)params.set('keywords',query);if(types)params.set('types',types);
+      try{
+        const response=await fetch(`${AMAP_NEARBY_URL}?${params}`,{signal:controller.signal}),raw=await response.json().catch(()=>null);
+        return {query,ok:response.ok&&String(raw?.status)==='1',status:response.status,raw,error:!response.ok?`HTTP ${response.status}`:String(raw?.status)==='1'?'':clean(raw?.info||'unknown error',200)};
+      }catch(error){return {query,ok:false,status:0,raw:null,error:clean(error?.message,200)};}
+    }));
+    const successful=attempts.filter(item=>item.ok);
+    if(!successful.length){
+      const first=attempts[0]||{};
+      return json({error:`AMap Nearby: ${first.error||'unknown error'}`,infocode:first.raw?.infocode||'',provider:'amap'},502,originHeader);
+    }
+    const unique=new Map();
+    for(const attempt of successful)for(const rawPoi of Array.isArray(attempt.raw?.pois)?attempt.raw.pois:[]){
+      const poi=normalizeAmapPoi(rawPoi,queryCenter,country),key=clean(poi?.id,200)||`${poi?.lat},${poi?.lng},${fold(poi?.name)}`;
+      if(poi&&!unique.has(key))unique.set(key,poi);
+    }
+    const sortBy=clean(body?.sortBy,30).toLowerCase(),normalized=[...unique.values()];
+    let ranked=info.name?rankNamedPlaces(normalized,amapQueries):normalized.sort((a,b)=>sortBy==='rating'?(Number(b.rating)||0)-(Number(a.rating)||0)||(a.distance??Infinity)-(b.distance??Infinity):(a.distance??Infinity)-(b.distance??Infinity));
+    const categoryEvidence=AMAP_TYPE_EVIDENCE[info.googleType];
+    if(info.name&&categoryEvidence){
+      // A restaurant inside a hotel often contains “酒店” in its name. Use
+      // AMap's category/tag evidence instead of the display name so it cannot
+      // replace the requested hotel itself.
+      const categoryMatches=ranked.filter(place=>categoryEvidence.test(`${place.type} ${place.tag}`));
+      if(categoryMatches.length)ranked=categoryMatches;
+    }
+    const pois=ranked.slice(0,limit);
+    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:info.name?requestKeywords[0]:amapKeyword,keywords:amapQueries,category:clean(body?.category,80),name:clean(body?.name,120),sortBy:info.name?'name_similarity':sortBy,types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:'OK',infocode:'10000',total:normalized.length,attempts:attempts.map(item=>({query:item.query,ok:item.ok,count:Array.isArray(item.raw?.pois)?item.raw.pois.length:0,error:item.error}))}},200,originHeader);
   }catch(error){return json({error:error?.name==='AbortError'?'AMap Nearby timeout.':`Không gọi được AMap Nearby: ${clean(error?.message,300)}`,provider:'amap'},502,originHeader);}finally{clearTimeout(timer);}
 }
 function normalizeGeoapifyPoi(feature, center, country) {
@@ -534,7 +564,10 @@ async function fetchJson(url, init = {}, timeoutMs = 9000) {
 }
 
 function amapQueryVariants(value) {
-  const original=clean(value,300),translated=original
+  const original=clean(value,300),coreName=original
+    .replace(/^(?:(?:khách\s*sạn|khach\s*san|hotel|nhà\s*hàng|nha\s*hang|restaurant|quán\s*ăn|quan\s*an|quán|quan|tiệm|tiem|cửa\s*hàng|cua\s*hang|nhà\s*thuốc|nha\s*thuoc|pharmacy)\s+)+/i,'')
+    .trim()||original;
+  const translated=coreName
     .replace(/Raffles?\s*City/gi,'重庆来福士广场')
     .replace(/(?:ga\s*)?Chaotianmen/gi,'朝天门')
     .replace(/Trùng\s*Khánh|Chongqing/gi,'重庆')
@@ -549,7 +582,9 @@ function amapQueryVariants(value) {
     .replace(/Tô\s*Châu|Suzhou/gi,'苏州')
     .replace(/Vũ\s*Hán|Wuhan/gi,'武汉')
     .trim();
-  return uniqueSearchQueries(translated,original);
+  const aliases=[];
+  if(/\byitel\b|和颐/iu.test(coreName))aliases.push('Yitel','和颐酒店','和颐至尚酒店');
+  return uniqueSearchQueries(translated,coreName,aliases,original);
 }
 
 async function amapResolve(body, env, originHeader, query, center) {
