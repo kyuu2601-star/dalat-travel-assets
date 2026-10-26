@@ -71,6 +71,31 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
   } finally { globalThis.fetch=originalFetch; }
 });
 
+test('Map Worker ranks an exact named place above a closer partial match inside 50 km', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedBody=null;
+  globalThis.fetch=async (url,init={})=>{
+    requestedBody=JSON.parse(String(init.body||'{}'));
+    return new Response(JSON.stringify({places:[
+      {id:'near-partial',displayName:{text:'Bảo tàng Thành phố'},formattedAddress:'Cách 1 km',location:{latitude:10.78,longitude:106.69},rating:4.8,userRatingCount:900},
+      {id:'exact-address-only',displayName:{text:'Bảo tàng Chứng tích Chiến tranh'},formattedAddress:'Cách 500 m',location:{latitude:10.774,longitude:106.69},primaryType:'premise',types:['premise']},
+      {id:'exact',displayName:{text:'Bảo tàng Chứng tích Chiến tranh'},formattedAddress:'Cách 8 km',location:{latitude:10.84,longitude:106.69},rating:4.7,userRatingCount:12000,businessStatus:'OPERATIONAL',primaryType:'museum',types:['museum','tourist_attraction']},
+      {id:'far-unrelated',displayName:{text:'War Coffee'},formattedAddress:'Cách 3 km',location:{latitude:10.80,longitude:106.69},rating:4.9,userRatingCount:100}
+    ]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.77,lng:106.69},country:'Việt Nam',query:'Bảo tàng Chứng tích Chiến tranh',keyword:'Bảo tàng Chứng tích Chiến tranh',name:'Bảo tàng Chứng tích Chiến tranh',radius:50000,limit:5,candidateLimit:30,sortBy:'name_similarity'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(requestedBody.textQuery,'Bảo tàng Chứng tích Chiến tranh');
+    assert.ok(requestedBody.locationRestriction.rectangle);
+    assert.equal(data.query.radius,50000);
+    assert.equal(data.query.sortBy,'name_similarity');
+    assert.equal(data.pois[0].id,'exact');
+    assert.equal(data.pois[0].nameMatchScore,1);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker searches convenience-store categories with Google Nearby distance ranking', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedUrl='',requestedBody=null;
@@ -159,6 +184,28 @@ test('Map Worker sends translated dish variants to AMap and keeps food evidence'
     assert.equal(data.pois[0].tag,'四川火锅;服务热情');
     assert.equal(data.pois[0].cost,'128');
     assert.equal(data.pois[0].rating,'4.8');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker translates and similarity-ranks a named China place with AMap', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch;let requestedUrl='';
+  globalThis.fetch=async url=>{
+    requestedUrl=String(url);
+    return new Response(JSON.stringify({status:'1',info:'OK',count:'2',pois:[
+      {id:'near-other',name:'重庆来福士探索舱观景台',address:'接圣街8号',location:'106.585,29.565',cityname:'重庆市',business:{rating:'4.6'}},
+      {id:'exact-raffles',name:'重庆来福士广场',address:'接圣街8号',location:'106.586,29.566',cityname:'重庆市',business:{rating:'4.7',business_status:'营业中',opentime_today:'10:00-22:00'}}
+    ]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',query:'Raffles City Trùng Khánh',keyword:'Raffles City Trùng Khánh',name:'Raffles City Trùng Khánh',radius:50000,limit:5,sortBy:'name_similarity'})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json(),url=new URL(requestedUrl);
+    assert.equal(response.status,200);
+    assert.match(url.searchParams.get('keywords'),/重庆来福士广场/);
+    assert.equal(url.searchParams.get('radius'),'50000');
+    assert.equal(data.query.sortBy,'name_similarity');
+    assert.equal(data.pois[0].id,'exact-raffles');
+    assert.equal(data.pois[0].openNow,true);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -870,7 +917,7 @@ test('AI v3 declares eight specialized travel intent profiles', async () => {
 test('AI v3 plans tools deterministically on the backend and only uses Gemini for wording', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;
-  let geminiCalls = 0;
+  let geminiCalls = 0;const mapCalls=[];
   globalThis.fetch = async url => {
     if (!String(url).includes('generativelanguage.googleapis.com')) throw new Error(`Unexpected fetch ${url}`);
     geminiCalls++;
@@ -882,14 +929,19 @@ test('AI v3 plans tools deterministically on the backend and only uses Gemini fo
     ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',
     MAP_WORKER:{
       fetch:async request => {
-        const body=await request.json();
+        const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
         assert.equal(body.name,'Pharmacity');
-        assert.equal(body.category,'pharmacy');
         assert.equal(body.center.lat,10.77);
         assert.equal(body.center.lng,106.69);
-        assert.equal(body.limit,10);
-        assert.equal(body.sortBy,'distance');
-        return new Response(JSON.stringify({ ok:true, source:'geoapify-places-v2', provider:'geoapify', center:body.center, pois:[{ id:'p1', name:'Nhà thuốc Pharmacity', address:'123 Test', lat:10.77, lng:106.69, distance:120, provider:'geoapify' }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
+        if(path==='/poi/nearby'){
+          assert.equal(body.radius,50000);
+          assert.equal(body.limit,5);
+          assert.equal(body.sortBy,'name_similarity');
+          return new Response(JSON.stringify({ ok:true, source:'google-places-text-v1', provider:'google_places', query:{name:'Pharmacity',sortBy:'name_similarity',radius:50000},center:body.center, pois:[{ id:'p1', name:'Nhà thuốc Pharmacity', address:'123 Test', lat:10.77, lng:106.69, distance:120, provider:'google_places' }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
+        }
+        assert.equal(path,'/poi/details');
+        assert.equal(body.placeId,'p1');
+        return new Response(JSON.stringify({ok:true,source:'google-place-details-v1',provider:'google_places',place:{id:'p1',name:'Nhà thuốc Pharmacity',address:'123 Test',lat:10.77,lng:106.69,distance:120,rating:4.7,userRatingCount:250,openNow:true,openTime:'Hôm nay: 07:00–22:00',provider:'google_places'}}),{status:200,headers:{'Content-Type':'application/json'}});
       }
     }
   };
@@ -903,11 +955,47 @@ test('AI v3 plans tools deterministically on the backend and only uses Gemini fo
     assert.equal(data.travelos.version,3);
     assert.equal(data.travelos.plan.tools[0].placeName,'Pharmacity');
     assert.equal(data.travelos.nearby.pois[0].name,'Nhà thuốc Pharmacity');
-    assert.equal(data.travelos.sources[0].source,'geoapify-places-v2');
+    assert.equal(data.travelos.nearby.query.radius,50000);
+    assert.equal(data.travelos.placeDetails.openNow,true);
+    assert.equal(data.travelos.reviewSummary,'Google đang ghi nhận rating tổng 4.7/5 từ 250 lượt; API chưa trả mẫu review 3 tháng để tóm tắt nội dung.');
+    assert.deepEqual(mapCalls.map(call=>call.path),['/poi/nearby','/poi/details']);
+    assert.equal(data.travelos.sources[0].source,'google-places-text-v1');
     assert.equal(geminiCalls,1);
   } finally {
     globalThis.fetch=originalFetch;
   }
+});
+
+test('AI v3 preserves an arbitrary venue name and returns verified details even without Gemini', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/poi/nearby'){
+      assert.equal(body.name,'Bảo tàng Chứng tích Chiến tranh');
+      assert.equal(body.query,'Bảo tàng Chứng tích Chiến tranh');
+      assert.equal(body.radius,50000);
+      assert.equal(body.limit,5);
+      assert.equal(body.sortBy,'name_similarity');
+      return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',query:{name:body.name,sortBy:'name_similarity',radius:50000},center:body.center,pois:[
+        {id:'war-museum',name:'Bảo tàng Chứng tích Chiến tranh',address:'28 Võ Văn Tần, TP.HCM',lat:10.7795,lng:106.692,distance:1400,rating:4.5,userRatingCount:35000,provider:'google_places'},
+        {id:'city-museum',name:'Bảo tàng Thành phố Hồ Chí Minh',address:'65 Lý Tự Trọng, TP.HCM',lat:10.776,lng:106.699,distance:1800,rating:4.3,userRatingCount:5000,provider:'google_places'}
+      ]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    assert.equal(path,'/poi/details');
+    assert.equal(body.placeId,'war-museum');
+    return new Response(JSON.stringify({ok:true,source:'google-place-details-v1',provider:'google_places',place:{id:'war-museum',name:'Bảo tàng Chứng tích Chiến tranh',address:'28 Võ Văn Tần, TP.HCM',lat:10.7795,lng:106.692,rating:4.5,userRatingCount:35000,openNow:true,openTime:'Hôm nay: 07:30–17:30',reviews:[{rating:5,text:'Nhiều tư liệu lịch sử, nên dành đủ thời gian tham quan.',publishTime:new Date().toISOString()}],provider:'google_places'}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm Bảo tàng Chứng tích Chiến tranh giúp tôi',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69},chatHistory:[]})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.deepEqual(calls.map(call=>call.path),['/poi/nearby','/poi/details']);
+  assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['search_places','place_details','place_busyness']);
+  assert.equal(data.travelos.nearby.pois[0].id,'war-museum');
+  assert.equal(data.travelos.placeDetails.openNow,true);
+  assert.match(data.travelos.reviewSummary,/1 review Google trong mẫu 3 tháng/);
+  assert.match(data.text,/28 Võ Văn Tần/);
+  assert.match(data.text,/đang mở/);
 });
 
 test('AI v3 understands CHTL and deterministically searches nearest convenience stores', async () => {
@@ -1192,9 +1280,15 @@ test('AI v3 resolves a venue and distinguishes live BestTime busyness from forec
   const env={
     GEMINI_API_KEY:'test',BESTTIME_PRIVATE_KEY:'besttime-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',
     MAP_WORKER:{fetch:async request=>{
-      const body=await request.json();
+      const path=new URL(request.url).pathname,body=await request.json();
       assert.equal(body.query,'Cafe Test');
-      return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',places:[{id:'google-place-test',name:'Cafe Test',address:'123 Test, TP.HCM',lat:10.77,lng:106.69,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+      if(path==='/poi/nearby'){
+        assert.equal(body.radius,50000);
+        assert.equal(body.sortBy,'name_similarity');
+        return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',query:{name:'Cafe Test',sortBy:'name_similarity',radius:50000},center:body.center,pois:[{id:'google-place-test',name:'Cafe Test',address:'123 Test, TP.HCM',lat:10.77,lng:106.69,distance:50,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+      }
+      assert.equal(path,'/poi/details');
+      return new Response(JSON.stringify({ok:true,source:'google-place-details-v1',provider:'google_places',place:{id:'google-place-test',name:'Cafe Test',address:'123 Test, TP.HCM',lat:10.77,lng:106.69,rating:4.6,userRatingCount:120,openNow:true,provider:'google_places'}}),{status:200,headers:{'Content-Type':'application/json'}});
     }}
   };
   try {
@@ -1206,7 +1300,7 @@ test('AI v3 resolves a venue and distinguishes live BestTime busyness from forec
     assert.equal(data.travelos.busyness.basis,'live');
     assert.equal(data.travelos.busyness.score,72);
     assert.equal(data.travelos.busyness.label,'khá đông');
-    assert.equal(data.travelos.sources[1].source,'besttime-live');
+    assert.equal(data.travelos.sources.find(source=>source.tool==='place_busyness').source,'besttime-live');
   } finally { globalThis.fetch=originalFetch; }
 });
 

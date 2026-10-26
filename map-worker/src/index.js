@@ -43,6 +43,44 @@ function clean(value, max = 1000) { return String(value ?? '').trim().slice(0, m
 function fold(value) {
   return clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,' ').trim();
 }
+function nameSimilarity(query, candidate) {
+  const q=fold(query),c=fold(candidate);
+  if(!q||!c)return 0;
+  if(q===c)return 1;
+  if(c.startsWith(q)||q.startsWith(c))return .94;
+  if(c.includes(q)||q.includes(c))return .9;
+  const qTokens=[...new Set(q.split(/\s+/).filter(Boolean))],cTokens=[...new Set(c.split(/\s+/).filter(Boolean))];
+  const common=qTokens.filter(token=>cTokens.includes(token)).length;
+  const tokenCoverage=common/Math.max(1,qTokens.length),tokenPrecision=common/Math.max(1,cTokens.length);
+  const tokenScore=.7*tokenCoverage+.3*tokenPrecision;
+  const grams=value=>{
+    const compact=value.replace(/\s+/g,'');
+    if(compact.length<2)return new Set([compact]);
+    return new Set(Array.from({length:compact.length-1},(_,index)=>compact.slice(index,index+2)));
+  };
+  const qGrams=grams(q),cGrams=grams(c),gramCommon=[...qGrams].filter(gram=>cGrams.has(gram)).length;
+  const dice=(2*gramCommon)/Math.max(1,qGrams.size+cGrams.size);
+  return Math.max(tokenScore,dice*.85);
+}
+function rankNamedPlaces(places, queries) {
+  const names=(Array.isArray(queries)?queries:[queries]).map(value=>clean(value,300)).filter(Boolean);
+  const quality=place=>{
+    const primary=clean(place?.primaryType||place?.type,120).toLowerCase();
+    let score=0;
+    if(primary&&!['premise','street_address','route','plus_code'].includes(primary))score+=4;
+    if(Number(place?.rating)>0)score+=2;
+    if(Number(place?.userRatingCount)>0)score+=1;
+    if(typeof place?.openNow==='boolean'||place?.openTime)score+=1;
+    if(place?.businessStatus)score+=1;
+    if(place?.phone||place?.website)score+=1;
+    return score;
+  };
+  return places.map(place=>{
+    const candidates=[place?.name,place?.localizedName,place?.alias].filter(Boolean);
+    const nameMatchScore=Math.max(0,...names.flatMap(query=>candidates.map(candidate=>nameSimilarity(query,candidate))));
+    return {...place,nameMatchScore};
+  }).sort((a,b)=>(b.nameMatchScore||0)-(a.nameMatchScore||0)||quality(b)-quality(a)||(a.distance??Infinity)-(b.distance??Infinity)||trustedRating(b)-trustedRating(a));
+}
 function isChinaCountry(value) {
   const v = fold(value);
   return ['trung quoc','china','cn','中国','中华人民共和国'].some(x => v === fold(x) || v.includes(fold(x)));
@@ -419,11 +457,13 @@ function uniqueSearchQueries(...values) {
 function normalizeAmapPoi(poi, center, country) {
   const point=parseLngLat(poi?.location); if(!point) return null; const {lng,lat}=point;
   const business=poi?.business&&typeof poi.business==='object'?poi.business:{};
-  return {id:clean(poi?.id,160),poiId:clean(poi?.id,160),name:clean(poi?.name,300),address:clean(poi?.address,1000),lat,lng,distance:num(poi?.distance)||haversineMeters(center,{lat,lng}),type:clean(poi?.type,500),typecode:clean(poi?.typecode,100),city:clean(poi?.cityname,200),district:clean(poi?.adname,200),province:clean(poi?.pname,200),phone:clean(business?.tel||poi?.tel,300),openTime:clean(business?.opentime_today,500),rating:clean(business?.rating,50),tag:clean(business?.tag,500),cost:clean(business?.cost,80),businessArea:clean(business?.business_area,200),alias:clean(business?.alias,300),coordSystem:'gcj02',provider:'amap',country:clean(country,120)};
+  const businessStatus=clean(business?.business_status||business?.status,100),statusKey=fold(businessStatus);
+  const openNow=/营业中|正常营业|open/.test(statusKey)?true:(/休息中|暂停营业|已关闭|closed/.test(statusKey)?false:null);
+  return {id:clean(poi?.id,160),poiId:clean(poi?.id,160),name:clean(poi?.name,300),address:clean(poi?.address,1000),lat,lng,distance:num(poi?.distance)||haversineMeters(center,{lat,lng}),type:clean(poi?.type,500),typecode:clean(poi?.typecode,100),city:clean(poi?.cityname,200),district:clean(poi?.adname,200),province:clean(poi?.pname,200),phone:clean(business?.tel||poi?.tel,300),openNow,openTime:clean(business?.opentime_today,500),businessStatus,rating:clean(business?.rating,50),tag:clean(business?.tag,500),cost:clean(business?.cost,80),businessArea:clean(business?.business_area,200),alias:clean(business?.alias,300),coordSystem:'gcj02',provider:'amap',country:clean(country,120)};
 }
 async function amapNearby(body, env, originHeader, center, keyword, types, radius, limit, candidateLimit, country) {
   if(!env.AMAP_WEB_KEY) return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const queryCenter=toAmapPoint(center),info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),mappedKeyword=clean(info.amapKeyword,300),useMappedKeyword=!specificChineseFood&&mappedKeyword&&mappedKeyword!==clean(keyword,300),amapQueries=useMappedKeyword?uniqueSearchQueries(mappedKeyword,info.amapVariants,body?.queryVariants):uniqueSearchQueries(keyword,body?.queryVariants,specificChineseFood?'':mappedKeyword,info.amapVariants),amapKeyword=amapQueries.join('|').slice(0,120);
+  const queryCenter=toAmapPoint(center),info=categoryInfo(keyword,body?.category,body?.name),specificChineseFood=/[\u3400-\u9fff]/.test(keyword)&&['restaurant','cafe'].includes(clean(body?.category,80).toLowerCase()),mappedKeyword=clean(info.amapKeyword,300),useMappedKeyword=!specificChineseFood&&mappedKeyword&&mappedKeyword!==clean(keyword,300),namedQueries=info.name?amapQueryVariants(info.name):[],amapQueries=info.name?uniqueSearchQueries(namedQueries,body?.queryVariants):useMappedKeyword?uniqueSearchQueries(mappedKeyword,info.amapVariants,body?.queryVariants):uniqueSearchQueries(keyword,body?.queryVariants,specificChineseFood?'':mappedKeyword,info.amapVariants),amapKeyword=amapQueries.join('|').slice(0,120);
   const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(radius),output:'json',page_size:String(candidateLimit),page_num:'1',sortrule:'distance',show_fields:'business,navi'});
   if(amapKeyword) params.set('keywords',amapKeyword); if(types) params.set('types',types);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
@@ -431,8 +471,8 @@ async function amapNearby(body, env, originHeader, center, keyword, types, radiu
     const response=await fetch(`${AMAP_NEARBY_URL}?${params}`,{signal:controller.signal}),raw=await response.json().catch(()=>null);
     if(!response.ok||!raw) return json({error:`AMap Nearby HTTP ${response.status}`,provider:'amap'},502,originHeader);
     if(String(raw.status)!=='1') return json({error:`AMap Nearby: ${raw.info||'unknown error'}`,infocode:raw.infocode||'',provider:'amap'},502,originHeader);
-    const sortBy=clean(body?.sortBy,30).toLowerCase(),pois=(Array.isArray(raw.pois)?raw.pois:[]).map(p=>normalizeAmapPoi(p,queryCenter,country)).filter(Boolean).sort((a,b)=>sortBy==='rating'?(Number(b.rating)||0)-(Number(a.rating)||0)||(a.distance??Infinity)-(b.distance??Infinity):(a.distance??Infinity)-(b.distance??Infinity)).slice(0,limit);
-    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,keywords:amapQueries,category:clean(body?.category,80),name:clean(body?.name,120),types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
+    const sortBy=clean(body?.sortBy,30).toLowerCase(),normalized=(Array.isArray(raw.pois)?raw.pois:[]).map(p=>normalizeAmapPoi(p,queryCenter,country)).filter(Boolean),ranked=info.name?rankNamedPlaces(normalized,amapQueries):normalized.sort((a,b)=>sortBy==='rating'?(Number(b.rating)||0)-(Number(a.rating)||0)||(a.distance??Infinity)-(b.distance??Infinity):(a.distance??Infinity)-(b.distance??Infinity)),pois=ranked.slice(0,limit);
+    return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:amapKeyword,keywords:amapQueries,category:clean(body?.category,80),name:clean(body?.name,120),sortBy:info.name?'name_similarity':sortBy,types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{info:raw.info||'OK',infocode:raw.infocode||'',total:Number(raw.count||pois.length)}},200,originHeader);
   }catch(error){return json({error:error?.name==='AbortError'?'AMap Nearby timeout.':`Không gọi được AMap Nearby: ${clean(error?.message,300)}`,provider:'amap'},502,originHeader);}finally{clearTimeout(timer);}
 }
 function normalizeGeoapifyPoi(feature, center, country) {
@@ -464,7 +504,7 @@ async function geoapifyNearby(body, env, originHeader, center, keyword, radius, 
     const response=await fetch(`${GEOAPIFY_PLACES_URL}?${params.toString()}`,{signal:controller.signal});
     const raw=await response.json().catch(()=>null);
     if(!response.ok||!raw) return json({error:raw?.message||raw?.error||`Geoapify Places HTTP ${response.status}`,provider:'geoapify'},502,originHeader);
-    const pois=(Array.isArray(raw?.features)?raw.features:[]).map(p=>normalizeGeoapifyPoi(p,center,country)).filter(Boolean).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity)).slice(0,limit);
+    const normalized=(Array.isArray(raw?.features)?raw.features:[]).map(p=>normalizeGeoapifyPoi(p,center,country)).filter(Boolean),pois=(info.name?rankNamedPlaces(normalized,[info.name]):normalized.sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity))).slice(0,limit);
     if(!pois.length&&env.GOOGLE_MAPS_API_KEY){
       const fallback=await googleTextPlaces({query:clean(body?.name||body?.query||keyword,300),center,radius,limit,language:body?.language,country},env);
       if(fallback.ok&&fallback.places.length) return json({ok:true,source:'google-places-text-v1',provider:'google_places',query:{keyword,name:info.name,categories:info.geoCategories,radius,limit,fallbackFrom:'geoapify'},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:fallback.places.length,pois:fallback.places,meta:{fallback:true}},200,originHeader);
@@ -716,11 +756,12 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
   }
   if(result.ok&&result.places.length){
     const sortBy=clean(body?.sortBy,30).toLowerCase();
-    const ranked=result.places.slice().sort((a,b)=>sortBy==='rating'
-      ? trustedRating(b)-trustedRating(a)||(Number(b.rating)||0)-(Number(a.rating)||0)||(Number(b.userRatingCount)||0)-(Number(a.userRatingCount)||0)||(a.distance??Infinity)-(b.distance??Infinity)
-      : (a.distance??Infinity)-(b.distance??Infinity));
+    const ranked=name?rankNamedPlaces(result.places,[name,...(Array.isArray(body?.queryVariants)?body.queryVariants:[])])
+      : result.places.slice().sort((a,b)=>sortBy==='rating'
+        ? trustedRating(b)-trustedRating(a)||(Number(b.rating)||0)-(Number(a.rating)||0)||(Number(b.userRatingCount)||0)-(Number(a.userRatingCount)||0)||(a.distance??Infinity)-(b.distance??Infinity)
+        : (a.distance??Infinity)-(b.distance??Infinity));
     const pois=ranked.slice(0,limit);
-    return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:result.places.length}},200,originHeader);
+    return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,sortBy:name?'name_similarity':sortBy,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:result.places.length}},200,originHeader);
   }
   if(env.GEOAPIFY_API_KEY) return geoapifyNearby(body,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
   return json({error:result.error||'Google Places không trả kết quả.',provider:'google_places'},502,originHeader);
