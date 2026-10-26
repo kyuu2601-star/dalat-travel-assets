@@ -669,7 +669,21 @@ test('AI chat consistently uses tôi and bạn instead of tui and fen', async ()
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
   assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261013-3/);
+  assert.match(index,/chat\.js\?v=20261026-1/);
+});
+
+test('AI chat shows staged progress while backend tools are working', async () => {
+  const [chat,style,index]=await Promise.all([
+    readFile(new URL('../chat.js',import.meta.url),'utf8'),
+    readFile(new URL('../style.css',import.meta.url),'utf8'),
+    readFile(new URL('../index.html',import.meta.url),'utf8')
+  ]);
+  for(const phase of ['Đang phân tích câu hỏi...','Đang tìm kiếm thông tin...','Đang phân tích khu vực xung quanh...','Đang soạn tin nhắn...'])assert.match(chat,new RegExp(phase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  assert.match(chat,/startChatProgress\(loadingId\)/);
+  assert.match(chat,/timers\.forEach\(timer => clearTimeout\(timer\)\)/);
+  assert.match(style,/\.chat-progress-step\.is-active/);
+  assert.match(style,/prefers-reduced-motion/);
+  assert.match(index,/style\.css\?v=20261026-1/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {

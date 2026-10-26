@@ -2,6 +2,58 @@ const CHAT_STORAGE_KEY = 'travelos_chat_history';
 const LEGACY_CHAT_STORAGE_KEY = 'dalatos_chat_history';
 const EXPIRY_TIME = 24 * 60 * 60 * 1000;
 const CHAT_HISTORY_VERSION = 3;
+const CHAT_PROGRESS_PHASES = [
+    'Đang phân tích câu hỏi...',
+    'Đang tìm kiếm thông tin...',
+    'Đang phân tích khu vực xung quanh...',
+    'Đang soạn tin nhắn...'
+];
+
+function renderChatProgress(id) {
+    const steps = CHAT_PROGRESS_PHASES.map((label, index) => `
+        <li class="chat-progress-step${index === 0 ? ' is-active' : ''}" data-progress-step="${index}">
+            <span class="chat-progress-marker" aria-hidden="true">${index + 1}</span>
+            <span class="chat-progress-label">${label}</span>
+        </li>`).join('');
+    return `<div class="chat-progress" id="${id}" role="status" aria-live="polite" aria-label="${CHAT_PROGRESS_PHASES[0]}">
+        <div class="chat-progress-title"><span class="chat-progress-pulse" aria-hidden="true"></span><span>Thổ Địa đang làm việc</span></div>
+        <ol class="chat-progress-list">${steps}</ol>
+    </div>`;
+}
+
+function updateChatProgress(id, activeIndex) {
+    const root = document.getElementById(id);
+    if (!root) return;
+    const safeIndex = Math.max(0, Math.min(CHAT_PROGRESS_PHASES.length - 1, Number(activeIndex) || 0));
+    root.querySelectorAll('[data-progress-step]').forEach((step, index) => {
+        const done = index < safeIndex;
+        step.classList.toggle('is-done', done);
+        step.classList.toggle('is-active', index === safeIndex);
+        step.classList.toggle('is-waiting', index > safeIndex);
+        const marker = step.querySelector('.chat-progress-marker');
+        if (marker) marker.textContent = done ? '✓' : String(index + 1);
+    });
+    root.setAttribute('aria-label', CHAT_PROGRESS_PHASES[safeIndex]);
+    const box = document.getElementById('chat-box');
+    if (box) box.scrollTop = box.scrollHeight;
+}
+
+function startChatProgress(id) {
+    let current = 0;
+    const advance = index => {
+        current = Math.max(current, index);
+        updateChatProgress(id, current);
+    };
+    const timers = [
+        setTimeout(() => advance(1), 900),
+        setTimeout(() => advance(2), 4500),
+        setTimeout(() => advance(3), 10000)
+    ];
+    return {
+        advance,
+        stop() { timers.forEach(timer => clearTimeout(timer)); }
+    };
+}
 
 function renderMarkdownSafe(text) {
     let html = escapeChatHtml(String(text ?? ''));
@@ -152,7 +204,8 @@ async function handleChat() {
     input.value = '';
 
     const loadingId = 'loading-' + Date.now();
-    addMessage('ai', `<div class="typing" id="${loadingId}"><span>Thổ Địa đang tính...</span><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`, true);
+    addMessage('ai', renderChatProgress(loadingId), true);
+    const progress = startChatProgress(loadingId);
 
     let data = null;
     let retries = 3;
@@ -193,6 +246,7 @@ async function handleChat() {
                 }
 
                 if (response.ok) {
+                    progress.advance(2);
                     data = await response.json();
                     if (data?.error?.message?.includes('location')) {
                         retries--;
@@ -217,6 +271,7 @@ async function handleChat() {
         else if (data?.text) aiMsg = data.text;
         else aiMsg = `⚠️ Thiết lập lỗi cấu trúc dữ liệu: ${JSON.stringify(data)}`;
         aiMsg = normalizeAssistantVoice(aiMsg);
+        progress.advance(3);
 
         const loadingElement = document.getElementById(loadingId);
         const messageElement = loadingElement?.closest('.msg');
@@ -232,6 +287,7 @@ async function handleChat() {
         const loadingElement = document.getElementById(loadingId);
         if (loadingElement?.closest('.msg')) loadingElement.closest('.msg').textContent = 'Kết nối đang gặp lỗi. Bạn thử lại nhé.';
     } finally {
+        progress.stop();
         if (sendBtn) sendBtn.disabled = false;
         if (voiceBtn) voiceBtn.disabled = false;
         input.disabled = false;
