@@ -647,6 +647,9 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(chinaNavigation,/data-mode="electrobike"/);
   assert.match(chinaNavigation,/data-mode="drive"/);
   assert.match(chinaNavigation,/AMapRouteService\.routeWithFallback/);
+  assert.doesNotMatch(chinaNavigation,/AI Route Notes/);
+  assert.match(chinaNavigation,/TRAVELOS · ĐIỀU HƯỚNG TRUNG QUỐC/);
+  assert.match(chinaNavigation,/destination\?\.localizedName \|\| destination\?\.name/);
   assert.match(chinaNavigation,/planRoute\(state\.routeOrigin \|\| state\.origin,state\.routeDestination \|\| state\.destination,mode\)/);
   assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
   assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk',onBack:/);
@@ -658,6 +661,7 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(nearby,/class="nearby-chat-head" role="button" tabindex="0"/);
   assert.match(nearby,/mapWrap\?\.addEventListener\('click'/);
   assert.match(nearby,/poi\.localizedName\|\|poi\.name/);
+  assert.match(nearby,/localizedName:poi\.localizedName\|\|''/);
   assert.match(nearby,/nearby-poi-note/);
   assert.match(nearby,/function coordinateSystemOf/);
   assert.match(nearby,/['"]gcj02['"]/);
@@ -846,7 +850,7 @@ test('App keeps onboarding visible until places and bot readiness settle', async
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động TravelOS/);
-  assert.match(index,/app\.js\?v=20261013-2/);
+  assert.match(index,/app\.js\?v=20261026-1/);
   assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });
 

@@ -12,7 +12,7 @@
   const $ = sel => document.querySelector(sel);
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtM = n => Number(n) < 1000 ? `${Math.round(Number(n) || 0)} m` : `${(Number(n) / 1000).toFixed(1)} km`;
-  const fmtT = s => `${Math.max(1, Math.round((Number(s) || 0) / 60))} min`;
+  const fmtT = s => `${Math.max(1, Math.round((Number(s) || 0) / 60))} phút`;
   const cfg = () => window.CHINA_NAV_CONFIG || {};
 
   function routeCfg() {
@@ -52,14 +52,13 @@
           <div id="tn-special-alert" class="tn-special-alert" hidden></div>
         </div>
         <aside class="tn-side">
-          <div class="tn-head"><div><div class="tn-eyebrow">TRAVELOS · CHINA NAV</div><h2 id="tn-title">Chỉ đường đi bộ</h2><p id="tn-summary">--</p></div><button id="tn-close" class="tn-close" type="button">×</button></div>
+          <div class="tn-head"><div><div class="tn-eyebrow">TRAVELOS · ĐIỀU HƯỚNG TRUNG QUỐC</div><h2 id="tn-title">Chỉ đường đi bộ</h2><p id="tn-summary">--</p></div><button id="tn-close" class="tn-close" type="button">×</button></div>
           <div id="tn-modes" class="tn-modes" aria-label="Chọn phương tiện">
             <button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button>
             <button type="button" data-mode="electrobike" aria-pressed="false">🛵 Xe điện</button>
             <button type="button" data-mode="drive" aria-pressed="false">🚗 Ô tô</button>
           </div>
           <div id="tn-routes" class="tn-routes" aria-label="Chọn tuyến đi bộ"></div>
-          <div id="tn-ai" class="tn-ai"><strong>AI Route Notes</strong><span>Đang chờ route...</span></div>
           <div id="tn-special" class="tn-special"></div>
           <div id="tn-steps" class="tn-steps"></div>
         </aside>
@@ -74,6 +73,17 @@
     root.addEventListener('click', e => { if (e.target === root) close(); });
   }
 
+  function destinationDisplayName(destination) {
+    const language=String(document.documentElement?.lang || 'vi').toLowerCase();
+    const localized=destination?.localizedNames?.[language] || destination?.localizedNames?.[language.split('-')[0]];
+    if (localized) return localized;
+    if (language.startsWith('vi')) {
+      const vietnamese=destination?.localizedName || destination?.name || 'Chỉ đường đi bộ';
+      return String(vietnamese).replace(/\s*[\(（][^()（）]*[\u3400-\u9fff][^()（）]*[\)）]\s*$/u,'').trim() || vietnamese;
+    }
+    return destination?.name || destination?.localizedName || 'Chỉ đường đi bộ';
+  }
+
   function openModal(destination) {
     ensureModal();
     const root = $('#travel-nav-modal');
@@ -81,14 +91,13 @@
     root.classList.add('open');
     root.setAttribute('aria-hidden', 'false');
     document.body.classList.add('travel-nav-open');
-    $('#tn-title').textContent = destination?.name || 'Chỉ đường đi bộ';
+    $('#tn-title').textContent = destinationDisplayName(destination);
     $('#tn-summary').textContent = 'Đang tính đường bằng AMap...';
     $('#tn-steps').innerHTML = '<div class="tn-loading">Đang lấy route thật từ AMap...</div>';
     $('#tn-special').innerHTML = '';
     $('#tn-routes').innerHTML = '';
     $('#tn-map-status').classList.remove('hidden');
     $('#tn-map-status').textContent = 'Đang chuẩn bị AMap...';
-    $('#tn-ai').innerHTML = '<strong>AI Route Notes</strong><span>AI chỉ dịch và diễn giải route AMap, không tự tạo đường.</span>';
     $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=true; button.setAttribute('aria-pressed',String(button.dataset.mode === 'walk')); });
     hideSpecialAlert();
   }
@@ -527,12 +536,8 @@
 
   async function localizeRouteWithAI(route, destination) {
     const requestSelection = selection;
-    const node = $('#tn-ai');
     const ai = cfg().ai || {};
-    if (!ai.enabled || !ai.endpoint) {
-      node.innerHTML = '<strong>AI Route Notes</strong><span>AI đang tắt. Sidebar vẫn dùng bản dịch cơ bản tại máy.</span>';
-      return;
-    }
+    if (!ai.enabled || !ai.endpoint) return;
 
     const compactSteps = (route.steps || []).map((s, i) => ({
       i: i + 1,
@@ -546,7 +551,6 @@
       feature: featureOf(s)?.label || ''
     }));
 
-    node.innerHTML = '<strong>AI Route Notes</strong><span>Đang dịch từng bước sang tiếng Việt...</span>';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Number(ai.timeoutMs || 12000));
 
@@ -556,7 +560,7 @@
         headers: { 'Content-Type':'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          systemPrompt: `Bạn là TravelOS Route Localizer. Dữ liệu AMap là nguồn sự thật tuyệt đối. Hãy dịch từng instruction sang tiếng Việt tự nhiên, phù hợp với phương tiện đã chọn. TUYỆT ĐỐI không thêm đường, không bỏ bước, không đổi thứ tự, không đổi khoảng cách, không tạo shortcut. Giữ nguyên tên riêng nếu không chắc cách dịch. Với tuyến đi bộ, nếu step có feature như cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà thì phải nói rõ. Chỉ trả về JSON hợp lệ, không markdown, đúng schema: {"steps":[{"i":1,"vi":"..."}],"note":"..."}. Mảng steps phải có đúng số phần tử và đúng i như input. note chỉ được mô tả ngắn gọn các điểm đáng chú ý đã có trong route, không bịa thêm.`,
+          systemPrompt: `Bạn là TravelOS Route Localizer. Dữ liệu AMap là nguồn sự thật tuyệt đối. Hãy dịch từng instruction sang tiếng Việt tự nhiên, phù hợp với phương tiện đã chọn. TUYỆT ĐỐI không thêm đường, không bỏ bước, không đổi thứ tự, không đổi khoảng cách, không tạo shortcut. Giữ nguyên tên riêng nếu không chắc cách dịch. Với tuyến đi bộ, nếu step có feature như cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà thì phải nói rõ. Chỉ trả về JSON hợp lệ, không markdown, đúng schema: {"steps":[{"i":1,"vi":"..."}]}. Mảng steps phải có đúng số phần tử và đúng i như input.`,
           userMessage: `Phương tiện: ${modeInfo().label}\nĐiểm đến: ${destination?.name || ''}\nAMap route JSON: ${JSON.stringify(compactSteps)}`,
           chatHistory: [],
           matchedModules: [],
@@ -584,12 +588,9 @@
       });
 
       renderSteps(route);
-      const note = String(parsed.note || '').trim();
-      node.innerHTML = `<strong>AI Route Notes</strong><span>${esc(note || 'Đã dịch toàn bộ chỉ dẫn AMap sang tiếng Việt.').replace(/\n/g,'<br>')}</span>`;
     } catch (error) {
       if (requestSelection !== selection || state.route !== route) return;
       console.warn('[TravelNavigation localization]', error);
-      node.innerHTML = '<strong>AI Route Notes</strong><span>AI dịch step không phản hồi. Sidebar đang dùng bản dịch cơ bản tại máy, route AMap vẫn giữ nguyên.</span>';
     } finally {
       clearTimeout(timer);
     }
@@ -659,7 +660,6 @@
     $('#tn-routes').innerHTML='';
     $('#tn-steps').innerHTML='<div class="tn-loading">Đang lấy route thật từ AMap...</div>';
     $('#tn-special').innerHTML='';
-    $('#tn-ai').innerHTML='<strong>AI Route Notes</strong><span>Đang chờ route AMap...</span>';
     $('#tn-modes').querySelectorAll('button').forEach(button => { button.disabled=true; });
     try {
       const planned=await planRoute(state.routeOrigin || state.origin,state.routeDestination || state.destination,mode);

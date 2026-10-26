@@ -11,7 +11,7 @@
   function providerLabel(payload){const provider=providerOf(payload);return provider==='google'?'Google Places · Geoapify Map':provider==='geoapify'?'Geoapify Fallback':'AMap Live';}
   function currentCity(payload){return payload?.pois?.[0]?.city||document.getElementById('selectCity')?.value||'';}
   function coordinateSystemOf(point,providerHint=''){const explicit=String(point?.coordSystem||point?.coordinate_system||'').toLowerCase();if(explicit)return explicit;return /amap/i.test(String(point?.provider||providerHint||''))?'gcj02':'wgs84';}
-  function poiDestination(poi,payload){const p=validPoint(poi),provider=poi?.provider||payload?.provider||'';return p?{name:poi.name||'',address:poi.address||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:coordinateSystemOf(poi,provider),poiId:poi.poiId||poi.id||'',provider,rating:poi.rating||null,userRatingCount:poi.userRatingCount||0,reviews:Array.isArray(poi.reviews)?poi.reviews.slice(0,5):[]}:null;}
+  function poiDestination(poi,payload){const p=validPoint(poi),provider=poi?.provider||payload?.provider||'';return p?{name:poi.name||'',localizedName:poi.localizedName||'',localizedNames:poi.localizedNames||null,address:poi.address||'',localizedAddress:poi.localizedAddress||'',country:poi.country||payload?.center?.country||'',city:poi.city||'',area:poi.district||'',lat:p.lat,lng:p.lng,coordSystem:coordinateSystemOf(poi,provider),poiId:poi.poiId||poi.id||'',provider,rating:poi.rating||null,userRatingCount:poi.userRatingCount||0,reviews:Array.isArray(poi.reviews)?poi.reviews.slice(0,5):[]}:null;}
   async function ensureProvider(payload){
     const provider=providerOf(payload);
     if(provider==='google'){

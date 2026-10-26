@@ -797,6 +797,8 @@ async function openPlaceNavigation(index, event) {
     if (!item) return;
     const destination = {
         name: item.name || 'Điểm đến',
+        localizedName: item.localizedName || '',
+        localizedNames: item.localizedNames || null,
         country: item.country || '',
         city: item.city || '',
         area: item.area || '',

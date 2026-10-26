@@ -42,7 +42,7 @@
         await loadScript('gcj02.js');
         await loadScript('amap-provider.js?v=20261013-1');
         await loadScript('amap-route-service.js?v=20261026-1');
-        await loadScript('travel-navigation.js?v=20261026-1');
+        await loadScript('travel-navigation.js?v=20261026-2');
         active = true;
         // Warm the remote SDK as soon as China is selected. Navigation can then
         // paint the map immediately instead of paying this network cost on tap.
@@ -75,7 +75,8 @@
   }
   function placeDestination(place) {
     return {
-      name: place.name || '', country: place.country || '', city: place.city || '', area: place.area || '',
+      name: place.name || '', localizedName:place.localizedName || '', localizedNames:place.localizedNames || null,
+      country: place.country || '', city: place.city || '', area: place.area || '',
       lat: place.latitude, lng: place.longitude, coordSystem: place.coordSystem || 'wgs84', mapLink: place.map_link || '',
       poiId: place.amap_poi_id || place.poi_id || poiIdFromLink(place.map_link)
     };
