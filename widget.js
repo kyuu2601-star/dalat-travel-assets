@@ -15,7 +15,7 @@
             <div id="chat-box"></div>
             <div class="widget-input-area">
                 <input type="text" id="userInput" placeholder="Hỏi đường, quán xá..." aria-label="Nhập câu hỏi cho Pipi">
-                <button class="mic-btn" id="mic-btn" type="button" aria-label="Voice input">
+                <button class="mic-btn" id="mic-btn" type="button" aria-label="Mở trò chuyện giọng nói với Pipi">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -244,34 +244,5 @@
     document.getElementById('send-btn').onclick = () => handleChat();
 
     const micBtn = document.getElementById('mic-btn');
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        let isRecording = false;
-
-        micBtn.onclick = () => {
-            if (!isRecording) {
-                recognition.start();
-                isRecording = true;
-                micBtn.classList.add('recording');
-            } else {
-                recognition.stop();
-            }
-        };
-        recognition.onresult = event => {
-            document.getElementById('userInput').value = event.results[0][0].transcript;
-            isRecording = false;
-            micBtn.classList.remove('recording');
-            handleChat();
-        };
-        recognition.onerror = recognition.onend = () => {
-            isRecording = false;
-            micBtn.classList.remove('recording');
-        };
-    } else {
-        micBtn.hidden = true;
-    }
+    micBtn.onclick = () => window.PipiVoiceMode?.open();
 })();

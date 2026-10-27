@@ -1,13 +1,7 @@
-// Experimental Voice Mode. The text chat and its microphone remain untouched.
+// Experimental Voice Mode; the chat microphone opens this portrait dialog.
 (() => {
-  const header = document.querySelector('#chat-widget-window .widget-header');
-  if (!header || document.getElementById('pipi-voice-launch')) return;
-  const launch = document.createElement('button');
-  launch.id = 'pipi-voice-launch';
-  launch.type = 'button';
-  launch.setAttribute('aria-label', 'Mở trò chuyện giọng nói với Pipi');
-  launch.textContent = '🎙 Trò chuyện';
-  header.insertBefore(launch, header.querySelector('#close-widget'));
+  const launch = document.getElementById('mic-btn');
+  if (!launch || document.getElementById('pipi-voice-mode')) return;
 
   const panel = document.createElement('section');
   panel.id = 'pipi-voice-mode';
@@ -17,8 +11,8 @@
   panel.hidden = true;
   panel.innerHTML = `
     <header class="pvm-header"><span>LET'S GO <strong>PIPI</strong> · VOICE THỬ NGHIỆM</span><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></header>
-    <div class="pvm-top"><div class="pvm-robot" aria-hidden="true"><div class="pvm-eyes"><i></i><i></i></div><div class="pvm-mouth"></div></div><p id="pvm-status" aria-live="polite">Giữ nút mic để nói với Pipi</p><p id="pvm-short" aria-live="polite"></p></div>
-    <div class="pvm-bottom"><div class="pvm-chat-title">Nội dung trò chuyện</div><div id="pvm-chat" role="log" aria-live="polite"></div><div class="pvm-controls"><div id="pvm-tip">Giữ để nói · Thả ra để gửi</div><button type="button" id="pvm-mic" aria-label="Giữ để nói, thả ra để gửi">🎙</button><span id="pvm-caption">Nhấn giữ nút mic</span></div></div>`;
+    <div class="pvm-top"><div class="pvm-mic-halo"><button type="button" id="pvm-mic" aria-label="Giữ để nói, thả ra để gửi"><svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button></div><div id="pvm-tip">Giữ mic để nói · Thả tay để gửi</div><p id="pvm-status" aria-live="polite">Pipi đang chờ bạn nói</p><p id="pvm-caption" aria-live="polite">Nói rõ ràng và gần mic</p><p id="pvm-short" aria-live="polite"></p></div>
+    <div class="pvm-bottom"><div class="pvm-chat-title">Trò chuyện với Pipi</div><div id="pvm-chat" role="log" aria-live="polite"></div></div>`;
   document.body.appendChild(panel);
 
   const el = id => document.getElementById(id);
@@ -28,7 +22,7 @@
   const mic = el('pvm-mic');
   const caption = el('pvm-caption');
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null, holding = false, transcript = '', sending = false, activeRequest = null, generation = 0;
+  let recognition = null, holding = false, transcript = '', confidence = null, recognitionError = '', sending = false, activeRequest = null, generation = 0;
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
   const nativeVoice = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.registerPlugin?.('PipiVoice') : null;
@@ -93,16 +87,17 @@
     mic.classList.remove('active');
     mic.disabled = !Recognition;
     panel.hidden = true;
-    document.getElementById('pipi-voice-launch')?.focus();
+    launch.focus();
   }
   function open() {
     panel.hidden = false;
-    setState('Giữ nút mic để nói với Pipi');
-    caption.textContent = Recognition ? 'Nhấn giữ nút mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
+    setState('Pipi đang chờ bạn nói', 'ready');
+    short.textContent = '';
+    caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
     mic.disabled = !Recognition;
     mic.focus();
   }
-  launch.addEventListener('click', open);
+  window.PipiVoiceMode = { open, close };
   el('pvm-close').addEventListener('click', close);
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
 
@@ -201,31 +196,43 @@
     event.preventDefault();
     mic.setPointerCapture?.(event.pointerId);
     stopSpeaking();
-    holding = true; transcript = '';
+    holding = true; transcript = ''; confidence = null; recognitionError = '';
     recognition = new Recognition();
     recognition.lang = 'vi-VN'; recognition.continuous = false; recognition.interimResults = true;
     recognition.onresult = result => {
       transcript = Array.from(result.results).map(part => part[0]?.transcript || '').join(' ').trim();
+      const finalResult = Array.from(result.results).reverse().find(part => part.isFinal);
+      if (finalResult && Number(finalResult[0]?.confidence) > 0) confidence = finalResult[0].confidence;
       caption.textContent = transcript || 'Pipi đang nghe bạn…';
     };
     recognition.onerror = error => {
-      if (error.error !== 'no-speech' && error.error !== 'aborted') setState('Không nghe rõ. Bạn thử giữ mic và nói lại nhé.', 'error');
+      if (error.error !== 'aborted') recognitionError = error.error || 'unknown';
+      if (error.error === 'not-allowed' || error.error === 'service-not-allowed') setState('Bạn hãy cho phép dùng micro rồi thử lại nhé.', 'error');
+      else if (error.error !== 'aborted') setState('Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.', 'error');
     };
     recognition.onend = () => {
       recognition = null;
       if (panel.hidden) return;
       if (!holding) finish();
-      else { holding = false; finish(); }
+      else caption.textContent = 'Thả tay để Pipi kiểm tra câu vừa nghe';
     };
     try { recognition.start(); setState('Pipi đang nghe bạn…', 'listening'); mic.classList.add('active'); caption.textContent = 'Thả tay để gửi'; }
     catch { holding = false; recognition = null; setState('Không mở được mic. Bạn kiểm tra quyền micro nhé.', 'error'); }
   }
   function finish() {
     mic.classList.remove('active');
-    const said = transcript.trim(); transcript = '';
-    caption.textContent = 'Nhấn giữ nút mic';
-    if (said) send(said);
-    else setState('Pipi chưa nghe rõ. Giữ mic rồi nói lại nhé.', 'ready');
+    const quality = window.PipiVoiceQuality?.(transcript, confidence, recognitionError) || { clear: Boolean(transcript.trim()), text: transcript.trim() };
+    const permissionDenied = recognitionError === 'not-allowed' || recognitionError === 'service-not-allowed';
+    transcript = ''; confidence = null; recognitionError = '';
+    caption.textContent = 'Giữ mic để thử lại';
+    if (quality.clear) send(quality.text);
+    else {
+      const prompt = permissionDenied ? 'Bạn hãy cho phép dùng micro rồi thử lại nhé.' : 'Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.';
+      setState(prompt, 'unclear');
+      short.textContent = '';
+      append('ai', prompt);
+      speak(prompt, ++generation, true);
+    }
   }
   function release(event) {
     if (!holding) return;

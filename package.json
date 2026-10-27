@@ -1,6 +1,6 @@
 {
   "name": "travelos",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "private": true,
   "type": "module",
   "description": "Let's Go Pipi local-first Android application",
@@ -10,7 +10,7 @@
     "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
     "snapshot": "node scripts/fetch-data-snapshot.mjs",
-    "test": "node --test tests/v3-flow.test.mjs tests/mobile-data.test.mjs"
+    "test": "node --test tests/v3-flow.test.mjs tests/mobile-data.test.mjs tests/voice-quality.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
