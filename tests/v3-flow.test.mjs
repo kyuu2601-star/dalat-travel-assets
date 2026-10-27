@@ -1648,7 +1648,8 @@ test('Natural voice endpoint keeps the Gemini key server-side and returns WAV au
     assert.equal(response.status,200);
     assert.equal(response.headers.get('content-type'),'audio/wav');
     assert.equal((await response.arrayBuffer()).byteLength,44);
-    assert.equal(requestBody.model,'gemini-3.8-flash-lite-tts');
+    assert.equal(requestBody.model,'gemini-3.8-flash-tts');
+    assert.equal(requestBody.generation_config.speech_config[0].voice,'Sadachbia');
     assert.equal(requestBody.input[0].content[0].text,'Pipi tìm được quán gần bạn.');
   }finally{globalThis.fetch=previousFetch;}
 });

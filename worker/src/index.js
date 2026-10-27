@@ -3035,10 +3035,10 @@ async function handleVoiceTts(request, env) {
   const spoken=clean(body?.text,420);
   if(!spoken || spoken.length < 2) return json({error:'Text required'},400,request,env);
   const prompt={
-    model:'gemini-3.8-flash-lite-tts',
-    input:[{type:'user_input',content:[{type:'text',text:spoken,annotations:[{type:'speech_metadata',style:'Warm, friendly and lively Vietnamese travel companion. Natural conversational rhythm, clear pronunciation, moderate speed.'}]}]}],
+    model:'gemini-3.8-flash-tts',
+    input:[{type:'user_input',content:[{type:'text',text:spoken,annotations:[{type:'speech_metadata',style:'Lively, warm and conversational Vietnamese travel companion. Speak naturally with clear Vietnamese pronunciation, varied intonation and a relaxed pace.'}]}]}],
     response_format:{type:'audio'},
-    generation_config:{speech_config:[{voice:'Achird'}]}
+    generation_config:{speech_config:[{voice:'Sadachbia'}]}
   };
   try {
     const upstream=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
