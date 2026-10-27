@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'www');
-const directories = ['china-navigation', 'geoapify-navigation', 'vendor', 'data'];
+const directories = ['assets', 'china-navigation', 'geoapify-navigation', 'vendor', 'data'];
 const extensions = new Set(['.html', '.css', '.js', '.json', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.mp3']);
 const excludedFiles = new Set(['package.json', 'package-lock.json', 'capacitor.config.json']);
 

@@ -707,15 +707,17 @@ test('AMap navigation falls back from a failed walking route to electric bike', 
 });
 
 test('Pipi consistently self-identifies by name and calls the user bạn', async () => {
-  const [chat,widget,worker,core,index,manifest,capacitor,androidStrings]=await Promise.all([
+  const [chat,widget,worker,core,index,style,manifest,capacitor,androidStrings,buildScript]=await Promise.all([
     readFile(new URL('../chat.js',import.meta.url),'utf8'),
     readFile(new URL('../widget.js',import.meta.url),'utf8'),
     readFile(new URL('../worker/src/index.js',import.meta.url),'utf8'),
     readFile(new URL('../worker/src/bot/prompts/core.js',import.meta.url),'utf8'),
     readFile(new URL('../index.html',import.meta.url),'utf8'),
+    readFile(new URL('../style.css',import.meta.url),'utf8'),
     readFile(new URL('../manifest.json',import.meta.url),'utf8'),
     readFile(new URL('../capacitor.config.json',import.meta.url),'utf8'),
-    readFile(new URL('../android/app/src/main/res/values/strings.xml',import.meta.url),'utf8')
+    readFile(new URL('../android/app/src/main/res/values/strings.xml',import.meta.url),'utf8'),
+    readFile(new URL('../scripts/build-web.mjs',import.meta.url),'utf8')
   ]);
   assert.match(chat,/Chào bạn! Pipi là trợ lý du lịch của Let's Go Pipi/);
   assert.match(chat,/Pipi đang làm việc/);
@@ -727,11 +729,15 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.match(worker,/normalizePipiVoice/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
   assert.match(index,/<title>Let's Go Pipi<\/title>/);
-  assert.match(index,/LET'S GO <span>PIPI<\/span>/);
+  assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
   assert.match(index,/chat\.js\?v=20261026-2/);
+  assert.match(style,/font-family: "Lilita One"/);
+  assert.match(style,/\.brand-pipi-shadow/);
+  assert.match(style,/text-shadow:/);
   assert.match(manifest,/"name": "Let's Go Pipi"/);
   assert.match(capacitor,/"appName": "Let's Go Pipi"/);
   assert.match(androidStrings,/<string name="app_name">Let's Go Pipi<\/string>/);
+  assert.match(buildScript,/\['assets', 'china-navigation'/);
 });
 
 test('AI chat shows staged progress while backend tools are working', async () => {
@@ -745,7 +751,7 @@ test('AI chat shows staged progress while backend tools are working', async () =
   assert.match(chat,/timers\.forEach\(timer => clearTimeout\(timer\)\)/);
   assert.match(style,/\.chat-progress-step\.is-active/);
   assert.match(style,/prefers-reduced-motion/);
-  assert.match(index,/style\.css\?v=20261026-1/);
+  assert.match(index,/style\.css\?v=20261027-1/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
