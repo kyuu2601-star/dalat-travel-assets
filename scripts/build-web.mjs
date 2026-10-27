@@ -21,5 +21,5 @@ for (const directory of directories) {
   await cp(path.join(root, directory), path.join(output, directory), { recursive: true });
 }
 
-console.log(`TravelOS web bundle created at ${output}`);
+console.log(`Let's Go Pipi web bundle created at ${output}`);
 

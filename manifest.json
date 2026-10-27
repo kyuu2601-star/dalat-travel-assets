@@ -1,6 +1,6 @@
 {
-  "name": "TravelOS",
-  "short_name": "TravelOS",
+  "name": "Let's Go Pipi",
+  "short_name": "Pipi",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

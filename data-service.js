@@ -198,13 +198,13 @@
 
     async function getKnowledgeBase() {
         await loadPlaces();
-        return 'TravelOS D1 curated PLACES is active. Live nearby POIs use Geoapify outside China and AMap inside China.';
+        return "Let's Go Pipi D1 curated PLACES is active. Live nearby POIs use Geoapify outside China and AMap inside China.";
     }
 
     function getAdminKey(forcePrompt = false) {
         let key = forcePrompt ? '' : localStorage.getItem(ADMIN_KEY_STORAGE) || '';
         if (!key) {
-            key = (window.prompt('Nhập TravelOS ADMIN_KEY để ghi dữ liệu vào D1:') || '').trim();
+            key = (window.prompt("Nhập Let's Go Pipi ADMIN_KEY để ghi dữ liệu vào D1:") || '').trim();
             if (!key) throw new Error('Chưa nhập ADMIN_KEY.');
             localStorage.setItem(ADMIN_KEY_STORAGE, key);
         }

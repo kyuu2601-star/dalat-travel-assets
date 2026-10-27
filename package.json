@@ -3,7 +3,7 @@
   "version": "1.0.8",
   "private": true,
   "type": "module",
-  "description": "TravelOS local-first Android application",
+  "description": "Let's Go Pipi local-first Android application",
   "scripts": {
     "build:web": "node scripts/build-web.mjs",
     "android:sync": "npm run build:web && cap sync android",

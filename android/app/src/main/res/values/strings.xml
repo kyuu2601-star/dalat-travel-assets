@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">TravelOS</string>
-    <string name="title_activity_main">TravelOS</string>
+    <string name="app_name">Let's Go Pipi</string>
+    <string name="title_activity_main">Let's Go Pipi</string>
     <string name="package_name">com.kyuu2601.travelos</string>
     <string name="custom_url_scheme">com.kyuu2601.travelos</string>
 </resources>

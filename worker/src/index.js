@@ -27,6 +27,12 @@ const STOP_WORDS = new Set([
 
 const ADMIN_WORDS = new Set(['quan','huyen','phuong','xa','tp','thanh','pho','tinh','district','ward','city','province']);
 const clean = (v, max = 10000) => String(v ?? '').trim().slice(0, max);
+const normalizePipiVoice = value => String(value ?? '')
+  .replace(/Thổ Địa/g, 'Pipi')
+  .replace(/\b[Ff]en\b/g, match => match === 'Fen' ? 'Bạn' : 'bạn')
+  .replace(/\b[Cc]húng tôi\b/g, 'Pipi')
+  .replace(/\b[Tt]ôi\b/g, 'Pipi')
+  .replace(/\b[Tt]ui\b/g, 'Pipi');
 const errorText = (error, fallback = 'Unknown error', max = 1000) => clean(error instanceof Error ? error.message : (typeof error === 'string' ? error : fallback), max);
 const num = v => (v === '' || v == null || !Number.isFinite(Number(v))) ? null : Number(v);
 const int = v => Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : 0;
@@ -1220,8 +1226,8 @@ function buildPrompt(rawPrompt, context, intentPlan) {
   const sections = [
     base,
     `--- GIỌNG ĐIỆU TRỢ LÝ - ƯU TIÊN CAO NHẤT ---
-- Luôn tự xưng là "tôi" và gọi người dùng là "bạn".
-- Không dùng "tui", "fen" hoặc biến thể của hai cách xưng hô này, kể cả khi người dùng dùng trước.
+- Luôn tự xưng bằng tên "Pipi" và gọi người dùng là "bạn".
+- Không tự xưng "tôi", "tui", "mình" và không dùng "fen", kể cả khi người dùng dùng trước.
 - Giữ giọng thân thiện, tự nhiên, rõ ràng; không quá suồng sã.`,
     `--- NGỮ CẢNH VỊ TRÍ TRAVEL OS ---
 Vị trí hiện tại của user: ${formatLocation(context.currentLocation)}
@@ -1231,7 +1237,7 @@ Nguồn phạm vi tìm kiếm: ${searchSource}`,
 ${formatIntentPlan(intentPlan)}`,
     `--- RUNTIME SOURCE POLICY - ƯU TIÊN CAO NHẤT ---
 - PLACE_INTEL, tim_vi_tri_thuc_te, "quét Google Maps", "quét vệ tinh", tự duyệt web hoặc dùng trí nhớ model để tạo fact live đều không còn hợp lệ. Block này ghi đè mọi rule cũ mâu thuẫn trong module prompt.
-- PLACES/D1 là nguồn curated cho quán ăn, cafe, điểm chơi và địa điểm TravelOS đã lưu. Chỉ khẳng định fact cụ thể của địa điểm khi fact có trong PLACES.
+- PLACES/D1 là nguồn curated cho quán ăn, cafe, điểm chơi và địa điểm Let's Go Pipi đã lưu. Chỉ khẳng định fact cụ thể của địa điểm khi fact có trong PLACES.
 - Live POI quanh GPS chỉ lấy từ search_nearby_places: Geoapify ngoài Trung Quốc, AMap tại Trung Quốc. Không tự thêm tên, địa chỉ, khoảng cách, giờ mở cửa, số điện thoại, rating hoặc tọa độ.
 - Nếu live tool trả POI, phải dùng đúng POI đó. Nếu tool lỗi/rỗng, nói chưa lấy được dữ liệu live đã kiểm chứng; không đá user sang Google Maps và không bù bằng trí nhớ model.
 - THOI_TIET: được tư vấn quần áo, mùa/khí hậu, phương án khi user nêu mưa/lạnh; không giả làm dự báo thời tiết hiện tại nếu hệ thống không có nguồn live.
@@ -1607,7 +1613,7 @@ function deterministicNearbyText(nearby) {
     const range=radii.length?` trong các bán kính ${radii.map(value=>value>=1000?`${value/1000} km`:`${value} m`).join(', ')}`:'';
     const queryObject=nearby?.query&&typeof nearby.query==='object'?nearby.query:null,attempted=(queryObject?.keywords||[]).map(value=>clean(value,120)).filter(Boolean).slice(0,4);
     const attemptedText=attempted.length?` Backend đã thử các tên AMap: ${attempted.map(value=>`“${value}”`).join(', ')}.`:'';
-    return `API bản đồ chưa trả kết quả cho “${clean(query,200)}”${range}.${attemptedText} Tôi chưa kết luận địa điểm không tồn tại vì AMap có thể dùng một tên tiếng Trung khác.`;
+    return `API bản đồ chưa trả kết quả cho “${clean(query,200)}”${range}.${attemptedText} Pipi chưa kết luận địa điểm không tồn tại vì AMap có thể dùng một tên tiếng Trung khác.`;
   }
   const lines = pois.map((poi, index) => {
     const distance = formatNearbyDistance(poi?.distance);
@@ -1616,7 +1622,7 @@ function deterministicNearbyText(nearby) {
     const detail = [rating,distance, address].filter(Boolean).join(' · ');
     return `- ${index + 1}. ${clean(poi?.localizedName||poi?.name, 300) || 'Địa điểm'}${detail ? ` — ${detail}` : ''}.`;
   });
-  return `Tôi tìm được ${pois.length} địa điểm gần bạn nhất:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.`;
+  return `Pipi tìm được ${pois.length} địa điểm gần bạn nhất:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.`;
 }
 
 function wantsRatingRanking(value) {
@@ -1674,7 +1680,7 @@ async function handleRemoteAreaSearch(intent, request, env, location) {
   const resolved=await mapTool('/place/resolve',{...chinaProviderFields(china),query:intent.area,center:null,country:countryHint,language:china?'zh':nearbyLanguage(location),limit:5},env);
   const candidates=resolved.ok?(resolved.data?.places||[]).map(compactPoi):[];
   const area=candidates[0],center=coordFrom(area);
-  if(!center)return json({text:`Tôi chưa xác định được khu vực “${intent.area}”. Bạn thêm quận, thành phố hoặc một địa danh cụ thể hơn nhé.`,travelos:{version:3,sources:[{tool:'resolve_place',ok:false,source:clean(resolved.source||resolved.provider,100),error:clean(resolved.error,500)}]}},200,request,env);
+  if(!center)return json({text:`Pipi chưa xác định được khu vực “${intent.area}”. Bạn thêm quận, thành phố hoặc một địa danh cụ thể hơn nhé.`,travelos:{version:3,sources:[{tool:'resolve_place',ok:false,source:clean(resolved.source||resolved.provider,100),error:clean(resolved.error,500)}]}},200,request,env);
   const country=china?'Trung Quốc':(area.country||location.country),category=inferredPlaceCategory(intent.query);
   const searchPlan=await semanticPlaceSearch(intent.query,country,category,env);
   const searched=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...center,country},country,query:searchPlan.providerQuery,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category,radius:intent.radius,limit:intent.limit,candidateLimit:Math.max(20,intent.limit*4),sortBy:intent.sortBy,language:nearbyLanguage({country})},env);
@@ -1682,9 +1688,9 @@ async function handleRemoteAreaSearch(intent, request, env, location) {
   const localizedPois=china?await localizeChinaPlaces(rawPois,country,env):rawPois;
   const pois=isFoodPlaceSearch(intent.query,category)?await enrichPlaceNotes(localizedPois,searchPlan.requestedDish||intent.query,country,env):localizedPois;
   const nearby=searched.ok?{...searched.data,query:`${intent.query} quanh ${area.name||intent.area}`,center:{...center,country},pois}:null;
-  if(!pois.length)return json({text:`Tôi đã xác định “${area.name||intent.area}” nhưng chưa tìm thấy ${intent.query} quanh khu vực này. Bạn có thể tăng bán kính hoặc thử tên món/quán khác.`,travelos:{version:3,nearby:nearby||undefined,sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:false,source:clean(searched.data?.source||searched.source,100),error:clean(searched.error,500)}]}},200,request,env);
+  if(!pois.length)return json({text:`Pipi đã xác định “${area.name||intent.area}” nhưng chưa tìm thấy ${intent.query} quanh khu vực này. Bạn có thể tăng bán kính hoặc thử tên món/quán khác.`,travelos:{version:3,nearby:nearby||undefined,sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:false,source:clean(searched.data?.source||searched.source,100),error:clean(searched.error,500)}]}},200,request,env);
   const lines=pois.slice(0,5).map((poi,index)=>{const rating=intent.sortBy==='rating'&&poi.rating?`⭐ ${poi.rating.toFixed(1)}${poi.userRatingCount?` (${poi.userRatingCount} đánh giá)`:''}`:'';const detail=[rating,formatNearbyDistance(poi.distance),poi.localizedAddress||poi.address].filter(Boolean).join(' · ');return `- ${index+1}. ${poi.localizedName||poi.name}${detail?` — ${detail}`:''}.`;});
-  return json({text:`Tôi hiểu khu vực cần tìm là **${area.name||intent.area}**. Tôi tìm được ${pois.length} kết quả ${intent.query} gần đó:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem và mở chỉ đường.`,travelos:{version:3,nearby,remoteSearch:{query:intent.query,requestedArea:intent.area,resolvedArea:area},sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:true,source:clean(searched.data?.source||searched.source,100)}]}},200,request,env);
+  return json({text:`Pipi hiểu khu vực cần tìm là **${area.name||intent.area}**. Pipi tìm được ${pois.length} kết quả ${intent.query} gần đó:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem và mở chỉ đường.`,travelos:{version:3,nearby,remoteSearch:{query:intent.query,requestedArea:intent.area,resolvedArea:area},sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:true,source:clean(searched.data?.source||searched.source,100)}]}},200,request,env);
 }
 
 function validNearbyAnswer(text, nearby) {
@@ -1708,8 +1714,8 @@ function nearbyFailurePayload(toolResults, request, env, intentPlan = null) {
   const first = toolResults.find(x => !x?.ok) || {};
   const gpsMissing = first?.error === 'GPS_REQUIRED';
   const text = gpsMissing
-    ? 'TravelOS chưa có GPS hiện tại. Bạn bật Location rồi hỏi lại để tôi tìm địa điểm thật quanh bạn nha.'
-    : 'Hiện tại TravelOS chưa lấy được dữ liệu địa điểm live đã kiểm chứng quanh vị trí của bạn. Bạn thử lại sau một chút nha.';
+    ? "Let's Go Pipi chưa có GPS hiện tại. Bạn bật Location rồi hỏi lại để Pipi tìm địa điểm thật quanh bạn nha."
+    : "Hiện tại Let's Go Pipi chưa lấy được dữ liệu địa điểm live đã kiểm chứng quanh vị trí của bạn. Bạn thử lại sau một chút nha.";
   return json({
     text,
     travelos:{
@@ -1729,7 +1735,7 @@ async function handleForcedNearby({
 }) {
   if (!hasGps(currentLocation)) {
     return json({
-      text:'TravelOS chưa có GPS hiện tại. Bạn bật Location rồi hỏi lại để tôi tìm địa điểm thật quanh bạn nha.',
+      text:"Let's Go Pipi chưa có GPS hiện tại. Bạn bật Location rồi hỏi lại để Pipi tìm địa điểm thật quanh bạn nha.",
       travelos:{ nearbyError:{ code:'GPS_REQUIRED', message:'Missing current GPS.' }, intent:intentPlan }
     }, 200, request, env);
   }
@@ -1759,7 +1765,7 @@ async function handleForcedNearby({
 
 async function handleAi(request, env) {
   if (!(await rateLimit(request, env))) {
-    return json({ text:'⚠️ TravelOS đang nhận quá nhiều yêu cầu. Bạn thử lại sau khoảng 1 phút nhé.', error:{ message:'Rate limit exceeded' } }, 200, request, env);
+    return json({ text:"⚠️ Let's Go Pipi đang nhận quá nhiều yêu cầu. Bạn thử lại sau khoảng 1 phút nhé.", error:{ message:'Rate limit exceeded' } }, 200, request, env);
   }
 
   let body;
@@ -1806,13 +1812,16 @@ async function handleAi(request, env) {
     const contents = buildContents(body.chatHistory, userMessage);
     const result = await callGemini(finalPrompt, contents, env, null, false);
     if (result && typeof result === 'object') {
+      const parts=result?.candidates?.[0]?.content?.parts;
+      if(Array.isArray(parts))parts.forEach(part=>{if(typeof part?.text==='string')part.text=normalizePipiVoice(part.text);});
+      if(typeof result.text==='string')result.text=normalizePipiVoice(result.text);
       result.travelos = { ...(result.travelos || {}), intent:intentPlan };
     }
     return json(result, 200, request, env);
   } catch (error) {
     console.error('AI ERROR:', error);
     return json({
-      text:'Thổ Địa đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',
+      text:'Pipi đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',
       error:{ code:'AI_TEMPORARILY_UNAVAILABLE' },
       travelos:{ intent:intentPlan }
     }, 200, request, env);
@@ -1889,7 +1898,7 @@ function enforceTravelIntentPlan(plan, intent, userMessage, location, previousCo
     add({name:'weather',query:'',category:'',placeName:'',address:'',placeId:'',radius:3000,limit:6,language:'vi',latitude:null,longitude:null,destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'general'});
     plan.responseMode='LIVE';
     if(hasGps||explicit||hasResolve){plan.needsClarification=false;plan.clarificationQuestion='';}
-    else {plan.needsClarification=true;plan.responseMode='CLARIFY';plan.clarificationQuestion='Tôi chưa có GPS hiện tại. Bạn bật Location hoặc cho tôi tên thành phố cần xem thời tiết nhé.';}
+    else {plan.needsClarification=true;plan.responseMode='CLARIFY';plan.clarificationQuestion='Pipi chưa có GPS hiện tại. Bạn bật Location hoặc cho Pipi tên thành phố cần xem thời tiết nhé.';}
   }
   if(intent==='ITINERARY_PLANNING'){
     add({name:'curated_places',query:userMessage,category:'',placeName:'',address:'',placeId:'',radius:3000,limit:12,language:'vi',latitude:null,longitude:null,destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'itinerary'});
@@ -2026,7 +2035,7 @@ async function planV3(userMessage, history, location, previousContext, env) {
     const previousQuery=typeof previousNearby.query==='string'?previousNearby.query:previousNearby.query?.keyword;
     const category=typeof previousNearby.query==='object'?previousNearby.query?.category:'';
     const center=coordFrom(previousNearby.center);
-    const deterministic={goal:`Mở rộng tìm kiếm ${previousQuery||category}`,travelIntent:'PLACE_DISCOVERY',responseMode:'LIVE',needsClarification:!center&&!hasGps(location),clarificationQuestion:'Tôi chưa có vị trí tìm kiếm trước đó. Bạn cho tôi địa điểm cần tìm nhé.',isItinerary:false,
+    const deterministic={goal:`Mở rộng tìm kiếm ${previousQuery||category}`,travelIntent:'PLACE_DISCOVERY',responseMode:'LIVE',needsClarification:!center&&!hasGps(location),clarificationQuestion:'Pipi chưa có vị trí tìm kiếm trước đó. Bạn cho Pipi địa điểm cần tìm nhé.',isItinerary:false,
       tools:[v3Tool('search_places',{query:previousQuery||category,category,radius:expandedNearbyRadius(previousNearby),language:nearbyLanguage(location),latitude:center?.lat??null,longitude:center?.lng??null})]};
     return normalizeV3Plan(deterministic);
   }
@@ -2042,7 +2051,7 @@ async function planV3(userMessage, history, location, previousContext, env) {
     return enforceTravelIntentPlan(normalizeV3Plan(deterministic),detectedIntent,userMessage,location,previousContext);
   }
   if(detectedIntent==='ITINERARY_PLANNING'){
-    const deterministic={goal:'Lập lịch trình từ dữ liệu TravelOS',travelIntent:detectedIntent,responseMode:'ITINERARY',needsClarification:false,clarificationQuestion:'',isItinerary:true,tools:[v3Tool('curated_places',{query:userMessage,limit:12,curatedType:'itinerary'})]};
+    const deterministic={goal:"Lập lịch trình từ dữ liệu Let's Go Pipi",travelIntent:detectedIntent,responseMode:'ITINERARY',needsClarification:false,clarificationQuestion:'',isItinerary:true,tools:[v3Tool('curated_places',{query:userMessage,limit:12,curatedType:'itinerary'})]};
     return normalizeV3Plan(deterministic);
   }
   if(namedPlace){
@@ -2059,7 +2068,7 @@ async function planV3(userMessage, history, location, previousContext, env) {
     if(remote?.area)tools.push(v3Tool('resolve_place',{query:remote.area,limit:5,language:isChinaTravelContext(location,remote.area)?'zh':'vi'}));
     tools.push(v3Tool('search_places',{query,category,placeName:brand?query:'',radius:remote?.radius||3000,limit:remote?.limit||requestedPlaceLimit(userMessage),language:isChinaTravelContext(location,remote?.area,userMessage)?'zh':'vi'}));
     const needsClarification=!query||(!remote?.area&&!hasGps(location));
-    return normalizeV3Plan({goal:`Tìm ${query||'địa điểm'} bằng API bản đồ`,travelIntent:'PLACE_DISCOVERY',responseMode:needsClarification?'CLARIFY':'LIVE',needsClarification,clarificationQuestion:!query?'Bạn muốn tìm loại địa điểm hoặc món gì?':'Tôi chưa có vị trí hiện tại. Bạn bật Location hoặc cho tôi tên khu vực cần tìm nhé.',isItinerary:false,tools});
+    return normalizeV3Plan({goal:`Tìm ${query||'địa điểm'} bằng API bản đồ`,travelIntent:'PLACE_DISCOVERY',responseMode:needsClarification?'CLARIFY':'LIVE',needsClarification,clarificationQuestion:!query?'Bạn muốn tìm loại địa điểm hoặc món gì?':'Pipi chưa có vị trí hiện tại. Bạn bật Location hoặc cho Pipi tên khu vực cần tìm nhé.',isItinerary:false,tools});
   }
   if(detectedIntent==='VENUE_INTELLIGENCE'){
     const folded=fold(userMessage),hasTarget=Boolean(previousContext?.placeDetails||previousContext?.nearby?.pois?.length);
@@ -2609,7 +2618,7 @@ function deterministicEvidenceAnswer(state) {
   const curated=state?.curated?.places;
   if(Array.isArray(curated)&&curated.length){
     const names=curated.slice(0,6).map(place=>clean(place?.name,200)).filter(Boolean);
-    if(names.length)parts.push(`Các điểm TravelOS có thể dùng để lên lịch: ${names.join(', ')}.`);
+    if(names.length)parts.push(`Các điểm Let's Go Pipi có thể dùng để lên lịch: ${names.join(', ')}.`);
   }
   if(state?.namedPlaceSearch&&Array.isArray(state?.nearby?.pois)&&state.nearby.pois.length>1){
     const alternatives=state.nearby.pois.slice(1,5).map(item=>clean(item?.localizedName||item?.name,200)).filter(Boolean);
@@ -2626,7 +2635,7 @@ function deterministicUnsupportedAnswer(needs=[]) {
   };
   const missing=[...new Set(needs.map(item=>labels[item?.kind]).filter(Boolean))];
   if(!missing.length)return '';
-  return `Hiện TravelOS chưa có nguồn dữ liệu đã xác minh cho ${missing.join(', ')}. Tôi chưa đưa con số hoặc kết luận đoán để tránh làm bạn dùng sai thông tin.`;
+  return `Hiện Let's Go Pipi chưa có nguồn dữ liệu đã xác minh cho ${missing.join(', ')}. Pipi chưa đưa con số hoặc kết luận đoán để tránh làm bạn dùng sai thông tin.`;
 }
 
 function busynessLabel(score) {
@@ -2883,11 +2892,11 @@ async function synthesizeV3(userMessage, history, location, plan, evidence, prev
   const payload=`USER REQUEST:\n${userMessage}\n\nSELECTED INTENT:\n${plan.travelIntent}: ${profile}\n\nANSWER CONTRACT:\n${JSON.stringify(plan.answerContract||[])}\n\nUNSUPPORTED LIVE NEEDS:\n${JSON.stringify(plan.unsupportedNeeds||[])}\n\nLOCATION LABEL:\n${locationLabel||'Không xác định'}\n\nPREVIOUS_TRAVEL_CONTEXT:\n${JSON.stringify(previousContext||null)}\n\nPLAN:\n${JSON.stringify(plan)}\n\nEVIDENCE:\n${JSON.stringify(evidenceForModel(evidence))}`;
   const contents=buildContents(history,payload);
   const result=await callGemini(answerPromptFor(plan.travelIntent),contents,env,null,false);
-  return modelText(result);
+  return normalizePipiVoice(modelText(result));
 }
 
 async function handleAiV3(request, env) {
-  if(!(await rateLimit(request,env))) return json({text:'⚠️ TravelOS đang nhận quá nhiều yêu cầu. Bạn thử lại sau khoảng 1 phút nhé.',error:{message:'Rate limit exceeded'}},200,request,env);
+  if(!(await rateLimit(request,env))) return json({text:"⚠️ Let's Go Pipi đang nhận quá nhiều yêu cầu. Bạn thử lại sau khoảng 1 phút nhé.",error:{message:'Rate limit exceeded'}},200,request,env);
   let body; try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
   const userMessage=clean(body?.userMessage,10000);
   if(!userMessage) return json({error:'userMessage is required'},400,request,env);
@@ -2898,20 +2907,20 @@ async function handleAiV3(request, env) {
   const explicitRemoteIntent=remoteAreaSearchIntent(userMessage);
   if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent&&location.locationMismatch){
     return json({
-      text:'Vị trí trong app đang đồng bộ: nhãn khu vực và tọa độ GPS chưa trùng nhau. Tôi chưa tìm “quanh đây” để tránh trả địa điểm sai. Bạn chờ vài giây để GPS cập nhật rồi gửi lại nhé.',
+      text:'Vị trí trong app đang đồng bộ: nhãn khu vực và tọa độ GPS chưa trùng nhau. Pipi chưa tìm “quanh đây” để tránh trả địa điểm sai. Bạn chờ vài giây để GPS cập nhật rồi gửi lại nhé.',
       error:{code:'LOCATION_SYNCING'},travelos:{version:3,nearbyError:{code:'LOCATION_SYNCING',message:'App location label and GPS coordinates do not match.'}}
     },200,request,env);
   }
   if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent&&!hasGps(location)){
     return json({
-      text:'Tôi chưa lấy được GPS hiện tại nên chưa thể tìm địa điểm “quanh đây”. Bạn bật quyền Vị trí hoặc kiểm tra Sensor rồi gửi lại câu hỏi nhé.',
+      text:'Pipi chưa lấy được GPS hiện tại nên chưa thể tìm địa điểm “quanh đây”. Bạn bật quyền Vị trí hoặc kiểm tra Sensor rồi gửi lại câu hỏi nhé.',
       error:{code:'GPS_REQUIRED'},travelos:{version:3,nearbyError:{code:'GPS_REQUIRED',message:'Fresh current GPS is required.'}}
     },200,request,env);
   }
   try {
     const plan=await planRequestV3(userMessage,history,location,previousContext,env);
     if(plan.needsClarification) {
-      return json({text:plan.clarificationQuestion||'Bạn cho tôi thêm địa điểm hoặc thời gian cụ thể để kiểm tra chính xác nhé.',travelos:{version:3,plan,sources:[]}},200,request,env);
+      return json({text:plan.clarificationQuestion||'Bạn cho Pipi thêm địa điểm hoặc thời gian cụ thể để kiểm tra chính xác nhé.',travelos:{version:3,plan,sources:[]}},200,request,env);
     }
     const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env);
     const requestedLive=plan.tools.length>0;
@@ -2919,7 +2928,7 @@ async function handleAiV3(request, env) {
     let text;
     if(requestedLive&&!successful.length) {
       const gpsProblem=evidence.some(item=>['GPS_REQUIRED','GPS_OR_DESTINATION_REQUIRED','ROUTE_ENDPOINT_REQUIRED'].includes(item.error));
-      text=gpsProblem?'Tôi chưa có đủ vị trí để kiểm tra chính xác. Bạn bật Location hoặc nói rõ địa điểm cần tìm nhé.':'Tôi chưa lấy được dữ liệu live đã kiểm chứng cho yêu cầu này. Bạn thử lại sau một chút nhé.';
+      text=gpsProblem?'Pipi chưa có đủ vị trí để kiểm tra chính xác. Bạn bật Location hoặc nói rõ địa điểm cần tìm nhé.':'Pipi chưa lấy được dữ liệu live đã kiểm chứng cho yêu cầu này. Bạn thử lại sau một chút nhé.';
     } else if(plan.travelIntent==='WEATHER_OUTDOOR'&&state.weather) {
       const target=state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại';
       text=deterministicWeatherAdvice(state.weather,target);
@@ -2944,10 +2953,10 @@ async function handleAiV3(request, env) {
     }
     if(!text&&state.nearby) text=deterministicNearbyText(state.nearby);
     if(!text&&state.weather) text=deterministicWeatherAdvice(state.weather,state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại');
-    return json({text:text||'Tôi chưa tạo được câu trả lời phù hợp.',travelos:{version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,remoteSearch:state.remoteSearch||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,reviewSummary:state.reviewSummary||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined,missingApiSuggestions:missingApiSuggestions(plan.unsupportedNeeds)}},200,request,env);
+    return json({text:normalizePipiVoice(text||'Pipi chưa tạo được câu trả lời phù hợp.'),travelos:{version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,remoteSearch:state.remoteSearch||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,reviewSummary:state.reviewSummary||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined,missingApiSuggestions:missingApiSuggestions(plan.unsupportedNeeds)}},200,request,env);
   } catch(error) {
     console.error('AI V3 ERROR:',error);
-    return json({text:'Thổ Địa đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',error:{code:'AI_TEMPORARILY_UNAVAILABLE'},travelos:{version:3}},200,request,env);
+    return json({text:'Pipi đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',error:{code:'AI_TEMPORARILY_UNAVAILABLE'},travelos:{version:3}},200,request,env);
   }
 }
 
@@ -2978,7 +2987,7 @@ export default {
     if (path === '/ai-v3' && request.method === 'POST') return handleAiV3(request, env);
     if (path === '/destination-summary' && request.method === 'POST') return handleDestinationSummary(request, env);
     if ((path === '/' || path === '/ai') && request.method === 'POST') return handleAiV3(request, env);
-    if ((path === '/' || path === '/ai') && request.method === 'GET') return json({ ok: true, worker: 'TravelOS' }, 200, request, env);
+    if ((path === '/' || path === '/ai') && request.method === 'GET') return json({ ok: true, worker: "Let's Go Pipi" }, 200, request, env);
 
     if (path === '/api/health' && request.method === 'GET') {
       /** @type {any} */
@@ -2987,7 +2996,7 @@ export default {
         try { db = { bound: true, ready: true, ...await stats(env) }; }
         catch (error) { db = { bound: true, ready: false, error: errorText(error, 'Unknown error', 500) }; }
       }
-      return json({ ok: true, worker: 'TravelOS', db, images: { bound: Boolean(env.IMAGES) }, besttime: { bound: Boolean(env.BESTTIME_PRIVATE_KEY) }, ai:{gemini:Boolean(env.GEMINI_API_KEY),models:geminiModels(env)} }, 200, request, env);
+      return json({ ok: true, worker: "Let's Go Pipi", db, images: { bound: Boolean(env.IMAGES) }, besttime: { bound: Boolean(env.BESTTIME_PRIVATE_KEY) }, ai:{gemini:Boolean(env.GEMINI_API_KEY),models:geminiModels(env)} }, 200, request, env);
     }
 
     if (path === '/api/places' && request.method === 'GET') {

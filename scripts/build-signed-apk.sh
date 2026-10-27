@@ -45,7 +45,7 @@ cd android
 ./gradlew --no-daemon clean assembleRelease
 
 APK_SOURCE="$PROJECT_ROOT/android/app/build/outputs/apk/release/app-release.apk"
-APK_DESTINATION="$PROJECT_ROOT/TravelOS-v${APP_VERSION}.apk"
+APK_DESTINATION="$PROJECT_ROOT/Lets-Go-Pipi-v${APP_VERSION}.apk"
 cp "$APK_SOURCE" "$APK_DESTINATION"
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK_DESTINATION"
 shasum -a 256 "$APK_DESTINATION"

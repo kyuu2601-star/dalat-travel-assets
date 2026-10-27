@@ -648,7 +648,7 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(chinaNavigation,/data-mode="drive"/);
   assert.match(chinaNavigation,/AMapRouteService\.routeWithFallback/);
   assert.doesNotMatch(chinaNavigation,/AI Route Notes/);
-  assert.match(chinaNavigation,/TRAVELOS · ĐIỀU HƯỚNG TRUNG QUỐC/);
+  assert.match(chinaNavigation,/LET'S GO PIPI · ĐIỀU HƯỚNG TRUNG QUỐC/);
   assert.match(chinaNavigation,/destination\?\.localizedName \|\| destination\?\.name/);
   assert.match(chinaNavigation,/planRoute\(state\.routeOrigin \|\| state\.origin,state\.routeDestination \|\| state\.destination,mode\)/);
   assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
@@ -706,17 +706,32 @@ test('AMap navigation falls back from a failed walking route to electric bike', 
   assert.match(result.meta.fallbackReason,/REQUEST_TIMEOUT/);
 });
 
-test('AI chat consistently uses tôi and bạn instead of tui and fen', async () => {
-  const [chat,worker,index]=await Promise.all([
+test('Pipi consistently self-identifies by name and calls the user bạn', async () => {
+  const [chat,widget,worker,core,index,manifest,capacitor,androidStrings]=await Promise.all([
     readFile(new URL('../chat.js',import.meta.url),'utf8'),
+    readFile(new URL('../widget.js',import.meta.url),'utf8'),
     readFile(new URL('../worker/src/index.js',import.meta.url),'utf8'),
-    readFile(new URL('../index.html',import.meta.url),'utf8')
+    readFile(new URL('../worker/src/bot/prompts/core.js',import.meta.url),'utf8'),
+    readFile(new URL('../index.html',import.meta.url),'utf8'),
+    readFile(new URL('../manifest.json',import.meta.url),'utf8'),
+    readFile(new URL('../capacitor.config.json',import.meta.url),'utf8'),
+    readFile(new URL('../android/app/src/main/res/values/strings.xml',import.meta.url),'utf8')
   ]);
-  assert.match(chat,/Chào bạn! Tôi là Thổ Địa/);
+  assert.match(chat,/Chào bạn! Pipi là trợ lý du lịch của Let's Go Pipi/);
+  assert.match(chat,/Pipi đang làm việc/);
+  assert.match(widget,/<h2>Pipi<\/h2>/);
+  assert.match(widget,/Nhập câu hỏi cho Pipi/);
   assert.doesNotMatch(chat,/Lỗi kết nối rồi fen|Chào fen|Tui là/);
-  assert.match(worker,/Luôn tự xưng là "tôi" và gọi (người dùng|user) là "bạn"/);
+  assert.match(core,/Luôn tự xưng bằng tên "Pipi" và gọi user là "bạn"/);
+  assert.match(worker,/Luôn tự xưng bằng tên "Pipi" và gọi người dùng là "bạn"/);
+  assert.match(worker,/normalizePipiVoice/);
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
-  assert.match(index,/chat\.js\?v=20261026-1/);
+  assert.match(index,/<title>Let's Go Pipi<\/title>/);
+  assert.match(index,/LET'S GO <span>PIPI<\/span>/);
+  assert.match(index,/chat\.js\?v=20261026-2/);
+  assert.match(manifest,/"name": "Let's Go Pipi"/);
+  assert.match(capacitor,/"appName": "Let's Go Pipi"/);
+  assert.match(androidStrings,/<string name="app_name">Let's Go Pipi<\/string>/);
 });
 
 test('AI chat shows staged progress while backend tools are working', async () => {
@@ -849,8 +864,8 @@ test('App keeps onboarding visible until places and bot readiness settle', async
   assert.match(app,/window\.isSystemLive = true/);
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
-  assert.match(index,/Đang khởi động TravelOS/);
-  assert.match(index,/app\.js\?v=20261026-1/);
+  assert.match(index,/Đang khởi động Let's Go Pipi/);
+  assert.match(index,/app\.js\?v=20261026-2/);
   assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });
 
@@ -1348,7 +1363,7 @@ test('AI v3 resolves a remote area before searching there instead of using curre
     assert.equal(response.status,200);
     assert.deepEqual(mapPaths,['/place/resolve','/poi/nearby']);
     assert.equal(data.travelos.nearby.pois[0].name,'Gà Rán Test');
-    assert.match(data.text,/Tôi tìm được/);
+    assert.match(data.text,/Pipi tìm được/);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -1371,7 +1386,7 @@ test('AI v3 handles an explicit remote-area search even when Gemini is unavailab
   assert.deepEqual(paths,['/place/resolve','/poi/nearby']);
   assert.equal(data.travelos.remoteSearch.resolvedArea.name,'Landmark 81');
   assert.equal(data.travelos.nearby.pois[0].name,'Haeduri Chicken');
-  assert.match(data.text,/Tôi tìm được 1 địa điểm/);
+  assert.match(data.text,/Pipi tìm được 1 địa điểm/);
 });
 
 test('AI v3 translates a China dish query and returns Vietnamese AMap notes', async () => {

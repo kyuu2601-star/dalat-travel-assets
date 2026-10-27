@@ -16,7 +16,7 @@ function renderChatProgress(id) {
             <span class="chat-progress-label">${label}</span>
         </li>`).join('');
     return `<div class="chat-progress" id="${id}" role="status" aria-live="polite" aria-label="${CHAT_PROGRESS_PHASES[0]}">
-        <div class="chat-progress-title"><span class="chat-progress-pulse" aria-hidden="true"></span><span>Thổ Địa đang làm việc</span></div>
+        <div class="chat-progress-title"><span class="chat-progress-pulse" aria-hidden="true"></span><span>Pipi đang làm việc</span></div>
         <ol class="chat-progress-list">${steps}</ol>
     </div>`;
 }
@@ -297,10 +297,15 @@ async function handleChat() {
 
 function normalizeAssistantVoice(text) {
     return String(text ?? '')
+        .replace(/Thổ Địa/g, 'Pipi')
         .replace(/\bFen\b/g, 'Bạn')
         .replace(/\bfen\b/g, 'bạn')
-        .replace(/\bTui\b/g, 'Tôi')
-        .replace(/\btui\b/g, 'tôi');
+        .replace(/\bChúng tôi\b/g, 'Pipi')
+        .replace(/\bchúng tôi\b/g, 'Pipi')
+        .replace(/\bTôi\b/g, 'Pipi')
+        .replace(/\btôi\b/g, 'Pipi')
+        .replace(/\bTui\b/g, 'Pipi')
+        .replace(/\btui\b/g, 'Pipi');
 }
 
 function addMessage(role, content, isHtml = false) {
@@ -446,7 +451,7 @@ function loadChatHistory() {
 
     if (!history || Date.now() - history.timestamp > EXPIRY_TIME) {
         localStorage.removeItem(CHAT_STORAGE_KEY);
-        addMessage('ai', 'Chào bạn! Tôi là Thổ Địa. Bạn muốn tìm quán hay lên lịch trình đi đâu?');
+        addMessage('ai', "Chào bạn! Pipi là trợ lý du lịch của Let's Go Pipi. Bạn muốn tìm quán hay lên lịch trình đi đâu?");
         return;
     }
 

@@ -37,7 +37,7 @@
     function getAdminKey(forcePrompt = false) {
         let key = forcePrompt ? '' : localStorage.getItem(ADMIN_KEY_STORAGE) || '';
         if (!key) {
-            key = (window.prompt('Nhập TravelOS ADMIN_KEY để cập nhật địa điểm:') || '').trim();
+            key = (window.prompt("Nhập Let's Go Pipi ADMIN_KEY để cập nhật địa điểm:") || '').trim();
             if (!key) throw new Error('Chưa nhập ADMIN_KEY.');
             localStorage.setItem(ADMIN_KEY_STORAGE, key);
         }
@@ -132,7 +132,7 @@
 
         if (editingPlace) {
             if (title) title.innerHTML = 'Edit <span>Place</span>';
-            if (subtitle) subtitle.textContent = 'Update the selected TravelOS place.';
+            if (subtitle) subtitle.textContent = "Update the selected Let's Go Pipi place.";
             if (submit) submit.textContent = 'Save Changes';
             modeBar.innerHTML = `
                 <div>
@@ -150,7 +150,7 @@
             modeBar.innerHTML = `
                 <div>
                     <span class="pm-mode-label">New Place</span>
-                    <strong>Create a new TravelOS place</strong>
+                    <strong>Create a new Let's Go Pipi place</strong>
                     <small>Search above first to avoid duplicates.</small>
                 </div>`;
             modeBar.classList.remove('editing');

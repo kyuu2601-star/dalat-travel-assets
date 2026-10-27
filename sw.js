@@ -19,7 +19,7 @@ self.addEventListener('message', event => {
         silent: Boolean(data.silent)
     };
     if (data.silent) delete options.vibrate;
-    event.waitUntil(self.registration.showNotification(data.title || 'TravelOS', options));
+    event.waitUntil(self.registration.showNotification(data.title || "Let's Go Pipi", options));
 });
 
 self.addEventListener('notificationclick', event => {

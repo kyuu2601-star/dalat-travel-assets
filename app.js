@@ -38,7 +38,7 @@ function finishBoot(failures = []) {
     const loading = document.getElementById('loading-screen');
     if (!loading) return;
     if (failures.length) setLoadingStatus(`${failures.join(' · ')} · Vẫn có thể tiếp tục`, true);
-    else setLoadingStatus('TravelOS đã sẵn sàng');
+    else setLoadingStatus("Let's Go Pipi đã sẵn sàng");
     setTimeout(() => {
         loading.classList.add('hide');
         setTimeout(() => loading.remove(), 1000);
@@ -1038,7 +1038,7 @@ window.addEventListener('travelos:data-source', event => {
     const banner = document.getElementById('data-source-banner');
 
     if (event.detail?.source === 'legacy') {
-        banner.textContent = 'TravelOS đang dùng Sheet fallback. Sau khi deploy D1, bật D1_ENABLED trong config.js để chuyển hoàn toàn.';
+        banner.textContent = "Let's Go Pipi đang dùng Sheet fallback. Sau khi deploy D1, bật D1_ENABLED trong config.js để chuyển hoàn toàn.";
         banner.classList.remove('hidden');
     } else {
         banner.classList.add('hidden');

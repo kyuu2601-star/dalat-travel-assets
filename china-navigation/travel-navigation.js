@@ -52,7 +52,7 @@
           <div id="tn-special-alert" class="tn-special-alert" hidden></div>
         </div>
         <aside class="tn-side">
-          <div class="tn-head"><div><div class="tn-eyebrow">TRAVELOS · ĐIỀU HƯỚNG TRUNG QUỐC</div><h2 id="tn-title">Chỉ đường đi bộ</h2><p id="tn-summary">--</p></div><button id="tn-close" class="tn-close" type="button">×</button></div>
+          <div class="tn-head"><div><div class="tn-eyebrow">LET'S GO PIPI · ĐIỀU HƯỚNG TRUNG QUỐC</div><h2 id="tn-title">Chỉ đường đi bộ</h2><p id="tn-summary">--</p></div><button id="tn-close" class="tn-close" type="button">×</button></div>
           <div id="tn-modes" class="tn-modes" aria-label="Chọn phương tiện">
             <button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button>
             <button type="button" data-mode="electrobike" aria-pressed="false">🛵 Xe điện</button>
@@ -560,7 +560,7 @@
         headers: { 'Content-Type':'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          systemPrompt: `Bạn là TravelOS Route Localizer. Dữ liệu AMap là nguồn sự thật tuyệt đối. Hãy dịch từng instruction sang tiếng Việt tự nhiên, phù hợp với phương tiện đã chọn. TUYỆT ĐỐI không thêm đường, không bỏ bước, không đổi thứ tự, không đổi khoảng cách, không tạo shortcut. Giữ nguyên tên riêng nếu không chắc cách dịch. Với tuyến đi bộ, nếu step có feature như cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà thì phải nói rõ. Chỉ trả về JSON hợp lệ, không markdown, đúng schema: {"steps":[{"i":1,"vi":"..."}]}. Mảng steps phải có đúng số phần tử và đúng i như input.`,
+          systemPrompt: `Bạn là bộ dịch tuyến đường của Let's Go Pipi. Dữ liệu AMap là nguồn sự thật tuyệt đối. Hãy dịch từng instruction sang tiếng Việt tự nhiên, phù hợp với phương tiện đã chọn. TUYỆT ĐỐI không thêm đường, không bỏ bước, không đổi thứ tự, không đổi khoảng cách, không tạo shortcut. Giữ nguyên tên riêng nếu không chắc cách dịch. Với tuyến đi bộ, nếu step có feature như cầu thang, thang máy, thang cuốn, skybridge, hầm hoặc lối xuyên tòa nhà thì phải nói rõ. Chỉ trả về JSON hợp lệ, không markdown, đúng schema: {"steps":[{"i":1,"vi":"..."}]}. Mảng steps phải có đúng số phần tử và đúng i như input.`,
           userMessage: `Phương tiện: ${modeInfo().label}\nĐiểm đến: ${destination?.name || ''}\nAMap route JSON: ${JSON.stringify(compactSteps)}`,
           chatHistory: [],
           matchedModules: [],

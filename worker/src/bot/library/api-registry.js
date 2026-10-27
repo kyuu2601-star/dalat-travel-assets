@@ -5,7 +5,7 @@ export const API_LIBRARY=Object.freeze({
   BUSYNESS:{available:true,providers:['BestTime'],tool:'place_busyness'},
   WALKING_ROUTE:{available:true,providers:['Google Routes API','AMap Route 2.0'],tool:'walking_route'},
   DRIVING_ROUTE:{available:true,providers:['Google Routes API','AMap Route 2.0'],tool:'traffic_route'},
-  ITINERARY:{available:true,providers:['TravelOS D1'],tool:'curated_places'},
+  ITINERARY:{available:true,providers:["Let's Go Pipi D1"],tool:'curated_places'},
   SAFETY_GUIDANCE:{available:true,providers:['Gemini knowledge + verified POI search when requested'],tool:''},
   TRAVEL_UTILITY:{available:true,providers:['Gemini knowledge + map APIs for POIs'],tool:''},
   LOCAL_KNOWLEDGE:{available:true,providers:['Gemini'],tool:''},
