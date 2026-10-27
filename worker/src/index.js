@@ -1,6 +1,7 @@
 import { INTENT_PROFILES, answerPromptFor } from './bot/prompts/index.js';
 import { SEMANTIC_PLANNER_PROMPT, SEMANTIC_PLAN_SCHEMA, normalizeSemanticPlan, semanticPlannerPayload } from './bot/planner/semantic-planner.js';
 import { compileSemanticNeeds, missingApiSuggestions } from './bot/library/api-registry.js';
+import { buildVoiceBrief } from './bot/voice-brief.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_FALLBACK_MODELS = ['gemini-3.8-flash','gemini-3.1-flash-lite'];
@@ -2960,6 +2961,71 @@ async function handleAiV3(request, env) {
   }
 }
 
+// Voice Mode has its own streaming endpoint. The existing /ai-v3 contract is
+// unchanged; both answer paths below consume one plan and one API evidence set.
+async function handleVoiceV1(request, env) {
+  if(!(await rateLimit(request,env))) return json({error:'Rate limit exceeded'},429,request,env);
+  let body; try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
+  const userMessage=clean(body?.userMessage,10000);
+  if(!userMessage)return json({error:'userMessage is required'},400,request,env);
+  const history=Array.isArray(body?.chatHistory)?body.chatHistory.slice(-8):[];
+  const previousContext=compactConversationContext(body?.conversationContext);
+  const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
+  const encoder=new TextEncoder();
+  const stream=new ReadableStream({
+    async start(controller) {
+      const emit=(type,payload={})=>controller.enqueue(encoder.encode(JSON.stringify({type,...payload})+'\n'));
+      try {
+        const nearbyIntent=liveNearbyIntent(userMessage),remote=remoteAreaSearchIntent(userMessage);
+        if(nearbyIntent?.explicitNearby&&!remote&&(location.locationMismatch||!hasGps(location))){
+          const text=location.locationMismatch
+            ? 'Vị trí trong app đang đồng bộ. Pipi chưa thể tìm quanh đây cho tới khi tọa độ và khu vực khớp nhau.'
+            : 'Pipi chưa lấy được vị trí hiện tại. Bạn bật quyền vị trí rồi thử lại nhé.';
+          emit('spoken',{text});emit('detail',{text,travelos:{version:3}});return;
+        }
+        emit('phase',{phase:'planning'});
+        const plan=await planRequestV3(userMessage,history,location,previousContext,env);
+        if(plan.needsClarification){
+          const text=normalizePipiVoice(plan.clarificationQuestion||'Bạn cho Pipi thêm thông tin để tìm chính xác nhé.');
+          emit('spoken',{text});emit('detail',{text,travelos:{version:3,plan,sources:[]}});return;
+        }
+        emit('phase',{phase:'searching'});
+        const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env);
+        emit('phase',{phase:'analyzing'});
+        const requestedLive=plan.tools.length>0,successful=evidence.filter(item=>item.ok);
+        let brief=buildVoiceBrief(state,plan.travelIntent);
+        if(requestedLive&&!successful.length){
+          brief='Pipi chưa lấy được dữ liệu đã kiểm chứng. Bạn thử lại sau một chút nhé.';
+        }
+        if(!brief){
+          try {
+            const prompt='Bạn là Pipi. Trả lời bằng tiếng Việt, xưng Pipi và gọi người dùng là bạn. Viết tối đa 2 câu và 45 từ, dễ đọc thành tiếng. Chỉ dùng thông tin trong EVIDENCE; nếu không có dữ liệu live thì không khẳng định dữ kiện live. Không dùng Markdown, URL, tọa độ hay danh sách.';
+            const payload=JSON.stringify({question:userMessage,intent:plan.travelIntent,evidence:evidenceForModel(evidence),previousContext});
+            brief=normalizePipiVoice(modelText(await callGemini(prompt,buildContents(history,payload),env,null,false)));
+          }catch{brief=deterministicEvidenceAnswer(state)||'Pipi đang hoàn tất câu trả lời ở phần chat bên dưới.';}
+        }
+        emit('spoken',{text:clean(brief,450)});
+        emit('phase',{phase:'writing'});
+        let detail='';
+        if(requestedLive&&!successful.length)detail=brief;
+        else if(plan.travelIntent==='WEATHER_OUTDOOR'&&state.weather)detail=deterministicWeatherAdvice(state.weather,state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại');
+        else if(state.nearby&&!(state.nearby.pois||[]).length)detail=deterministicNearbyText(state.nearby);
+        else if(state.namedPlaceSearch)detail=deterministicEvidenceAnswer(state);
+        else {
+          try{detail=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env);}
+          catch{detail=deterministicEvidenceAnswer(state)||deterministicUnsupportedAnswer(plan.unsupportedNeeds)||brief;}
+        }
+        const travelos={version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,remoteSearch:state.remoteSearch||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,reviewSummary:state.reviewSummary||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined,missingApiSuggestions:missingApiSuggestions(plan.unsupportedNeeds)};
+        emit('detail',{text:normalizePipiVoice(detail||brief),travelos});
+      }catch(error){
+        console.error('VOICE V1 ERROR:',error);
+        emit('error',{text:'Pipi đang gặp lỗi kết nối. Bạn thử lại nhé.'});
+      }finally{emit('done');controller.close();}
+    }
+  });
+  return new Response(stream,{headers:{'Content-Type':'application/x-ndjson; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(request,env)}});
+}
+
 // =========================================================
 // ROUTER
 // =========================================================
@@ -2985,6 +3051,7 @@ export default {
     if (!isOriginAllowed(request, env)) return json({ error: 'Origin not allowed' }, 403, request, env);
 
     if (path === '/ai-v3' && request.method === 'POST') return handleAiV3(request, env);
+    if (path === '/voice-v1' && request.method === 'POST') return handleVoiceV1(request, env);
     if (path === '/destination-summary' && request.method === 'POST') return handleDestinationSummary(request, env);
     if ((path === '/' || path === '/ai') && request.method === 'POST') return handleAiV3(request, env);
     if ((path === '/' || path === '/ai') && request.method === 'GET') return json({ ok: true, worker: "Let's Go Pipi" }, 200, request, env);

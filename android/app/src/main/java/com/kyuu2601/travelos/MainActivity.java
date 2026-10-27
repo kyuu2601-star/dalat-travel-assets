@@ -20,6 +20,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(PipiVoicePlugin.class);
         EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
 

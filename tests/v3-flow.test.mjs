@@ -1612,6 +1612,26 @@ test('AI v3 has no Gemini planner and retries nearby radii in backend code', asy
   assert.equal(data.travelos.nearby.pois[0].name,'罗森便利店');
 });
 
+test('Voice Mode streams progress, a short spoken answer, and detail from one API search', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const radii=[];
+  const response=await worker.fetch(new Request('https://ai.test/voice-v1',{
+    method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+    body:JSON.stringify({userMessage:'tìm tạp hóa xung quanh',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551,source:'gps'}})
+  }),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();radii.push(body.radius);
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,query:{keyword:body.keyword,category:body.category,radius:body.radius},pois:[{id:'store',name:'罗森便利店',localizedName:'Lawson',address:'渝中区',lat:29.564,lng:106.552,distance:140,provider:'amap',coordSystem:'gcj02',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}});
+  const events=(await response.text()).trim().split('\n').map(JSON.parse);
+  assert.equal(response.status,200);
+  assert.match(response.headers.get('content-type'),/application\/x-ndjson/);
+  assert.deepEqual(radii,[3000]);
+  assert.deepEqual(events.filter(event=>event.type==='phase').map(event=>event.phase),['planning','searching','analyzing','writing']);
+  assert.match(events.find(event=>event.type==='spoken').text,/Lawson/);
+  assert.equal(events.find(event=>event.type==='detail').travelos.nearby.pois[0].name,'罗森便利店');
+  assert.equal(events.at(-1).type,'done');
+});
+
 test('AI v3 preserves empty API evidence and expands the same backend search', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const initialRadii=[];
