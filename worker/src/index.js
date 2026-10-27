@@ -3026,26 +3026,31 @@ async function handleVoiceV1(request, env) {
   return new Response(stream,{headers:{'Content-Type':'application/x-ndjson; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(request,env)}});
 }
 
-// Optional natural speech for the short Voice Mode reply. The API key stays in
-// the Worker; a failed/limited TTS request lets the phone speak locally.
+// Pipi speech stays on the Worker so the Gemini key never reaches the browser.
 async function handleVoiceTts(request, env) {
   if(!(await rateLimit(request,env))) return json({error:'Rate limit exceeded'},429,request,env);
   if(!env.GEMINI_API_KEY) return json({error:'TTS unavailable'},503,request,env);
   let body;try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
   const spoken=clean(body?.text,420);
   if(!spoken || spoken.length < 2) return json({error:'Text required'},400,request,env);
+  const streaming=body?.stream===true;
   const prompt={
     model:'gemini-3.8-flash-tts',
     input:[{type:'user_input',content:[{type:'text',text:spoken,annotations:[{type:'speech_metadata',style:'Lively, warm and conversational Vietnamese travel companion. Speak naturally with clear Vietnamese pronunciation, varied intonation and a relaxed pace.'}]}]}],
     response_format:{type:'audio'},
     generation_config:{speech_config:[{voice:'Sadachbia'}]}
   };
+  if(streaming)prompt.stream=true;
   try {
     const upstream=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
       method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
       body:JSON.stringify(prompt),signal:AbortSignal.timeout(15000)
     });
     if(!upstream.ok){console.warn('VOICE_TTS_UPSTREAM',upstream.status);return json({error:'TTS temporarily unavailable'},503,request,env);}
+    if(streaming){
+      if(!upstream.body)return json({error:'TTS stream unavailable'},503,request,env);
+      return new Response(upstream.body,{headers:{'Content-Type':upstream.headers.get('content-type')||'text/event-stream; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(request,env)}});
+    }
     const data=await upstream.json();
     const audio=data?.steps?.filter(step=>step?.type==='model_output').flatMap(step=>step?.content||[]).find(part=>part?.type==='audio')?.data;
     if(typeof audio!=='string'||audio.length>5_000_000) return json({error:'TTS audio unavailable'},503,request,env);

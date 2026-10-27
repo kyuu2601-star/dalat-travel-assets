@@ -1654,6 +1654,24 @@ test('Natural voice endpoint keeps the Gemini key server-side and returns WAV au
   }finally{globalThis.fetch=previousFetch;}
 });
 
+test('Natural voice endpoint forwards streaming audio without waiting for a complete WAV', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const previousFetch=globalThis.fetch;
+  let requestBody=null;
+  globalThis.fetch=async (_url,init={})=>{
+    requestBody=JSON.parse(init.body);
+    const stream=new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode('data: {"event_type":"step.delta"}\n\n'));controller.close();}});
+    return new Response(stream,{status:200,headers:{'Content-Type':'text/event-stream'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/voice-tts',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({text:'Pipi đang trả lời bạn.',stream:true})}),{GEMINI_API_KEY:'server-secret',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    assert.equal(response.status,200);
+    assert.match(response.headers.get('content-type'),/text\/event-stream/);
+    assert.equal(requestBody.stream,true);
+    assert.match(await response.text(),/step\.delta/);
+  }finally{globalThis.fetch=previousFetch;}
+});
+
 test('AI v3 preserves empty API evidence and expands the same backend search', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const initialRadii=[];
