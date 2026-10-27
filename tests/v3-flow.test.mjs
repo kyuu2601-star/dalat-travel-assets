@@ -736,7 +736,7 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.match(style,/text-shadow:/);
   assert.match(manifest,/"name": "Let's Go Pipi"/);
   assert.match(capacitor,/"appName": "Let's Go Pipi"/);
-  assert.match(androidStrings,/<string name="app_name">Let's Go Pipi<\/string>/);
+  assert.match(androidStrings,/<string name="app_name">Let\\'s Go Pipi<\/string>/);
   assert.match(buildScript,/\['assets', 'china-navigation'/);
 });
 
