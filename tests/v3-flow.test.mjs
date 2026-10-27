@@ -732,6 +732,8 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
   assert.match(index,/chat\.js\?v=20261026-2/);
   assert.match(style,/font-family: "Lilita One"/);
+  assert.match(style,/font-size: 1\.16em/);
+  assert.match(style,/margin-left: 3px/);
   assert.match(style,/\.brand-pipi-shadow/);
   assert.match(style,/text-shadow:/);
   assert.match(manifest,/"name": "Let's Go Pipi"/);
@@ -751,7 +753,7 @@ test('AI chat shows staged progress while backend tools are working', async () =
   assert.match(chat,/timers\.forEach\(timer => clearTimeout\(timer\)\)/);
   assert.match(style,/\.chat-progress-step\.is-active/);
   assert.match(style,/prefers-reduced-motion/);
-  assert.match(index,/style\.css\?v=20261027-1/);
+  assert.match(index,/style\.css\?v=20261027-2/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {

@@ -49,13 +49,14 @@ a { color: inherit; }
 .app-header h1 .brand-pipi {
     position: relative;
     display: inline-block;
-    margin-left: 10px;
+    margin-left: 3px;
     font-family: "Lilita One", Impact, sans-serif;
+    font-size: 1.16em;
     font-style: normal;
     font-weight: 400;
     letter-spacing: -.1em;
     line-height: .88;
-    transform: rotate(-1deg);
+    transform: translateY(.035em) rotate(-1deg);
 }
 .app-header h1 .brand-pipi-shadow {
     position: absolute;
