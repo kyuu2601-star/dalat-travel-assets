@@ -34,6 +34,7 @@ public class MainActivity extends BridgeActivity {
             content.setBackgroundColor(Color.rgb(2, 6, 23));
         }
         getBridge().getWebView().setBackgroundColor(Color.rgb(2, 6, 23));
+        getBridge().getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
         getBridge().addWebViewListener(new WebViewListener() {
             @Override
             public void onPageCommitVisible(WebView view, String url) {

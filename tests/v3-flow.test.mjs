@@ -1632,6 +1632,27 @@ test('Voice Mode streams progress, a short spoken answer, and detail from one AP
   assert.equal(events.at(-1).type,'done');
 });
 
+test('Natural voice endpoint keeps the Gemini key server-side and returns WAV audio', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const previousFetch=globalThis.fetch;
+  const wav=Uint8Array.from([82,73,70,70,...Array(40).fill(0)]);
+  let requestBody=null;
+  globalThis.fetch=async (url,init={})=>{
+    assert.equal(String(url),'https://generativelanguage.googleapis.com/v1beta/interactions');
+    assert.equal(init.headers['x-goog-api-key'],'server-secret');
+    requestBody=JSON.parse(init.body);
+    return new Response(JSON.stringify({steps:[{type:'model_output',content:[{type:'audio',data:Buffer.from(wav).toString('base64')}]}]}),{status:200});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/voice-tts',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({text:'Pipi tìm được quán gần bạn.'})}),{GEMINI_API_KEY:'server-secret',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('content-type'),'audio/wav');
+    assert.equal((await response.arrayBuffer()).byteLength,44);
+    assert.equal(requestBody.model,'gemini-3.8-flash-lite-tts');
+    assert.equal(requestBody.input[0].content[0].text,'Pipi tìm được quán gần bạn.');
+  }finally{globalThis.fetch=previousFetch;}
+});
+
 test('AI v3 preserves empty API evidence and expands the same backend search', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const initialRadii=[];

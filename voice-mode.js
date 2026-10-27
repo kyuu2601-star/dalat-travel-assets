@@ -10,7 +10,8 @@
   panel.setAttribute('aria-label', 'Trò chuyện giọng nói với Pipi');
   panel.hidden = true;
   panel.innerHTML = `
-    <header class="pvm-header"><span>LET'S GO <strong>PIPI</strong> · VOICE THỬ NGHIỆM</span><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></header>
+    <header class="pvm-header"><span>LET'S GO <strong>PIPI</strong> · VOICE THỬ NGHIỆM</span><div class="pvm-header-actions"><button type="button" id="pvm-voice-settings" aria-label="Chọn giọng nói">Giọng</button><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></div></header>
+    <div id="pvm-voice-panel" hidden><strong>Giọng nói tiếng Việt</strong><label class="pvm-natural-choice"><input type="checkbox" id="pvm-natural-voice"> Giọng tự nhiên cho câu trả lời (cần mạng)</label><p>Giọng trên máy dùng để báo tiến độ và tự thay thế khi mất mạng.</p><select id="pvm-voice-select" aria-label="Chọn giọng tiếng Việt trên máy"></select><div class="pvm-voice-actions"><button type="button" id="pvm-preview">▶ Nghe thử</button><button type="button" id="pvm-download">Tải thêm giọng</button></div><p id="pvm-voice-help"></p></div>
     <div class="pvm-top"><div class="pvm-mic-halo"><button type="button" id="pvm-mic" aria-label="Giữ để nói, thả ra để gửi"><svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button></div><div id="pvm-tip">Giữ mic để nói · Thả tay để gửi</div><p id="pvm-status" aria-live="polite">Pipi đang chờ bạn nói</p><p id="pvm-caption" aria-live="polite">Nói rõ ràng và gần mic</p><p id="pvm-short" aria-live="polite"></p></div>
     <div class="pvm-bottom"><div class="pvm-chat-title">Trò chuyện với Pipi</div><div id="pvm-chat" role="log" aria-live="polite"></div></div>`;
   document.body.appendChild(panel);
@@ -21,11 +22,18 @@
   const log = el('pvm-chat');
   const mic = el('pvm-mic');
   const caption = el('pvm-caption');
+  const voicePanel = el('pvm-voice-panel');
+  const voiceSelect = el('pvm-voice-select');
+  const voiceHelp = el('pvm-voice-help');
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null, holding = false, transcript = '', confidence = null, recognitionError = '', sending = false, activeRequest = null, generation = 0;
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
   const nativeVoice = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.registerPlugin?.('PipiVoice') : null;
+  let webVoiceId = localStorage.getItem('pipi_voice_id') || 'auto';
+  let naturalVoice = localStorage.getItem('pipi_natural_voice') !== 'off';
+  el('pvm-natural-voice').checked = naturalVoice;
+  let activeTtsFetch = null, activeAudio = null, activeAudioDone = null;
   const phaseText = {
     planning: 'Pipi đang phân tích câu hỏi…',
     searching: 'Pipi đang tìm kiếm thông tin…',
@@ -47,12 +55,40 @@
   }
   function stopSpeaking() {
     speechEpoch++;
+    activeTtsFetch?.abort(); activeTtsFetch = null;
+    activeAudio?.pause(); activeAudio = null;
+    activeAudioDone?.(); activeAudioDone = null;
     window.speechSynthesis?.cancel();
     const stopped = nativeVoice?.stop?.().catch(() => {});
     panel.classList.remove('speaking');
     return stopped;
   }
-  function speak(text, token, priority = false) {
+  async function playNatural(text, token, epoch) {
+    const controller = new AbortController(); activeTtsFetch = controller;
+    const response = await fetch(`${CONFIG.WORKER_URL.replace(/\/+$/, '')}/voice-tts`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }), signal: controller.signal
+    });
+    if (activeTtsFetch === controller) activeTtsFetch = null;
+    if (!response.ok || token !== generation || epoch !== speechEpoch) throw new Error('NATURAL_VOICE_UNAVAILABLE');
+    const blob = await response.blob();
+    if (token !== generation || epoch !== speechEpoch) throw new Error('VOICE_INTERRUPTED');
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url); activeAudio = audio;
+    try {
+      await new Promise((resolve, reject) => {
+        activeAudioDone = resolve;
+        audio.onended = resolve;
+        audio.onerror = () => reject(new Error('AUDIO_PLAYBACK_FAILED'));
+        audio.play().catch(reject);
+      });
+    } finally {
+      if (activeAudio === audio) activeAudio = null;
+      activeAudioDone = null;
+      URL.revokeObjectURL(url);
+    }
+  }
+  function speak(text, token, priority = false, preferNatural = false) {
     const stopped = priority ? stopSpeaking() : null;
     const epoch = speechEpoch;
     const say = async () => {
@@ -60,6 +96,10 @@
       if (token !== generation || epoch !== speechEpoch || panel.hidden || !text) return;
       panel.classList.add('speaking');
       try {
+        if (preferNatural && naturalVoice) {
+          try { await playNatural(text, token, epoch); return; }
+          catch (error) { if (epoch !== speechEpoch) return; console.warn('Natural voice unavailable, using device voice:', error); }
+        }
         let nativeSucceeded = false;
         if (nativeVoice) {
           try { await nativeVoice.speak({ text, language: 'vi-VN' }); nativeSucceeded = true; }
@@ -67,7 +107,10 @@
         }
         if (!nativeSucceeded && window.speechSynthesis) await new Promise(resolve => {
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'vi-VN'; utterance.rate = 1.05;
+          utterance.lang = 'vi-VN'; utterance.rate = 0.96;
+          const voices = window.speechSynthesis.getVoices();
+          utterance.voice = voices.find(voice => voice.voiceURI === webVoiceId)
+            || voices.find(voice => voice.lang?.toLowerCase().startsWith('vi')) || null;
           utterance.onend = utterance.onerror = resolve;
           window.speechSynthesis.speak(utterance);
         });
@@ -87,6 +130,7 @@
     mic.classList.remove('active');
     mic.disabled = !Recognition;
     panel.hidden = true;
+    voicePanel.hidden = true;
     launch.focus();
   }
   function open() {
@@ -100,6 +144,65 @@
   window.PipiVoiceMode = { open, close };
   el('pvm-close').addEventListener('click', close);
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
+
+  function setVoiceOptions(voices, selected) {
+    voiceSelect.replaceChildren();
+    const automatic = document.createElement('option');
+    automatic.value = 'auto'; automatic.textContent = 'Tự chọn giọng tốt nhất';
+    voiceSelect.appendChild(automatic);
+    for (const voice of voices) {
+      const option = document.createElement('option');
+      option.value = voice.id; option.textContent = voice.label;
+      voiceSelect.appendChild(option);
+    }
+    voiceSelect.value = voices.some(voice => voice.id === selected) ? selected : 'auto';
+  }
+  async function loadVoices() {
+    voiceHelp.textContent = 'Đang đọc danh sách giọng trên máy…';
+    if (nativeVoice?.getVoices) {
+      try {
+        let data;
+        for (const delay of [0, 350, 850]) {
+          if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+          try { data = await nativeVoice.getVoices(); break; } catch { /* TTS may still be starting. */ }
+        }
+        if (!data) throw new Error('VOICE_ENGINE_LOADING');
+        setVoiceOptions(data.voices || [], data.selected);
+        voiceHelp.textContent = data.voices?.length
+          ? 'Giọng dùng mạng cần kết nối; giọng offline dùng được khi mất mạng.'
+          : 'Máy chưa có gói giọng Việt. Bấm “Tải thêm giọng” để cài.';
+        return;
+      } catch { voiceHelp.textContent = 'Chưa đọc được danh sách giọng. Bạn thử mở lại sau vài giây.'; return; }
+    }
+    const voices = window.speechSynthesis?.getVoices()?.filter(voice => voice.lang?.toLowerCase().startsWith('vi')) || [];
+    setVoiceOptions(voices.map((voice, i) => ({ id: voice.voiceURI, label: `Giọng ${i + 1} · ${voice.name}` })), webVoiceId);
+    voiceHelp.textContent = voices.length ? 'Trình duyệt cung cấp các giọng này.' : 'Trình duyệt chưa có giọng Việt. Trên Android, hãy cài gói giọng trong Cài đặt máy.';
+  }
+  el('pvm-voice-settings').addEventListener('click', () => {
+    voicePanel.hidden = !voicePanel.hidden;
+    if (!voicePanel.hidden) loadVoices();
+  });
+  voiceSelect.addEventListener('change', async () => {
+    try {
+      if (nativeVoice?.selectVoice) await nativeVoice.selectVoice({ voiceId: voiceSelect.value });
+      else { webVoiceId = voiceSelect.value; localStorage.setItem('pipi_voice_id', webVoiceId); }
+      voiceHelp.textContent = 'Đã lưu giọng. Bấm “Nghe thử” để kiểm tra.';
+    } catch { voiceHelp.textContent = 'Không chọn được giọng này. Bạn thử giọng khác nhé.'; }
+  });
+  el('pvm-natural-voice').addEventListener('change', event => {
+    naturalVoice = event.target.checked;
+    localStorage.setItem('pipi_natural_voice', naturalVoice ? 'on' : 'off');
+  });
+  el('pvm-preview').addEventListener('click', () => {
+    speak('Xin chào bạn! Pipi rất vui được đồng hành cùng bạn trong chuyến đi này.', generation, true, true);
+  });
+  el('pvm-download').addEventListener('click', async () => {
+    if (nativeVoice?.openVoiceDownloads) {
+      try { await nativeVoice.openVoiceDownloads(); voiceHelp.textContent = 'Sau khi cài xong, quay lại đây và mở lại danh sách giọng.'; return; }
+      catch { /* Some Samsung engines do not expose a download screen. */ }
+    }
+    voiceHelp.textContent = 'Vào Cài đặt máy → Quản lý chung → Văn bản thành giọng nói → Tải dữ liệu giọng nói → Tiếng Việt.';
+  });
 
   async function send(text) {
     if (!text || sending || panel.hidden) return;
@@ -142,7 +245,7 @@
         } else if (event.type === 'spoken') {
           short.textContent = event.text || '';
           setState('Pipi đã tìm thấy câu trả lời', 'answer');
-          briefPromise = speak(event.text || '', token, true);
+          briefPromise = speak(event.text || '', token, true, true);
         } else if (event.type === 'detail') {
           detail = event;
           append('ai', event.text || '', true);
