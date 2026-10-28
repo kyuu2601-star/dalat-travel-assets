@@ -686,7 +686,7 @@ function matchesRequestedCategory(place, googleType) {
   const types=new Set([place?.primaryType,...(place?.types||[])].map(value=>clean(value,120).toLowerCase()));
   const excluded=['electronics_store','cell_phone_store','mobile_phone_store','computer_store','home_goods_store','clothing_store'];
   if(excluded.some(type=>types.has(type))) return false;
-  return types.has('convenience_store');
+  return types.has('convenience_store')||/\b(?:gs\s*25|circle\s*k|familymart|mini\s*stop|7[ -]?eleven|lawson)\b/i.test(clean(place?.name,300));
 }
 
 function restrictionRectangle(center, radius) {
@@ -789,8 +789,22 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
     result={ok:searches.some(search=>search.ok),places,error:searches.map(search=>search.error).filter(Boolean).join(' / ')};
     source='google-places-expanded-text-v1';
   }else if(categoryOnlyQuery||(!name&&!textQuery&&info.googleType)){
-    result=await googleNearbyPlaces({googleType:info.googleType,center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
-    source='google-places-nearby-v1';
+    if(info.googleType==='convenience_store'){
+      // Nearby returns at most 20 places; a wide search can omit a shop across
+      // the street. Query the immediate block and search GS25 by name too.
+      const options={googleType:info.googleType,center,limit:20,language:body?.language,country};
+      const [local,wide,gs25]=await Promise.all([
+        googleNearbyPlaces({...options,radius:Math.min(radius,700)},env),
+        googleNearbyPlaces({...options,radius},env),
+        googleTextPlaces({query:'GS25',center,radius,limit:20,language:body?.language,country,restrictArea:true},env)
+      ]);
+      const places=mergeGooglePlaces(local.places,wide.places,gs25.places).filter(place=>(place.distance??Infinity)<=radius&&matchesRequestedCategory(place,info.googleType));
+      result={ok:local.ok||wide.ok||gs25.ok,places,error:[local.error,wide.error,gs25.error].filter(Boolean).join(' / ')};
+      source='google-places-nearby-and-brand-v1';
+    }else{
+      result=await googleNearbyPlaces({googleType:info.googleType,center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country},env);
+      source='google-places-nearby-v1';
+    }
   }else if(name||textQuery||!info.googleType){
     result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true},env);
     source='google-places-text-v1';

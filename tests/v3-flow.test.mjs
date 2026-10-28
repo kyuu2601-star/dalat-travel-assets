@@ -97,27 +97,27 @@ test('Map Worker ranks an exact named place above a closer partial match inside 
 
 test('Map Worker searches convenience-store categories with Google Nearby distance ranking', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
-  const originalFetch=globalThis.fetch;let requestedUrl='',requestedBody=null;
+  const originalFetch=globalThis.fetch;const requests=[];
   globalThis.fetch=async (url,init={})=>{
-    requestedUrl=String(url);requestedBody=JSON.parse(String(init.body||'{}'));
-    return new Response(JSON.stringify({places:[
-      {id:'gs25-near',displayName:{text:'GS25'},formattedAddress:'Ngay bên cạnh',location:{latitude:10.7701,longitude:106.69},primaryType:'convenience_store',types:['convenience_store','store']},
+    const requestedUrl=String(url),requestedBody=JSON.parse(String(init.body||'{}'));requests.push({url:requestedUrl,body:requestedBody});
+    const places=requestedBody.textQuery?[{id:'gs25-near',displayName:{text:'GS25 - Phan Văn Trị'},formattedAddress:'Ngay bên cạnh',location:{latitude:10.7701,longitude:106.69},primaryType:'store',types:['store']}]:[
       {id:'viettel',displayName:{text:'Viettel Store'},formattedAddress:'Điện thoại',location:{latitude:10.77005,longitude:106.69},primaryType:'electronics_store',types:['electronics_store','store','convenience_store']},
       {id:'the-gioi-di-dong',displayName:{text:'Thế Giới Di Động'},formattedAddress:'Điện thoại',location:{latitude:10.77006,longitude:106.69},primaryType:'cell_phone_store',types:['cell_phone_store','store']},
       {id:'store-far',displayName:{text:'Cửa hàng xa'},formattedAddress:'Xa hơn',location:{latitude:10.78,longitude:106.69},primaryType:'convenience_store',types:['convenience_store','store']}
-    ]}),{status:200,headers:{'Content-Type':'application/json'}});
+    ];return new Response(JSON.stringify({places}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.77,lng:106.69},country:'Việt Nam',query:'CHTL',keyword:'CHTL',category:'convenience_store',radius:3000,limit:10,candidateLimit:40,sortBy:'distance'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
     assert.equal(response.status,200);
-    assert.equal(data.source,'google-places-nearby-v1');
+    assert.equal(data.source,'google-places-nearby-and-brand-v1');
     assert.equal(data.pois[0].id,'gs25-near');
     assert.deepEqual(data.pois.map(place=>place.id),['gs25-near','store-far']);
-    assert.equal(requestedUrl,'https://places.googleapis.com/v1/places:searchNearby');
-    assert.deepEqual(requestedBody.includedTypes,['convenience_store']);
-    assert.equal(requestedBody.rankPreference,'DISTANCE');
-    assert.equal(requestedBody.maxResultCount,20);
+    assert.equal(requests.length,3);
+    assert.equal(requests.filter(item=>item.url==='https://places.googleapis.com/v1/places:searchNearby').length,2);
+    assert.equal(requests.find(item=>item.body.textQuery)?.body.textQuery,'GS25');
+    assert.ok(requests.some(item=>item.body.locationRestriction?.circle?.radius===700));
+    assert.ok(requests.filter(item=>item.body.includedTypes).every(item=>item.body.includedTypes[0]==='convenience_store'&&item.body.rankPreference==='DISTANCE'&&item.body.maxResultCount===20));
   }finally{globalThis.fetch=originalFetch;}
 });
 
