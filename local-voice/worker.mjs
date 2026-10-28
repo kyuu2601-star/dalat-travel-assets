@@ -12,7 +12,8 @@ async function initialize(baseUrl) {
     if (!response.ok) throw new Error('VOICE_MANIFEST_UNAVAILABLE');
     return response.json();
   });
-  const cache = typeof caches !== 'undefined' ? await caches.open(`pipi-voice-${manifest.id}`).catch(() => null) : null;
+  // Keep the existing model cache: Sarah changes only the small style file.
+  const cache = typeof caches !== 'undefined' ? await caches.open('pipi-voice-supertonic3-f3-vi-r1').catch(() => null) : null;
   let loaded = 0, lastUpdate = 0;
   const progress = (phase = 'download') => {
     if (performance.now() - lastUpdate < 100 && phase === 'download') return;
@@ -59,7 +60,7 @@ async function initialize(baseUrl) {
   const decoder = new TextDecoder();
   const config = JSON.parse(decoder.decode(await load('onnx/tts.json')));
   const indexer = JSON.parse(decoder.decode(await load('onnx/unicode_indexer.json')));
-  const voice = JSON.parse(decoder.decode(await load('voice_styles/F3.json')));
+  const voice = JSON.parse(decoder.decode(await load(`voice_styles/${manifest.voice}.json`)));
   const sessions = [];
   try {
     for (const name of ['duration_predictor','text_encoder','vector_estimator','vocoder']) {
@@ -73,7 +74,7 @@ async function initialize(baseUrl) {
     );
     engine = new TextToSpeech(config,new UnicodeProcessor(indexer),...sessions);
     progress('warming');
-    await engine.call('Pipi chào bạn.','vi',style,manifest.steps,1.05);
+    await engine.call('Pipi chào bạn.','vi',style,manifest.steps,manifest.speed);
     loaded = manifest.totalBytes; progress('ready');
   } catch (error) {
     for (const session of sessions) await session.release();
@@ -93,7 +94,7 @@ self.onmessage = ({data}) => {
       } else if (data.type === 'synthesize') {
         if (!engine) throw new Error('LOCAL_VOICE_NOT_READY');
         const started = performance.now();
-        const result = await engine.call(String(data.text).slice(0,420),'vi',style,manifest.steps,1.05);
+        const result = await engine.call(String(data.text).slice(0,420),'vi',style,manifest.steps,manifest.speed);
         const frames = Math.floor(result.duration[0] * engine.sampleRate);
         const wav = writeWavFile(result.wav.slice(0,frames),engine.sampleRate);
         postMessage({id:data.id,wav,generationMs:performance.now()-started},[wav]);

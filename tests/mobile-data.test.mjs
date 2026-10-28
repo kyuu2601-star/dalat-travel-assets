@@ -95,6 +95,19 @@ test('local voice model supports bounded chunks for reliable download', async ()
   assert.deepEqual(new Uint8Array(await response.arrayBuffer()),bytes.slice(2,5));
 });
 
+test('Sarah voice style is available from the shared model pack', async () => {
+  const key = 'voice-models/supertonic3-f3-vi-r1/voice_styles/F1.json';
+  const bytes = new Uint8Array([1, 2, 3]);
+  const env = {IMAGES:{get:async requested => {
+    assert.equal(requested, key);
+    return {size:bytes.length,body:bytes,httpEtag:'"sarah-style"',writeHttpMetadata(headers){headers.set('Content-Type','application/json');}};
+  }}};
+  const response = await worker.fetch(new Request(`https://pipi.test/${key}`),env);
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'),'*');
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()),bytes);
+});
+
 test('native startup defers bot health and external reverse geocoding', async () => {
   const [chatSource, appSource] = await Promise.all([
     readFile(new URL('../chat.js', import.meta.url), 'utf8'),

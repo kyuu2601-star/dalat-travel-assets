@@ -65,14 +65,14 @@
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
   const fixedClips = {
-    'Pipi đang phân tích câu hỏi.': 'assets/voice/planning.wav?v=local-1',
-    'Pipi đang tìm kiếm thông tin.': 'assets/voice/searching.wav?v=local-1',
-    'Pipi đang phân tích kết quả.': 'assets/voice/analyzing.wav?v=local-1',
-    'Bạn có cần Pipi giúp gì nữa không?': 'assets/voice/followup.wav?v=local-1',
-    'Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.': 'assets/voice/unclear.wav?v=local-1',
-    'Bạn hãy cho phép dùng micro rồi thử lại nhé.': 'assets/voice/microphone-permission.wav?v=local-1',
-    'Pipi chưa kết nối được. Bạn thử lại nhé.': 'assets/voice/connection-unavailable.wav?v=local-1',
-    'Chế độ voice thử nghiệm chưa được bật trên máy chủ.': 'assets/voice/mode-unavailable.wav?v=local-1'
+    'Pipi đang phân tích câu hỏi.': 'assets/voice/planning.wav?v=local-2',
+    'Pipi đang tìm kiếm thông tin.': 'assets/voice/searching.wav?v=local-2',
+    'Pipi đang phân tích kết quả.': 'assets/voice/analyzing.wav?v=local-2',
+    'Bạn có cần Pipi giúp gì nữa không?': 'assets/voice/followup.wav?v=local-2',
+    'Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.': 'assets/voice/unclear.wav?v=local-2',
+    'Bạn hãy cho phép dùng micro rồi thử lại nhé.': 'assets/voice/microphone-permission.wav?v=local-2',
+    'Pipi chưa kết nối được. Bạn thử lại nhé.': 'assets/voice/connection-unavailable.wav?v=local-2',
+    'Chế độ voice thử nghiệm chưa được bật trên máy chủ.': 'assets/voice/mode-unavailable.wav?v=local-2'
   };
   let activeAudio = null, activeAudioDone = null;
   let voiceReady = false;

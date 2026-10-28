@@ -1,6 +1,6 @@
 # Pipi local Vietnamese voice
 
-Supertonic 3, fixed voice F3, Vietnamese, five denoising steps. Inference runs in
+Supertonic 3, fixed Sarah voice (F1), Vietnamese, nine denoising steps and 1.20x speed. Inference runs in
 a dedicated browser worker using ONNX Runtime Web 1.23.2. No text is sent to a
 TTS API. The model downloads once (398,651,996 bytes), is verified by SHA-256,
 and is stored in the browser/WebView Cache Storage. Clearing app/site storage
@@ -16,7 +16,9 @@ Changes: relative ONNX import and explicit tensor cleanup after each inference.
 ONNX Runtime is MIT licensed; its notices are included in vendor/.
 
 Model files are served from the existing Pipi R2 bucket under
-`voice-models/supertonic3-f3-vi-r1/`, matching model-manifest.json. Weights are
+`voice-models/supertonic3-f3-vi-r1/`. The existing model directory and browser
+cache are shared with the previous F3 voice, so returning users only download the
+F1 style file. The style and settings are specified in model-manifest.json. Weights are
 not committed to Git. The checked-out evaluation copy lives under ignored
 `.toolchains/tts-lab/supertonic-main/assets/`.
 

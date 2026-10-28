@@ -3108,7 +3108,7 @@ export default {
 
     if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/voice-models/supertonic3-f3-vi-r1/')) {
       const file=path.slice('/voice-models/supertonic3-f3-vi-r1/'.length);
-      const allowed=new Set(['onnx/tts.json','onnx/unicode_indexer.json','onnx/duration_predictor.onnx','onnx/text_encoder.onnx','onnx/vector_estimator.onnx','onnx/vocoder.onnx','voice_styles/F3.json']);
+      const allowed=new Set(['onnx/tts.json','onnx/unicode_indexer.json','onnx/duration_predictor.onnx','onnx/text_encoder.onnx','onnx/vector_estimator.onnx','onnx/vocoder.onnx','voice_styles/F3.json','voice_styles/F1.json']);
       if(!allowed.has(file))return new Response('Not found',{status:404});
       return serveR2Image(request,env,`voice-models/supertonic3-f3-vi-r1/${file}`);
     }

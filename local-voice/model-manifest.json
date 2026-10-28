@@ -1,12 +1,13 @@
 {
-  "id": "supertonic3-f3-vi-r1",
+  "id": "supertonic3-sarah-vi-r1",
   "revision": "aafc6e32416a594460b32413efc49d7fe4ce6d46",
   "basePath": "/voice-models/supertonic3-f3-vi-r1/",
-  "voice": "F3",
+  "voice": "F1",
   "language": "vi",
-  "steps": 5,
+  "steps": 9,
+  "speed": 1.2,
   "sampleRate": 44100,
-  "totalBytes": 398651996,
+  "totalBytes": 398653248,
   "files": [
     {
       "path": "onnx/tts.json",
@@ -39,9 +40,9 @@
       "sha256": "085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba"
     },
     {
-      "path": "voice_styles/F3.json",
-      "bytes": 290794,
-      "sha256": "12f6ef2573baa2defa1128069cb59f203e3ab67c92af77b42df8a0e3a2f7c6ab"
+      "path": "voice_styles/F1.json",
+      "bytes": 292046,
+      "sha256": "bbdec6ee00231c2c742ad05483df5334cab3b52fda3ba38e6a07059c4563dbc2"
     }
   ]
 }

@@ -11,7 +11,7 @@
   }
   function getWorker() {
     if (worker) return worker;
-    worker = new Worker(new URL('./worker.mjs?v=3', scriptUrl), {type:'module'});
+    worker = new Worker(new URL('./worker.mjs?v=4', scriptUrl), {type:'module'});
     worker.onmessage = ({data}) => {
       if (data.type === 'progress') {
         lastProgress = data;
