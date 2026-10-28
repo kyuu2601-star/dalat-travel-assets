@@ -110,12 +110,12 @@ test('Map Worker searches convenience-store categories with Google Nearby distan
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.77,lng:106.69},country:'Việt Nam',query:'CHTL',keyword:'CHTL',category:'convenience_store',radius:3000,limit:10,candidateLimit:40,sortBy:'distance'})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
     assert.equal(response.status,200);
-    assert.equal(data.source,'google-places-nearby-and-brand-v1');
+    assert.equal(data.source,'google-places-multi-pass-v1');
     assert.equal(data.pois[0].id,'gs25-near');
     assert.deepEqual(data.pois.map(place=>place.id),['gs25-near','store-far']);
     assert.equal(requests.length,3);
     assert.equal(requests.filter(item=>item.url==='https://places.googleapis.com/v1/places:searchNearby').length,2);
-    assert.equal(requests.find(item=>item.body.textQuery)?.body.textQuery,'GS25');
+    assert.equal(requests.find(item=>item.body.textQuery)?.body.textQuery,'CHTL');
     assert.ok(requests.some(item=>item.body.locationRestriction?.circle?.radius===700));
     assert.ok(requests.filter(item=>item.body.includedTypes).every(item=>item.body.includedTypes[0]==='convenience_store'&&item.body.rankPreference==='DISTANCE'&&item.body.maxResultCount===20));
   }finally{globalThis.fetch=originalFetch;}
@@ -181,7 +181,8 @@ test('Map Worker sends translated dish variants to AMap and keeps food evidence'
     const data=await response.json(),url=new URL(requestedUrl);
     assert.equal(response.status,200);
     assert.equal(url.hostname,'restapi.amap.com');
-    assert.match(url.searchParams.get('keywords'),/^火锅\|重庆火锅/);
+    assert.ok(data.query.keywords.includes('火锅'));
+    assert.ok(data.query.keywords.includes('重庆火锅'));
     assert.equal(url.searchParams.get('show_fields'),'business,navi');
     assert.equal(data.pois[0].tag,'四川火锅;服务热情');
     assert.equal(data.pois[0].cost,'128');
@@ -267,7 +268,7 @@ test('Map Worker replaces a Vietnamese pharmacy category with the native AMap ke
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.5657,lng:106.5512},country:'Trung Quốc',query:'nhà thuốc',keyword:'nhà thuốc',category:'pharmacy',radius:3000,limit:10})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json(),url=new URL(requestedUrl);
     assert.equal(response.status,200);
-    assert.equal(url.searchParams.get('keywords'),'药店|药房|大药房');
+    assert.ok(['药店','药房','大药房'].includes(url.searchParams.get('keywords')));
     assert.doesNotMatch(url.searchParams.get('keywords'),/nhà thuốc/i);
     assert.equal(data.pois[0].name,'唐氏药房');
   }finally{globalThis.fetch=originalFetch;}
@@ -281,7 +282,7 @@ test('Map Worker maps nearby sightseeing intent to a native AMap attraction sear
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',query:'điểm tham quan',keyword:'điểm tham quan',category:'tourist_attraction',radius:5000,limit:10})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json(),url=new URL(requestedUrl);
     assert.equal(response.status,200);
-    assert.equal(url.searchParams.get('keywords'),'旅游景点|景区|名胜古迹|观景台');
+    assert.ok(['旅游景点','景区','名胜古迹','观景台'].includes(url.searchParams.get('keywords')));
     assert.doesNotMatch(url.searchParams.get('keywords'),/tham quan/i);
     assert.equal(data.pois[0].name,'马鞍山堂里');
   }finally{globalThis.fetch=originalFetch;}
@@ -1333,6 +1334,22 @@ test('AI v3 keeps a new around-here search on GPS despite a previous distant pla
   assert.equal(response.status,200);
   assert.equal(data.travelos.nearby.center.lat,10.83);
   assert.equal(data.travelos.nearby.pois[0].name,'GS25 Gò Vấp');
+});
+
+test('AI v3 selects the nearest eligible places from the full provider candidate pool', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const center={lat:10.83,lng:106.68,country:'Việt Nam'};
+  const candidate=(id,name,lat,primaryType,types)=>({id,name,lat,lng:106.68,primaryType,types,provider:'google_places',country:'Việt Nam'});
+  const candidates=[candidate('far','Cửa hàng xa',10.84,'convenience_store',['convenience_store']),candidate('phone','Viettel Store',10.83005,'electronics_store',['electronics_store','convenience_store']),candidate('near','Tiệm nhỏ đối diện',10.8301,'convenience_store',['convenience_store'])];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();assert.equal(body.center.lat,center.lat);
+    return new Response(JSON.stringify({ok:true,source:'google-places-multi-pass-v1',provider:'google_places',center,pois:[candidates[0]],candidates,meta:{total:3,coverageLimited:true}}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'cửa hàng tiện lợi quanh đây',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:center.lat,longitude:center.lng}})}),env);
+  const data=await response.json();
+  assert.deepEqual(data.travelos.nearby.pois.map(place=>place.id),['near','far']);
+  assert.equal(data.travelos.nearby.selectionMeta.candidateCount,3);
+  assert.match(data.text,/giới hạn dữ liệu/);
 });
 
 test('AI v3 understands generic nearby sightseeing in Chongqing without relying on Gemini', async () => {
