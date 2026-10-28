@@ -47,7 +47,6 @@
       <div class="tn-shell">
         <div class="tn-map-wrap">
           <div id="tn-map" class="tn-map"></div>
-          <button id="tn-back" class="tn-back" type="button" hidden>← Danh sách</button>
           <div id="tn-map-status" class="tn-map-status">Đang chuẩn bị AMap...</div>
           <div id="tn-special-alert" class="tn-special-alert" hidden></div>
         </div>
@@ -64,8 +63,7 @@
         </aside>
       </div>`;
     document.body.appendChild(root);
-    $('#tn-close').addEventListener('click', close);
-    $('#tn-back').addEventListener('click', backToList);
+    $('#tn-close').addEventListener('click', smartClose);
     $('#tn-modes').addEventListener('click', event => {
       const button=event.target.closest?.('[data-mode]');
       if (button && !button.disabled) switchMode(button.dataset.mode);
@@ -122,6 +120,11 @@
     const action = backAction;
     close();
     if (typeof action === 'function') Promise.resolve(action()).catch(error => console.error('[TravelOS back to nearby]', error));
+  }
+
+  function smartClose() {
+    if (typeof backAction === 'function') backToList();
+    else close();
   }
 
   function originFromApp() {
@@ -682,7 +685,6 @@
     openModal(destination);
     state.mode=normalizeMode(options.mode);
     renderModeState();
-    $('#tn-back').hidden = !backAction;
     try {
       const origin = options.origin || originFromApp();
       if (!origin) throw new Error('Chưa có GPS hiện tại. Hãy bật Location rồi thử lại.');

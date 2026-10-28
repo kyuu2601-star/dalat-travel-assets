@@ -675,9 +675,13 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(provider,/© <a href="https:\/\/www\.geoapify\.com\//);
   assert.match(nearbyCss,/nearby-mini-map \.leaflet-control-attribution/);
   assert.match(nearbyCss,/\.nearby-poi-note/);
-  assert.match(navigation,/class="geo-back"/);
+  assert.doesNotMatch(navigation,/class="geo-back"/);
+  assert.match(navigation,/function smartClose\(\)/);
   assert.match(navigation,/backToList/);
-  assert.match(chinaNavigation,/class="tn-back"/);
+  assert.doesNotMatch(chinaNavigation,/class="tn-back"/);
+  assert.match(chinaNavigation,/function smartClose\(\)/);
+  assert.match(nearby,/aria-label="Đóng danh sách">×/);
+  assert.match(await readFile(new URL('../geoapify-navigation/geoapify-navigation.css',import.meta.url),'utf8'),/leaflet-top\.leaflet-left\{left:auto;right:0\}/);
   assert.match(chinaNavigation,/backToList/);
   assert.doesNotMatch(index,/src="google-maps-provider\.js/);
   assert.doesNotMatch(index,/src="google-navigation\.js/);
