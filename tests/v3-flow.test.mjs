@@ -653,7 +653,9 @@ test('Global navigation renders Geoapify, requests Google walking, and tracks GP
   assert.match(chinaNavigation,/planRoute\(state\.routeOrigin \|\| state\.origin,state\.routeDestination \|\| state\.destination,mode\)/);
   assert.match(app,/GeoapifyNavigation\.open\(\{ destination, mode: 'walk' \}\)/);
   assert.match(nearby,/GeoapifyNavigation\.open\(\{destination,mode:'walk',onBack:/);
-  assert.match(nearby,/navigator\.geolocation\.watchPosition/);
+  assert.doesNotMatch(nearby,/navigator\.geolocation\.watchPosition/);
+  assert.match(nearby,/travelos:location-updated/);
+  assert.match(nearby,/window\.travelosLocationAnchor/);
   assert.match(nearby,/Vị trí của bạn/);
   assert.match(nearby,/nearby-user-person/);
   assert.match(nearby,/tới điểm tìm/);
@@ -730,7 +732,7 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
   assert.match(index,/<title>Let's Go Pipi<\/title>/);
   assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
-  assert.match(index,/chat\.js\?v=20261026-2/);
+  assert.match(index,/chat\.js\?v=20261028-3/);
   assert.match(style,/font-family: "Lilita One"/);
   assert.match(style,/font-size: 1\.16em/);
   assert.match(style,/margin-left: 3px/);
@@ -875,7 +877,9 @@ test('App keeps onboarding visible until native voice, places and bot readiness 
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động Let's Go Pipi/);
-  assert.match(index,/app\.js\?v=20261028-1/);
+  assert.match(index,/app\.js\?v=20261028-3/);
+  assert.match(chat,/const lat = hasAnchor \? anchorLat : rawLat/);
+  assert.match(app,/travelos:location-updated/);
   assert.match(index,/id="loading-voice-track"/);
   assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });

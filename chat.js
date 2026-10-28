@@ -128,10 +128,17 @@ function getStructuredUserLocation() {
     const selectedArea = document.getElementById('selectArea')?.value || '';
     const currentPos = window.userPos || null;
     const anchor = window.travelosLocationAnchor || null;
-    const lat = Number(currentPos?.lat);
-    const lon = Number(currentPos?.lon ?? currentPos?.lng);
-    const accuracy = Number(currentPos?.accuracy);
-    const gpsTimestamp = Number(currentPos?.timestamp);
+    const rawLat = Number(currentPos?.lat);
+    const rawLon = Number(currentPos?.lon ?? currentPos?.lng);
+    const anchorLat = Number(anchor?.latitude);
+    const anchorLon = Number(anchor?.longitude);
+    const hasAnchor = Number.isFinite(anchorLat) && Number.isFinite(anchorLon);
+    // travelosLocationAnchor chỉ được cập nhật sau khi app đã lọc nhiễu và
+    // xác nhận chuyển động. Các module bản đồ không được phép thay tâm tìm kiếm.
+    const lat = hasAnchor ? anchorLat : rawLat;
+    const lon = hasAnchor ? anchorLon : rawLon;
+    const accuracy = Number(hasAnchor ? anchor?.accuracy : currentPos?.accuracy);
+    const gpsTimestamp = Number(hasAnchor ? anchor?.timestamp : currentPos?.timestamp);
     const hasGps = Number.isFinite(lat) && Number.isFinite(lon);
     const anchorMatches = hasGps && sameGpsAnchor(currentPos, anchor);
     const chinaGps = hasGps && isChinaGpsPoint(currentPos);
@@ -159,7 +166,7 @@ function getStructuredUserLocation() {
         longitude: hasGps ? lon : null,
         accuracy: Number.isFinite(accuracy) ? accuracy : null,
         gpsTimestamp: Number.isFinite(gpsTimestamp) ? gpsTimestamp : null,
-        source: hasGps ? 'app-gps' : 'selector',
+        source: hasGps ? (hasAnchor ? 'app-anchor' : 'app-gps') : 'selector',
         locationMismatch,
         selectedCountry,
         selectedCity

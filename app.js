@@ -220,10 +220,13 @@ function attachGpsFix(next) {
     window.travelosLocationAnchor = {
         latitude: next.lat,
         longitude: next.lon,
+        accuracy: next.accuracy,
+        timestamp: next.timestamp,
         country: sameAnchor ? oldAnchor.country : '',
         city: sameAnchor ? oldAnchor.city : '',
         area: sameAnchor ? oldAnchor.area : ''
     };
+    window.dispatchEvent(new CustomEvent('travelos:location-updated', { detail: { ...next } }));
     updateGpsDisplay();
     checkRadarStatus();
     applyFilters();
@@ -380,6 +383,8 @@ function applyDetectedLocation(data) {
         window.travelosLocationAnchor = {
             latitude: userPos.lat,
             longitude: userPos.lon,
+            accuracy: userPos.accuracy,
+            timestamp: userPos.timestamp,
             country: detectedCountry || canonicalDetectedCountry(data),
             city: detectedCity || canonicalDetectedCity(data),
             area: ''
