@@ -1617,7 +1617,7 @@ function formatNearbyDistance(value) {
   return meters < 1000 ? `${Math.max(1, Math.round(meters))} m` : `${(meters / 1000).toFixed(meters < 10000 ? 1 : 0)} km`;
 }
 
-function deterministicNearbyText(nearby) {
+function deterministicNearbyText(nearby, requestedArea='') {
   const pois = Array.isArray(nearby?.pois) ? nearby.pois.slice(0, 5) : [];
   if (!pois.length) {
     const query=typeof nearby?.query==='string'?nearby.query:(nearby?.query?.keyword||nearby?.query?.category||'địa điểm này');
@@ -1634,7 +1634,8 @@ function deterministicNearbyText(nearby) {
     const detail = [rating,distance, address].filter(Boolean).join(' · ');
     return `- ${index + 1}. ${clean(poi?.localizedName||poi?.name, 300) || 'Địa điểm'}${detail ? ` — ${detail}` : ''}.`;
   });
-  return `Pipi tìm được ${pois.length} địa điểm gần bạn nhất:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.`;
+  const area=clean(requestedArea,180);
+  return `Pipi tìm được ${pois.length} địa điểm ${area?`gần ${area}`:'gần bạn nhất'}:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.`;
 }
 
 function wantsRatingRanking(value) {
@@ -1694,15 +1695,16 @@ async function handleRemoteAreaSearch(intent, request, env, location) {
   const area=candidates[0],center=coordFrom(area);
   if(!center)return json({text:`Pipi chưa xác định được khu vực “${intent.area}”. Bạn thêm quận, thành phố hoặc một địa danh cụ thể hơn nhé.`,travelos:{version:3,sources:[{tool:'resolve_place',ok:false,source:clean(resolved.source||resolved.provider,100),error:clean(resolved.error,500)}]}},200,request,env);
   const country=china?'Trung Quốc':(area.country||location.country),category=inferredPlaceCategory(intent.query);
+  const areaDisplay=china?(await localizeChinaPlaces([area],country,env,{query:intent.area,useAi:false}))[0]?.localizedName||intent.area:area.name||intent.area;
   const searchPlan=await semanticPlaceSearch(intent.query,country,category,env);
   const searched=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...center,country},country,query:searchPlan.providerQuery,keyword:searchPlan.providerQuery,queryVariants:searchPlan.queryVariants,category,radius:intent.radius,limit:intent.limit,candidateLimit:Math.max(20,intent.limit*4),sortBy:intent.sortBy,language:nearbyLanguage({country})},env);
   const rawPois=searched.ok?(searched.data?.pois||[]).map(compactPoi):[];
   const localizedPois=china?await localizeChinaPlaces(rawPois,country,env):rawPois;
   const pois=isFoodPlaceSearch(intent.query,category)?await enrichPlaceNotes(localizedPois,searchPlan.requestedDish||intent.query,country,env):localizedPois;
-  const nearby=searched.ok?{...searched.data,query:`${intent.query} quanh ${area.name||intent.area}`,center:{...center,country},pois}:null;
-  if(!pois.length)return json({text:`Pipi đã xác định “${area.name||intent.area}” nhưng chưa tìm thấy ${intent.query} quanh khu vực này. Bạn có thể tăng bán kính hoặc thử tên món/quán khác.`,travelos:{version:3,nearby:nearby||undefined,sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:false,source:clean(searched.data?.source||searched.source,100),error:clean(searched.error,500)}]}},200,request,env);
+  const nearby=searched.ok?{...searched.data,query:`${intent.query} quanh ${areaDisplay}`,center:{...center,country},pois}:null;
+  if(!pois.length)return json({text:`Pipi đã xác định “${areaDisplay}” nhưng chưa tìm thấy ${intent.query} quanh khu vực này. Bạn có thể tăng bán kính hoặc thử tên món/quán khác.`,travelos:{version:3,nearby:nearby||undefined,sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:false,source:clean(searched.data?.source||searched.source,100),error:clean(searched.error,500)}]}},200,request,env);
   const lines=pois.slice(0,5).map((poi,index)=>{const rating=intent.sortBy==='rating'&&poi.rating?`⭐ ${poi.rating.toFixed(1)}${poi.userRatingCount?` (${poi.userRatingCount} đánh giá)`:''}`:'';const detail=[rating,formatNearbyDistance(poi.distance),poi.localizedAddress||poi.address].filter(Boolean).join(' · ');return `- ${index+1}. ${poi.localizedName||poi.name}${detail?` — ${detail}`:''}.`;});
-  return json({text:`Pipi hiểu khu vực cần tìm là **${area.name||intent.area}**. Pipi tìm được ${pois.length} kết quả ${intent.query} gần đó:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem và mở chỉ đường.`,travelos:{version:3,nearby,remoteSearch:{query:intent.query,requestedArea:intent.area,resolvedArea:area},sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:true,source:clean(searched.data?.source||searched.source,100)}]}},200,request,env);
+  return json({text:`Pipi hiểu khu vực cần tìm là **${areaDisplay}**. Pipi tìm được ${pois.length} kết quả ${intent.query} gần đó:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem và mở chỉ đường.`,travelos:{version:3,nearby,remoteSearch:{query:intent.query,requestedArea:intent.area,resolvedArea:area},sources:[{tool:'resolve_place',ok:true,source:clean(resolved.data?.source||resolved.source,100)},{tool:'search_places',ok:true,source:clean(searched.data?.source||searched.source,100)}]}},200,request,env);
 }
 
 function validNearbyAnswer(text, nearby) {
@@ -2494,15 +2496,22 @@ const CHINA_AREA_NAMES={
   '北京市':'Bắc Kinh','上海市':'Thượng Hải','重庆市':'Trùng Khánh','广州市':'Quảng Châu','深圳市':'Thâm Quyến',
   '成都市':'Thành Đô','杭州市':'Hàng Châu','西安市':'Tây An','南京市':'Nam Kinh','苏州市':'Tô Châu','武汉市':'Vũ Hán',
   '东城区':'Quận Đông Thành','西城区':'Quận Tây Thành','朝阳区':'Quận Triều Dương','海淀区':'Quận Hải Điến',
-  '丰台区':'Quận Phong Đài','石景山区':'Quận Thạch Cảnh Sơn','浦东新区':'Phố Đông','黄浦区':'Quận Hoàng Phố'
+  '丰台区':'Quận Phong Đài','石景山区':'Quận Thạch Cảnh Sơn','浦东新区':'Phố Đông','黄浦区':'Quận Hoàng Phố',
+  '渝中区':'Quận Du Trung','江北区':'Quận Giang Bắc','南岸区':'Quận Nam Ngạn','沙坪坝区':'Quận Sa Bình Bá',
+  '九龙坡区':'Quận Cửu Long Pha','渝北区':'Quận Du Bắc','巴南区':'Quận Ba Nam'
 };
 
-function chinaFallbackName(place) {
+function chinaFallbackName(place, query='') {
   const name=clean(place?.name,300),source=`${name} ${clean(place?.tag,500)} ${clean(place?.primaryType,120)} ${(place?.types||[]).join(' ')}`,tags=translateChinaTags(place?.tag);
+  const requested=clean(query,180).replace(/^./u,char=>char.toLocaleUpperCase('vi-VN'));
+  const original=name.replace(/[（(]/g,' · ').replace(/[）)]/g,'').replace(/\s*·\s*/g,' · ').trim();
+  if(requested&&!/[\u3400-\u9fff]/u.test(requested))return name&&/[\u3400-\u9fff]/u.test(name)?`${requested} (${original})`:requested;
+  if(/和颐至尚|和颐酒店/.test(name))return `Khách sạn Yitel (${original})`;
   let kind='Địa điểm';
   if(/重庆市?人民大礼堂/.test(source))kind='Lễ đường Nhân dân Trùng Khánh';
   else if(/药房|药店|pharmacy/.test(source))kind='Nhà thuốc';
   else if(/便利店|convenience/.test(source))kind='Cửa hàng tiện lợi';
+  else if(/副食店|食品经营|食品店|便民店|杂货店/.test(source))kind='Cửa hàng thực phẩm';
   else if(/超市|supermarket/.test(source))kind='Siêu thị';
   else if(/医院|hospital/.test(source))kind='Bệnh viện';
   else if(/诊所|clinic/.test(source))kind='Phòng khám';
@@ -2515,30 +2524,61 @@ function chinaFallbackName(place) {
   else if(/咖啡/.test(source))kind='Quán cà phê';
   else if(/餐厅|餐饮|饭店/.test(source))kind='Quán ăn';
   const specialties=tags.filter(tag=>!['lẩu','đồ nướng'].includes(tag)).slice(0,2);
-  return `${kind}${specialties.length?` ${specialties.join(' & ')}`:''}${name?` (${name})`:''}`;
+  return `${kind}${specialties.length?` ${specialties.join(' & ')}`:''}${name?` (${original})`:''}`;
 }
 
 function chinaFallbackAddress(place) {
   const areas=[CHINA_AREA_NAMES[clean(place?.district,100)],CHINA_AREA_NAMES[clean(place?.city,100)]].filter(Boolean);
   const prefix=[...new Set(areas)].join(', ')||'Trung Quốc',address=clean(place?.address,800);
-  return `${prefix}${address?` · địa chỉ gốc: ${address}`:''}`;
+  const original=address.replace(/[（(]/g,' · ').replace(/[）)]/g,'').replace(/\s*·\s*/g,' · ').trim();
+  return `${prefix}${original?` (${original})`:''}`;
+}
+
+function chinaDisplayText(value, original, fallback, max) {
+  const translated=clean(value,max),raw=clean(original,max);
+  if(!translated||/[\u3400-\u9fff]/u.test(translated.replace(/\([^)]*\)/g,'')))return fallback;
+  if(raw&&/[\u3400-\u9fff]/u.test(raw)&&!/[\u3400-\u9fff]/u.test(translated))return clean(`${translated} (${raw.replace(/[（(]/g,' · ').replace(/[）)]/g,'').replace(/\s*·\s*/g,' · ').trim()})`,max);
+  return translated;
+}
+
+async function localizeChinaNamesWithWorkersAi(places, env, query='') {
+  if(!env.AI?.run)return places;
+  return Promise.all(places.map(async place=>{
+    if(!/[\u3400-\u9fff]/u.test(place.name)||query)return place;
+    try{
+      const messages=[
+        {role:'system',content:'Dịch đúng tên cửa hàng/địa điểm Trung Quốc sang tiếng Việt. Chỉ viết một tên ngắn bằng chữ quốc ngữ hoặc thương hiệu Latin; không chữ Hán, không giải thích, không thêm đánh giá.'},
+        {role:'user',content:place.name}
+      ];
+      const response=await env.AI.run('@cf/google/gemma-4-26b-a4b-it',{messages,chat_template_kwargs:{enable_thinking:false},max_tokens:100,temperature:0.1});
+      const translated=clean(response?.choices?.[0]?.message?.content||response?.response,200).replace(/^['"`\s]+|['"`\s]+$/g,'');
+      const words=translated.toLocaleLowerCase('vi-VN').split(/\s+/).filter(Boolean);
+      if(!translated||translated.length>100||words.length>3&&new Set(words).size<words.length/2)return place;
+      return {...place,localizedName:chinaDisplayText(translated,place.name,place.localizedName,300)};
+    }catch(error){console.warn('[China Workers AI translation fallback]',errorText(error,'Translation unavailable',180));return place;}
+  }));
 }
 
 async function localizeChinaPlaces(pois, country, env, options={}) {
   const source=(Array.isArray(pois)?pois:[]).slice(0,10).map(compactPoi);
   if(nearbyLanguage({country})!=='zh'||!source.length)return source;
-  const fallback=source.map(place=>({...place,localizedName:place.localizedName||chinaFallbackName(place),localizedAddress:place.localizedAddress||chinaFallbackAddress(place)}));
-  if(options.useAi===false||!env.GEMINI_API_KEY)return fallback;
+  const fallback=source.map(place=>({...place,localizedName:place.localizedName||chinaFallbackName(place,options.query),localizedAddress:place.localizedAddress||chinaFallbackAddress(place)}));
+  if(options.useAi===false)return fallback;
+  if(env.AI?.run)return localizeChinaNamesWithWorkersAi(fallback,env,options.query);
+  if(!env.GEMINI_API_KEY)return fallback;
   const prompt=`Bạn dịch tên và địa chỉ địa điểm Trung Quốc sang tiếng Việt cho khách du lịch. Chỉ trả JSON theo schema.
-- localizedName phải dễ hiểu, giữ tên gốc tiếng Trung trong ngoặc; không dịch sai tên thương hiệu.
-- localizedAddress dịch các cấp hành chính/đường khi chắc chắn và giữ địa chỉ gốc sau dấu ·.
+- localizedName bắt đầu bằng tên tiếng Việt hoặc tên thương hiệu Latin, sau đó mới đặt tên gốc tiếng Trung trong ngoặc. Không để chữ Hán nằm ngoài ngoặc; không dịch sai tên thương hiệu.
+- localizedAddress dịch các cấp hành chính/đường khi chắc chắn; nếu giữ địa chỉ gốc tiếng Trung thì đặt trong ngoặc ở cuối.
+- Nếu câu hỏi có tên thương hiệu Latin, dùng đúng tên đó khi địa điểm AMap tương ứng.
 - note là một câu trung tính ngắn dựa đúng vào type, tag, rating, giá; không bịa.
 - confidence dùng limited nếu dữ liệu ít.`;
   try{
     const evidence=fallback.map(place=>({id:place.id,name:place.name,address:place.address,city:place.city,district:place.district,type:place.type,types:place.types,tag:place.tag,rating:place.rating,cost:place.cost}));
-    const result=await callGeminiJson(prompt,buildContents([],JSON.stringify({country:'Trung Quốc',places:evidence})),PLACE_NOTES_SCHEMA,env),byId=new Map((result?.items||[]).map(item=>[clean(item?.id,300),item]));
-    return fallback.map(place=>{const item=byId.get(place.id);return item?{...place,localizedName:clean(item.localizedName,300)||place.localizedName,localizedAddress:clean(item.localizedAddress,800)||place.localizedAddress,note:place.note||clean(item.note,220),noteConfidence:place.noteConfidence||clean(item.confidence,30)}:place;});
-  }catch{return fallback;}
+    const result=await callGeminiJson(prompt,buildContents([],JSON.stringify({country:'Trung Quốc',requestedName:clean(options.query,180),places:evidence})),PLACE_NOTES_SCHEMA,env,'planner'),byId=new Map((result?.items||[]).map(item=>[clean(item?.id,300),item]));
+    const matched=fallback.filter(place=>byId.has(place.id)).length;
+    if(!matched)console.warn('[China localization fallback] no matching POI IDs',fallback.length,byId.size);
+    return fallback.map(place=>{const item=byId.get(place.id);return item?{...place,localizedName:chinaDisplayText(item.localizedName,place.name,place.localizedName,300),localizedAddress:chinaDisplayText(item.localizedAddress,place.address,place.localizedAddress,800),note:place.note||clean(item.note,220),noteConfidence:place.noteConfidence||clean(item.confidence,30)}:place;});
+  }catch(error){console.warn('[China localization fallback]',errorText(error,'Translation unavailable',240));return fallback;}
 }
 
 async function loadGoogleReviewEvidence(pois, country, env) {
@@ -2555,7 +2595,7 @@ async function loadGoogleReviewEvidence(pois, country, env) {
 
 async function enrichPlaceNotes(pois, query, country, env) {
   const raw=(Array.isArray(pois)?pois:[]).slice(0,10).map(compactPoi);
-  const source=nearbyLanguage({country})==='zh'?await localizeChinaPlaces(raw,country,env):(env.GEMINI_API_KEY?raw:await loadGoogleReviewEvidence(raw,country,env));
+  const source=nearbyLanguage({country})==='zh'?(raw.every(place=>place.localizedName&&place.localizedAddress)?raw:await localizeChinaPlaces(raw,country,env)):(env.GEMINI_API_KEY?raw:await loadGoogleReviewEvidence(raw,country,env));
   if(!source.length)return source;
   const fallback=source.map(place=>({...place,note:place.note||fallbackPlaceNote(place,query),noteConfidence:place.noteConfidence||'limited'}));
   if(!env.GEMINI_API_KEY)return fallback;
@@ -2823,7 +2863,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
             result={...result,data:{...result.data,
               query:{...normalizedQuery,...(args.placeName?{}:{keyword:searchPlan.providerQuery,keywords:[searchPlan.providerQuery,...searchPlan.queryVariants]}),category:args.category||normalizedQuery.category,radius:attempts.at(-1)?.radius||firstRadius},
               attemptedRadii:attempts.map(item=>item.radius),searchAttempts:attempts,
-              pois:args.placeName?(china?await localizeChinaPlaces(pois,searchCountry,env,{useAi:false}):pois):isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};
+              pois:args.placeName?(china?await localizeChinaPlaces(pois,searchCountry,env,{query:args.placeName}):pois):isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};
           }
         }
         if(result.ok) {
@@ -2836,7 +2876,8 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         const query=args.query||args.placeName||args.address,center=coordFrom(args),china=isChinaTravelContext({...location,latitude:center?.lat,longitude:center?.lng},userMessage,query);
         result=await mapTool('/place/resolve',{...chinaProviderFields(china),query,center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit,resolveMode:plan.travelIntent==='WEATHER_OUTDOOR'?'geocode':''},env);
         if(result.ok) {
-          const places=(result.data?.places||[]).map(compactPoi);
+          const rawPlaces=(result.data?.places||[]).map(compactPoi);
+          const places=china?await localizeChinaPlaces(rawPlaces,'Trung Quốc',env,{query}):rawPlaces;
           result={ok:true,source:result.data?.source||result.data?.provider,data:{...result.data,places}};
           if(places[0]) state.lastPlace=places[0];
           if(places[0]) state.weatherTarget=places[0];
@@ -2850,6 +2891,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         if(result.ok) {
           const detailPlace=compactPoi(result.data?.place||(result.data?.places||[])[0]);
           const place={...target,...detailPlace,localizedName:detailPlace.localizedName||target.localizedName,localizedAddress:detailPlace.localizedAddress||target.localizedAddress,distance:num(target.distance)??detailPlace.distance};
+          if(china&&(!place.localizedName||!place.localizedAddress))Object.assign(place,(await localizeChinaPlaces([place],'Trung Quốc',env,{query:args.placeName||target.localizedName||target.name}))[0]||{});
           const recent=recentReviewStats(place),enrichedPlace={...place,...recent,reviews:recent.reviews};
           const reviewSummary=await summarizePlaceReviews(enrichedPlace,env);
           result={ok:true,source:result.data?.source||result.data?.provider,data:{place:enrichedPlace,reviewSummary}};
@@ -2950,6 +2992,8 @@ async function handleAiV3(request, env) {
       // A named-place lookup already has verified provider evidence. Avoid two
       // extra Gemini calls (localization + prose) after AMap/Google succeeds.
       text=deterministicEvidenceAnswer(state);
+    } else if(state.nearby?.provider==='amap') {
+      text=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
     } else {
       try { text=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env); }
       catch(error) {
@@ -3022,6 +3066,7 @@ async function handleVoiceV1(request, env) {
         else if(plan.travelIntent==='WEATHER_OUTDOOR'&&state.weather)detail=deterministicWeatherAdvice(state.weather,state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại');
         else if(state.nearby&&!(state.nearby.pois||[]).length)detail=deterministicNearbyText(state.nearby);
         else if(state.namedPlaceSearch)detail=deterministicEvidenceAnswer(state);
+        else if(state.nearby?.provider==='amap')detail=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
         else {
           try{detail=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env);}
           catch{detail=deterministicEvidenceAnswer(state)||deterministicUnsupportedAnswer(plan.unsupportedNeeds)||brief;}

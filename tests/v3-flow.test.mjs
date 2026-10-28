@@ -1229,6 +1229,24 @@ test('AI v3 translates a Vietnamese China landmark name before AMap search', asy
   assert.match(data.text,/重庆市人民大礼堂/);
 });
 
+test('AI v3 keeps a named China hotel readable in chat and the map list without AI', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const hotel={id:'yitel-cq',name:'和颐至尚酒店(重庆解放碑洪崖洞店)',address:'临江支路30号',city:'重庆市',district:'渝中区',lat:29.5599,lng:106.5791,distance:450,rating:'4.4',provider:'amap',country:'Trung Quốc'};
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname;
+    if(path==='/poi/nearby')return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:{lat:29.563,lng:106.551},pois:[hotel]}),{headers:{'Content-Type':'application/json'}});
+    assert.equal(path,'/poi/details');
+    return new Response(JSON.stringify({ok:true,source:'amap-place-detail-v5',provider:'amap',place:hotel}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'vị trí khách sạn Yitel',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551}})}),env);
+  const data=await response.json(),poi=data.travelos.nearby.pois[0];
+  assert.equal(poi.localizedName,'Khách sạn Yitel (和颐至尚酒店 · 重庆解放碑洪崖洞店)');
+  assert.equal(poi.localizedAddress,'Quận Du Trung, Trùng Khánh (临江支路30号)');
+  assert.equal(data.travelos.placeDetails.localizedName,poi.localizedName);
+  assert.match(data.text,/Khách sạn Yitel \(和颐至尚酒店/);
+  assert.doesNotMatch(data.text,/Khách sạn \(和颐至尚酒店/);
+});
+
 test('AI v3 uses structured AI translation for an unknown Vietnamese venue name, then lets AMap verify it', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const originalFetch=globalThis.fetch,translationPrompts=[];
@@ -1260,6 +1278,8 @@ test('AI v3 uses structured AI translation for an unknown Vietnamese venue name,
     assert.equal(translationPrompts.length,1);
     assert.equal(mapCalls[0].body.name,'Hội quán Hồ Quảng');
     assert.equal(data.travelos.placeDetails.id,'huguang');
+    assert.equal(data.travelos.nearby.pois[0].localizedName,'Hội quán Hồ Quảng (湖广会馆)');
+    assert.match(data.travelos.nearby.pois[0].localizedAddress,/^Trung Quốc \(芭蕉园1号\)$/);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -1457,6 +1477,25 @@ test('AI v3 localizes AMap places without leaking the China flow to Google', asy
   assert.match(poi.note,/lẩu Tứ Xuyên/);
   assert.match(poi.note,/thịt bò/);
   assert.match(data.text,/海底捞火锅/);
+});
+
+test('AI v3 translates ordinary AMap POI names to Vietnamese with Workers AI', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const translated=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',AI:{run:async (model,input)=>{
+    assert.equal(model,'@cf/google/gemma-4-26b-a4b-it');
+    translated.push(input.messages[1].content);
+    return {response:'Cửa hàng tiện lợi Lù Kè'};
+  }},MAP_WORKER:{fetch:async request=>{
+    assert.equal(new URL(request.url).pathname,'/poi/nearby');
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:{lat:29.563,lng:106.551,country:'Trung Quốc'},pois:[{id:'store-1',name:'路客便利店',address:'人和街67号',city:'重庆市',district:'渝中区',lat:29.564,lng:106.552,distance:160,provider:'amap',country:'Trung Quốc'}]}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'cửa hàng tiện lợi quanh đây',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551}})}),env);
+  const data=await response.json(),poi=data.travelos.nearby.pois[0];
+  assert.deepEqual(translated,['路客便利店']);
+  assert.equal(poi.localizedName,'Cửa hàng tiện lợi Lù Kè (路客便利店)');
+  assert.equal(poi.localizedAddress,'Quận Du Trung, Trùng Khánh (人和街67号)');
+  assert.match(data.text,/Cửa hàng tiện lợi Lù Kè \(路客便利店\)/);
 });
 
 test('AI v3 cleans casual remote-area wording and requests ten highest-rated places', async () => {
