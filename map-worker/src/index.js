@@ -743,11 +743,17 @@ async function googleTextPlaces(options, env) {
     if(options?.restrictArea) payload.locationRestriction={rectangle:restrictionRectangle(center,options?.radius)};
     else payload.locationBias={circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(50000,Math.max(100,Number(options?.radius)||3000))}};
   }
-  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.utcOffsetMinutes','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri','places.reviews','places.primaryType','places.types'].join(',');
-  const result=await fetchJson(GOOGLE_TEXT_SEARCH_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fieldMask},body:JSON.stringify(payload)});
-  if(!result.ok) return {ok:false,error:result.data?.error?.message||`Google Places HTTP ${result.status}`,places:[]};
+  const fieldMask=['places.id','places.displayName','places.formattedAddress','places.location','places.currentOpeningHours','places.utcOffsetMinutes','places.businessStatus','places.rating','places.userRatingCount','places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri','places.reviews','places.primaryType','places.types','nextPageToken'].join(',');
+  const pages=[],pageLimit=options?.paginate?3:1;
+  for(let page=0;page<pageLimit;page++){
+    const result=await fetchJson(GOOGLE_TEXT_SEARCH_URL,{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':env.GOOGLE_MAPS_API_KEY,'X-Goog-FieldMask':fieldMask},body:JSON.stringify(payload)});
+    if(!result.ok){if(!pages.length)return {ok:false,error:result.data?.error?.message||`Google Places HTTP ${result.status}`,places:[]};break;}
+    pages.push(...(Array.isArray(result.data?.places)?result.data.places:[]));
+    if(!result.data?.nextPageToken)break;
+    payload.pageToken=result.data.nextPageToken;
+  }
   const radius=Math.min(50000,Math.max(100,Number(options?.radius)||3000));
-  const places=(Array.isArray(result.data?.places)?result.data.places:[]).map(place=>normalizeGooglePlace(place,center,options?.country)).filter(place=>place&&(!center||!options?.restrictArea||place.distance<=radius)).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
+  const places=pages.map(place=>normalizeGooglePlace(place,center,options?.country)).filter(place=>place&&(!center||!options?.restrictArea||place.distance<=radius)).sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity));
   return {ok:true,places};
 }
 
@@ -784,23 +790,24 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
   const categoryRule=SEARCH_RULES.find(rule=>rule.google===info.googleType);
   const categoryOnlyQuery=!name&&Boolean(info.googleType)&&Boolean(categoryRule)&&categoryRule.aliases.some(alias=>fold(textQuery||keyword).includes(fold(alias)));
   let result,source;
-  if(textQueries.length>1){
+  if(categoryOnlyQuery||(!name&&!textQuery&&info.googleType)){
+    const options={googleType:info.googleType,center,limit:20,language:body?.language,country};
+    const localRadius=Math.min(radius,700);
+    const categoryTextQueries=uniqueSearchQueries(keyword,body?.queryVariants,info.googleType==='convenience_store'?'convenience store':'').slice(0,4);
+    const [local,wide,...texts]=await Promise.all([
+      googleNearbyPlaces({...options,radius:localRadius},env),
+      localRadius===radius?Promise.resolve({ok:true,places:[]}):googleNearbyPlaces({...options,radius},env),
+      ...categoryTextQueries.map(query=>googleTextPlaces({query,center,radius:localRadius,limit:20,language:body?.language,country,restrictArea:true,paginate:true},env))
+    ]);
+    const places=mergeGooglePlaces(local.places,wide.places,...texts.map(item=>item.places)).filter(place=>(place.distance??Infinity)<=radius);
+    result={ok:local.ok||wide.ok||texts.some(item=>item.ok),places,error:[local.error,wide.error,...texts.map(item=>item.error)].filter(Boolean).join(' / '),coverageLimited:[local,wide,...texts].some(item=>item.places?.length>=20)};
+    source='google-places-multi-pass-v1';
+  }else if(textQueries.length>1){
     const options={center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true};
     const searches=await Promise.all(textQueries.map(query=>googleTextPlaces({...options,query},env)));
     const places=mergeGooglePlaces(...searches.map(search=>search.places||[])).filter(place=>(place.distance??Infinity)<=radius&&matchesRequestedCategory(place,info.googleType));
     result={ok:searches.some(search=>search.ok),places,error:searches.map(search=>search.error).filter(Boolean).join(' / ')};
     source='google-places-expanded-text-v1';
-  }else if(categoryOnlyQuery||(!name&&!textQuery&&info.googleType)){
-    const options={googleType:info.googleType,center,limit:20,language:body?.language,country};
-    const localRadius=Math.min(radius,700);
-    const [local,wide,text]=await Promise.all([
-      googleNearbyPlaces({...options,radius:localRadius},env),
-      localRadius===radius?Promise.resolve({ok:true,places:[]}):googleNearbyPlaces({...options,radius},env),
-      googleTextPlaces({query:keyword,center,radius:localRadius,limit:20,language:body?.language,country,restrictArea:true},env)
-    ]);
-    const places=mergeGooglePlaces(local.places,wide.places,text.places).filter(place=>(place.distance??Infinity)<=radius);
-    result={ok:local.ok||wide.ok||text.ok,places,error:[local.error,wide.error,text.error].filter(Boolean).join(' / '),coverageLimited:[local,wide,text].some(item=>item.places?.length>=20)};
-    source='google-places-multi-pass-v1';
   }else if(name||textQuery||!info.googleType){
     result=await googleTextPlaces({query:clean(name||textQuery||keyword,300),center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true},env);
     source='google-places-text-v1';

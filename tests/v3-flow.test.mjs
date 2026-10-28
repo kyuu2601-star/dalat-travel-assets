@@ -113,11 +113,49 @@ test('Map Worker searches convenience-store categories with Google Nearby distan
     assert.equal(data.source,'google-places-multi-pass-v1');
     assert.equal(data.pois[0].id,'gs25-near');
     assert.deepEqual(data.pois.map(place=>place.id),['gs25-near','store-far']);
-    assert.equal(requests.length,3);
+    assert.equal(requests.length,4);
     assert.equal(requests.filter(item=>item.url==='https://places.googleapis.com/v1/places:searchNearby').length,2);
-    assert.equal(requests.find(item=>item.body.textQuery)?.body.textQuery,'CHTL');
+    assert.deepEqual(requests.filter(item=>item.body.textQuery).map(item=>item.body.textQuery),['CHTL','convenience store']);
     assert.ok(requests.some(item=>item.body.locationRestriction?.circle?.radius===700));
     assert.ok(requests.filter(item=>item.body.includedTypes).every(item=>item.body.includedTypes[0]==='convenience_store'&&item.body.rankPreference==='DISTANCE'&&item.body.maxResultCount===20));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker keeps Nearby category passes when the AI Worker adds search synonyms', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requests=[];
+  globalThis.fetch=async (url,init={})=>{
+    const body=JSON.parse(String(init.body||'{}'));requests.push({url:String(url),body});
+    const places=body.includedTypes?[{id:'nearby-store',displayName:{text:'Cửa hàng tiện lợi cạnh nhà'},formattedAddress:'Gần đây',location:{latitude:10.7701,longitude:106.69},primaryType:'convenience_store',types:['convenience_store']}]:[{id:'far-text-store',displayName:{text:'Cửa hàng tiện lợi xa'},formattedAddress:'Xa hơn',location:{latitude:10.78,longitude:106.69},primaryType:'convenience_store',types:['convenience_store']}];
+    return new Response(JSON.stringify({places}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.77,lng:106.69},country:'Việt Nam',query:'cửa hàng tiện lợi',keyword:'cửa hàng tiện lợi',queryVariants:['minimart'],category:'convenience_store',radius:3000,limit:10,candidateLimit:50})}),{GOOGLE_MAPS_API_KEY:'test'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'google-places-multi-pass-v1');
+    assert.equal(data.pois[0].id,'nearby-store');
+    assert.equal(requests.filter(item=>item.body.includedTypes?.[0]==='convenience_store').length,2);
+    assert.ok(requests.some(item=>item.body.textQuery==='minimart'));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Map Worker reads the next Google text page before selecting nearby places', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requests=[];
+  globalThis.fetch=async (url,init={})=>{
+    const body=JSON.parse(String(init.body||'{}'));requests.push({url:String(url),body});
+    const second=body.textQuery==='cửa hàng tiện lợi'&&body.pageToken==='page-two';
+    const data=second?{places:[{id:'shop-second-page',displayName:{text:'Cửa hàng tiện lợi cạnh nhà'},formattedAddress:'Gần đây',location:{latitude:10.7701,longitude:106.69},primaryType:'convenience_store',types:['convenience_store']}]}:body.textQuery==='cửa hàng tiện lợi'?{places:[],nextPageToken:'page-two'}:{places:[]};
+    return new Response(JSON.stringify(data),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.77,lng:106.69},country:'Việt Nam',query:'cửa hàng tiện lợi',keyword:'cửa hàng tiện lợi',category:'convenience_store',radius:3000,limit:10,candidateLimit:50})}),{GOOGLE_MAPS_API_KEY:'test'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.pois[0].id,'shop-second-page');
+    assert.ok(requests.some(item=>item.body.pageToken==='page-two'));
+    assert.ok(requests.filter(item=>item.body.textQuery).every(item=>item.body.locationRestriction?.rectangle));
   }finally{globalThis.fetch=originalFetch;}
 });
 
