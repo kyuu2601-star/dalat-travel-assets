@@ -21,7 +21,46 @@
   const log = el('pvm-chat');
   const mic = el('pvm-mic');
   const caption = el('pvm-caption');
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const nativeVoice = window.TRAVELOS_NATIVE ? window.Capacitor?.Plugins?.PipiVoice : null;
+  class NativeRecognition {
+    constructor() { this.lang = 'vi-VN'; this.ended = false; this.subscription = null; this.starting = null; }
+    end() {
+      if (this.ended) return;
+      this.ended = true;
+      this.subscription?.remove?.();
+      this.onend?.();
+    }
+    start() {
+      this.starting = (async () => {
+        this.subscription = await nativeVoice.addListener('recognitionResult', event => {
+          if (this.ended) return;
+          if (event.type === 'error') {
+            this.onerror?.({error:event.error || 'no-speech'});
+            this.end();
+            return;
+          }
+          if (event.transcript) {
+            const result = Object.assign([{transcript:event.transcript, confidence:event.confidence ?? 0}], {isFinal:event.type === 'final'});
+            this.onresult?.({results:[result]});
+          }
+          if (event.type === 'final') this.end();
+        });
+        if (!this.ended) await nativeVoice.startRecognition({language:this.lang});
+      })().catch(error => {
+        if (this.ended) return;
+        this.onerror?.({error:String(error?.message || error).includes('PERMISSION') ? 'not-allowed' : 'no-speech'});
+        this.end();
+      });
+    }
+    stop() { this.starting?.then(() => { if (!this.ended) nativeVoice.stopRecognition().catch(() => this.end()); }); }
+    abort() {
+      if (this.ended) return;
+      nativeVoice.cancelRecognition().catch(() => {});
+      this.end();
+    }
+  }
+  const Recognition = nativeVoice?.startRecognition && nativeVoice?.addListener
+    ? NativeRecognition : window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null, holding = false, transcript = '', confidence = null, recognitionError = '', sending = false, activeRequest = null, activeTyping = null, generation = 0;
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
@@ -37,6 +76,7 @@
   };
   let activeAudio = null, activeAudioDone = null;
   let voiceReady = false;
+  let microphoneReady = !window.TRAVELOS_NATIVE;
   const phaseText = {
     planning: 'Pipi đang phân tích câu hỏi…',
     searching: 'Pipi đang tìm kiếm thông tin…',
@@ -123,19 +163,43 @@
     stopSpeaking();
     activeTyping?.remove(); activeTyping = null;
     mic.classList.remove('active');
-    mic.disabled = !Recognition || !voiceReady;
+    mic.disabled = !Recognition || !voiceReady || !microphoneReady;
     panel.hidden = true;
     launch.focus();
+  }
+  function updateVoiceControls() {
+    if (panel.hidden) return;
+    mic.disabled = !Recognition || !voiceReady || !microphoneReady;
+    if (!voiceReady) return;
+    if (!microphoneReady) {
+      setState('Pipi cần quyền micro để nghe bạn nói', 'error');
+      caption.textContent = 'Hãy cho phép khi Android hỏi. Nếu đã từ chối, bật Micro trong Cài đặt ứng dụng.';
+    } else if (voiceReady) {
+      setState('Pipi đang chờ bạn nói', 'ready');
+      caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
+      if (Recognition) mic.focus();
+    }
+  }
+  async function requestMicrophone() {
+    if (!window.TRAVELOS_NATIVE) return;
+    try {
+      const nativeVoice = window.Capacitor?.Plugins?.PipiVoice;
+      if (!nativeVoice?.requestMicrophonePermission) throw new Error('MICROPHONE_PERMISSION_BRIDGE_UNAVAILABLE');
+      const result = await nativeVoice.requestMicrophonePermission();
+      microphoneReady = result?.microphone === 'granted';
+    } catch (error) {
+      microphoneReady = false;
+      console.warn('Pipi microphone permission:', error);
+    }
+    updateVoiceControls();
   }
   function open() {
     panel.hidden = false;
     short.textContent = '';
     mic.disabled = true;
+    if (window.TRAVELOS_NATIVE) requestMicrophone();
     if (voiceReady) {
-      setState('Pipi đang chờ bạn nói', 'ready');
-      caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
-      mic.disabled = !Recognition;
-      mic.focus();
+      updateVoiceControls();
       return;
     }
     setState('Đang chuẩn bị giọng Pipi…', 'busy');
@@ -148,12 +212,7 @@
       } else setState('Đang khởi động giọng Pipi…', 'busy');
     }).then(() => {
       voiceReady = true;
-      if (!panel.hidden) {
-        setState('Pipi đang chờ bạn nói', 'ready');
-        caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
-        mic.disabled = !Recognition;
-        mic.focus();
-      }
+      updateVoiceControls();
     }).catch(error => {
       if (!panel.hidden) {
         setState('Chưa tải được giọng Pipi. Bạn đóng rồi mở lại để thử nhé.', 'error');
@@ -278,12 +337,12 @@
         console.warn('Voice Mode:', error);
       }
     } finally {
-      if (token === generation) { sending = false; mic.disabled = !Recognition; activeRequest = null; }
+      if (token === generation) { sending = false; mic.disabled = !Recognition || !voiceReady || !microphoneReady; activeRequest = null; }
     }
   }
 
   function begin(event) {
-    if (!Recognition || !voiceReady || sending || holding || panel.hidden) return;
+    if (!Recognition || !voiceReady || !microphoneReady || sending || holding || panel.hidden) return;
     event.preventDefault();
     mic.setPointerCapture?.(event.pointerId);
     stopSpeaking();

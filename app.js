@@ -988,11 +988,36 @@ async function initTravelOS() {
     );
 
     setLoadingStatus('Đang tải địa điểm và kết nối trợ lý...');
-    const ready = { places: false, bot: false };
+    const voiceBoot = Boolean(window.TRAVELOS_NATIVE);
+    const ready = { places: false, bot: false, voice: !voiceBoot };
+    let voicePercent = 0;
+    let voicePhase = 'download';
+    const voiceTrack = document.getElementById('loading-voice-track');
+    const voiceBar = document.getElementById('loading-voice-bar');
+    if (voiceTrack) voiceTrack.hidden = !voiceBoot;
     const updateProgress = () => {
-        if (ready.places && !ready.bot) setLoadingStatus('Đã có địa điểm · đang kết nối trợ lý...');
+        if (voiceBoot && !ready.voice) {
+            if (voicePhase === 'download') {
+                setLoadingStatus(`Đang tải giọng Pipi lần đầu… ${voicePercent}%`);
+                if (voiceBar) voiceBar.style.width = `${voicePercent}%`;
+                if (voiceTrack) voiceTrack.setAttribute('aria-valuenow', String(voicePercent));
+            } else setLoadingStatus('Đang khởi động giọng Pipi trên máy…');
+        } else if (ready.places && !ready.bot) setLoadingStatus('Đã có địa điểm · đang kết nối trợ lý...');
         else if (!ready.places && ready.bot) setLoadingStatus('Trợ lý đã sẵn sàng · đang tải địa điểm...');
+        if (ready.voice && voiceTrack) voiceTrack.hidden = true;
     };
+
+    const voiceTask = voiceBoot ? withBootTimeout((async () => {
+        if (!window.PipiLocalVoice) throw new Error('Chưa có module giọng Pipi.');
+        updateProgress();
+        await window.PipiLocalVoice.prepare(progress => {
+            voicePhase = progress.phase || 'download';
+            voicePercent = Math.min(100, Math.round(progress.loaded / progress.total * 100));
+            updateProgress();
+        });
+        ready.voice = true;
+        updateProgress();
+    })(), 900000, 'Giọng Pipi') : Promise.resolve();
 
     const placesTask = withBootTimeout((async () => {
         fullData = await TravelData.loadPlaces();
@@ -1021,7 +1046,7 @@ async function initTravelOS() {
         return health;
     })(), 12000, 'Trợ lý');
 
-    const [placesResult, botResult] = await Promise.allSettled([placesTask, botTask]);
+    const [placesResult, botResult, voiceResult] = await Promise.allSettled([placesTask, botTask, voiceTask]);
     const failures = [];
     if (placesResult.status === 'rejected') {
         const error = placesResult.reason;
@@ -1031,6 +1056,7 @@ async function initTravelOS() {
         failures.push('Chưa tải được địa điểm');
     }
     if (botResult.status === 'rejected') failures.push('Trợ lý đang kết nối lại');
+    if (voiceResult.status === 'rejected') failures.push('Chưa tải được giọng Pipi');
     finishBoot(failures);
 }
 

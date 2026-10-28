@@ -753,7 +753,7 @@ test('AI chat shows staged progress while backend tools are working', async () =
   assert.match(chat,/timers\.forEach\(timer => clearTimeout\(timer\)\)/);
   assert.match(style,/\.chat-progress-step\.is-active/);
   assert.match(style,/prefers-reduced-motion/);
-  assert.match(index,/style\.css\?v=20261027-2/);
+  assert.match(index,/style\.css\?v=20261028-1/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
@@ -861,19 +861,22 @@ test('Chat history restores the nearby map card for 24 hours and exposes only a 
   assert.match(source,/function compactTravelContext\(payload\)/);
 });
 
-test('App keeps onboarding visible until places and bot readiness settle', async () => {
+test('App keeps onboarding visible until native voice, places and bot readiness settle', async () => {
   const [app,chat,index]=await Promise.all([
     readFile(new URL('../app.js',import.meta.url),'utf8'),
     readFile(new URL('../chat.js',import.meta.url),'utf8'),
     readFile(new URL('../index.html',import.meta.url),'utf8')
   ]);
-  assert.match(app,/Promise\.allSettled\(\[placesTask, botTask\]\)/);
+  assert.match(app,/Promise\.allSettled\(\[placesTask, botTask, voiceTask\]\)/);
+  assert.match(app,/const voiceBoot = Boolean\(window\.TRAVELOS_NATIVE\)/);
+  assert.match(app,/window\.PipiLocalVoice\.prepare\(progress =>/);
   assert.match(app,/DOMContentLoaded/);
   assert.match(app,/window\.isSystemLive = true/);
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động Let's Go Pipi/);
-  assert.match(index,/app\.js\?v=20261026-2/);
+  assert.match(index,/app\.js\?v=20261028-1/);
+  assert.match(index,/id="loading-voice-track"/);
   assert.doesNotMatch(app,/localStorage\.setItem\(GEO_CACHE_KEY/);
 });
 
