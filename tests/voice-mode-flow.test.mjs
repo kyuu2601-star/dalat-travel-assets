@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 
-test('Voice reply stays as typing dots until streamed speech begins', async () => {
+test('Voice reply stays as typing dots until local speech begins', async () => {
   const elements = new Map();
   class Element {
     constructor(id = '') {
@@ -33,11 +33,11 @@ test('Voice reply stays as typing dots until streamed speech begins', async () =
     getElementById: id => elements.get(id) || null,
     createElement: () => new Element()
   };
-  let recognition;
+  let recognition, recognizedText = 'Pipi ơi';
   class Recognition {
     start() {
       recognition = this;
-      this.onresult?.({results:[Object.assign([{transcript:'Pipi ơi',confidence:0.9}],{isFinal:true})]});
+      this.onresult?.({results:[Object.assign([{transcript:recognizedText,confidence:0.9}],{isFinal:true})]});
     }
     stop() { this.onend?.(); }
     abort() {}
@@ -50,44 +50,37 @@ test('Voice reply stays as typing dots until streamed speech begins', async () =
     {type:'detail',text:'Đây là câu trả lời chi tiết.',travelos:{version:3}},
     {type:'done'}
   ].map(event => JSON.stringify(event)).join('\n') + '\n';
-  const pcm = Buffer.alloc(24000 * 2 * 0.4);
-  const sse = `event: step.delta\r\ndata: ${JSON.stringify({event_type:'step.delta',delta:{type:'audio',sample_rate:24000,data:pcm.toString('base64')}})}\r\n\r\n`;
+  let networkCalls = 0, synthesisCalls = 0;
+  const playedUrls = [];
   const fetch = async url => {
+    networkCalls++;
     if (String(url).endsWith('/voice-v1')) return new Response(voiceEvents,{headers:{'Content-Type':'application/x-ndjson'}});
-    if (String(url).endsWith('/voice-tts')) {
-      const stream = new ReadableStream({async start(controller) {
-        await audioGate;
-        const chunks = new TextEncoder().encode(sse);
-        controller.enqueue(chunks.slice(0,19));
-        controller.enqueue(chunks.slice(19,47));
-        controller.enqueue(chunks.slice(47));
-        controller.close();
-      }});
-      return new Response(stream,{headers:{'Content-Type':'text/event-stream'}});
-    }
-    throw new Error(`Unexpected fetch: ${url}`);
+    throw new Error(`Unexpected network request: ${url}`);
   };
   class FakeAudio {
+    constructor(url) { playedUrls.push(String(url)); }
     play() { queueMicrotask(() => this.onended?.()); return Promise.resolve(); }
     pause() {}
   }
-  class FakeAudioContext {
-    currentTime = 0;
-    destination = {};
-    resume() { return Promise.resolve(); }
-    createBuffer(_channels, frames, sampleRate) {
-      const samples = new Float32Array(frames);
-      return {duration:frames/sampleRate,getChannelData:() => samples};
+  let finishPreparation;
+  const preparation = new Promise(resolve => { finishPreparation = resolve; });
+  const window = {
+    SpeechRecognition:Recognition,
+    PipiLocalVoice:{
+      prepare:async()=>{await preparation;return {ready:true};},
+      synthesize:async()=>{synthesisCalls++;await audioGate;return {wav:new Uint8Array([82,73,70,70]).buffer};}
     }
-    createBufferSource() {
-      return {connect() {},start() { queueMicrotask(() => this.onended?.()); },stop() { this.onended?.(); }};
-    }
-  }
-  const window = {SpeechRecognition:Recognition,AudioContext:FakeAudioContext};
-  const context = vm.createContext({window,document,fetch,Audio:FakeAudio,Response,ReadableStream,TextEncoder,TextDecoder,AbortController,atob,URL,CONFIG:{WORKER_URL:'https://pipi.test'},console,queueMicrotask});
+  };
+  const context = vm.createContext({window,document,fetch,Audio:FakeAudio,Blob,Response,ReadableStream,TextEncoder,TextDecoder,AbortController,atob,URL,CONFIG:{WORKER_URL:'https://pipi.test'},console,queueMicrotask});
   vm.runInContext(await readFile(new URL('../voice-mode.js',import.meta.url),'utf8'),context);
   window.PipiVoiceMode.open();
   const mic=elements.get('pvm-mic');
+  assert.equal(mic.disabled,true);
+  mic.listeners.pointerdown({pointerId:1,preventDefault() {}});
+  assert.equal(recognition,undefined);
+  finishPreparation();
+  await new Promise(resolve => setTimeout(resolve,0));
+  assert.equal(mic.disabled,false);
   mic.listeners.pointerdown({pointerId:1,preventDefault() {}});
   assert.ok(recognition);
   mic.listeners.pointerup({preventDefault() {}});
@@ -101,4 +94,11 @@ test('Voice reply stays as typing dots until streamed speech begins', async () =
   assert.equal(elements.get('pvm-short').textContent,'Pipi chào bạn.');
   assert.ok(log.children.some(child => child.textContent === 'Đây là câu trả lời chi tiết.'));
   assert.ok(!log.children.some(child => child.className === 'pvm-message ai pvm-typing'));
+  recognizedText = '';
+  mic.listeners.pointerdown({pointerId:2,preventDefault() {}});
+  mic.listeners.pointerup({preventDefault() {}});
+  await new Promise(resolve => setTimeout(resolve,0));
+  assert.equal(synthesisCalls,1,'Unclear speech uses its prepared clip immediately');
+  assert.equal(networkCalls,1,'Unclear speech does not request an AI or cloud voice');
+  assert.ok(playedUrls.some(url => url.includes('unclear.wav')));
 });

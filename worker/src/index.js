@@ -511,8 +511,13 @@ async function serveR2Image(request, env, key) {
   if (!env.IMAGES) return new Response('R2 binding missing', { status: 503 });
   if (!key) return new Response('Not found', { status: 404 });
 
-  const object = request.method === 'HEAD' ? await env.IMAGES.head(key) : await env.IMAGES.get(key);
+  const modelFile = key.startsWith('voice-models/supertonic3-f3-vi-r1/');
+  const requestedRange = modelFile ? /^bytes=(\d+)-(\d+)$/.exec(request.headers.get('Range') || '') : null;
+  const range = requestedRange ? {offset:Number(requestedRange[1]), length:Number(requestedRange[2])-Number(requestedRange[1])+1} : null;
+  if (range && (!Number.isSafeInteger(range.offset) || !Number.isSafeInteger(range.length) || range.length < 1 || range.length > 8 * 1024 * 1024)) return new Response('Invalid range', {status:416});
+  const object = request.method === 'HEAD' ? await env.IMAGES.head(key) : await env.IMAGES.get(key, range ? {range} : undefined);
   if (!object) return new Response('Not found', { status: 404 });
+  if (range && range.offset + range.length > object.size) return new Response('Invalid range', {status:416});
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);
@@ -520,8 +525,14 @@ async function serveR2Image(request, env, key) {
   headers.set('Cache-Control', 'public, max-age=31536000, immutable');
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  if (modelFile) {
+    headers.set('Accept-Ranges', 'bytes');
+    headers.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+    headers.set('Content-Length', String(range ? range.length : object.size));
+    if (range) headers.set('Content-Range', `bytes ${range.offset}-${range.offset + range.length - 1}/${object.size}`);
+  }
 
-  return new Response(request.method === 'HEAD' ? null : object.body, { status: 200, headers });
+  return new Response(request.method === 'HEAD' ? null : object.body, { status: range ? 206 : 200, headers });
 }
 
 async function serveDownload(request, env, fileName) {
@@ -2999,7 +3010,7 @@ async function handleVoiceV1(request, env) {
         }
         if(!brief){
           try {
-            const prompt='Bạn là Pipi. Trả lời bằng tiếng Việt, xưng Pipi và gọi người dùng là bạn. Viết tối đa 2 câu và 45 từ, dễ đọc thành tiếng. Chỉ dùng thông tin trong EVIDENCE; nếu không có dữ liệu live thì không khẳng định dữ kiện live. Không dùng Markdown, URL, tọa độ hay danh sách.';
+            const prompt='Bạn là Pipi. Trả lời bằng tiếng Việt, xưng Pipi và gọi người dùng là bạn. Viết tối đa 2 câu và 30 từ, dễ đọc thành tiếng. Chỉ dùng thông tin trong EVIDENCE; nếu không có dữ liệu live thì không khẳng định dữ kiện live. Không dùng Markdown, URL, tọa độ hay danh sách.';
             const payload=JSON.stringify({question:userMessage,intent:plan.travelIntent,evidence:evidenceForModel(evidence),previousContext});
             brief=normalizePipiVoice(modelText(await callGemini(prompt,buildContents(history,payload),env,null,false)));
           }catch{brief=deterministicEvidenceAnswer(state)||'Pipi đang hoàn tất câu trả lời ở phần chat bên dưới.';}
@@ -3041,12 +3052,21 @@ async function handleVoiceTts(request, env) {
     generation_config:{speech_config:[{voice:'Sadachbia'}]}
   };
   if(streaming)prompt.stream=true;
+  const started=Date.now();
+  const controller=new AbortController();
+  const headerTimeout=setTimeout(()=>controller.abort(),15000);
   try {
     const upstream=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
       method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
-      body:JSON.stringify(prompt),signal:AbortSignal.timeout(15000)
+      body:JSON.stringify(prompt),signal:AbortSignal.any([controller.signal,request.signal])
     });
-    if(!upstream.ok){console.warn('VOICE_TTS_UPSTREAM',upstream.status);return json({error:'TTS temporarily unavailable'},503,request,env);}
+    clearTimeout(headerTimeout);
+    if(!upstream.ok){
+      const detail=await upstream.json().catch(()=>null);
+      const code=upstream.status===429?'TTS_RATE_LIMITED':upstream.status===503?'TTS_OVERLOADED':upstream.status===400||upstream.status===403?'TTS_CONFIGURATION':'TTS_UPSTREAM_ERROR';
+      console.warn('VOICE_TTS_UPSTREAM',JSON.stringify({status:upstream.status,providerCode:clean(detail?.error?.status,80),code,elapsedMs:Date.now()-started}));
+      return json({error:'TTS temporarily unavailable',code},upstream.status===429?429:503,request,env);
+    }
     if(streaming){
       if(!upstream.body)return json({error:'TTS stream unavailable'},503,request,env);
       return new Response(upstream.body,{headers:{'Content-Type':upstream.headers.get('content-type')||'text/event-stream; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(request,env)}});
@@ -3057,7 +3077,11 @@ async function handleVoiceTts(request, env) {
     const bytes=Uint8Array.from(atob(audio),char=>char.charCodeAt(0));
     if(bytes.length<44||String.fromCharCode(...bytes.slice(0,4))!=='RIFF')return json({error:'Invalid TTS audio'},503,request,env);
     return new Response(bytes,{headers:{'Content-Type':'audio/wav','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(request,env)}});
-  }catch(error){console.warn('VOICE_TTS_ERROR',errorText(error,'TTS failed',120));return json({error:'TTS temporarily unavailable'},503,request,env);}
+  }catch(error){
+    const code=controller.signal.aborted?'TTS_TIMEOUT':request.signal.aborted?'TTS_CANCELED':'TTS_NETWORK_ERROR';
+    console.warn('VOICE_TTS_ERROR',JSON.stringify({code,elapsedMs:Date.now()-started}));
+    return json({error:'TTS temporarily unavailable',code},503,request,env);
+  }finally{clearTimeout(headerTimeout);}
 }
 
 // =========================================================
@@ -3080,6 +3104,13 @@ export default {
 
     if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/downloads/')) {
       return serveDownload(request, env, path.slice('/downloads/'.length));
+    }
+
+    if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/voice-models/supertonic3-f3-vi-r1/')) {
+      const file=path.slice('/voice-models/supertonic3-f3-vi-r1/'.length);
+      const allowed=new Set(['onnx/tts.json','onnx/unicode_indexer.json','onnx/duration_predictor.onnx','onnx/text_encoder.onnx','onnx/vector_estimator.onnx','onnx/vocoder.onnx','voice_styles/F3.json']);
+      if(!allowed.has(file))return new Response('Not found',{status:404});
+      return serveR2Image(request,env,`voice-models/supertonic3-f3-vi-r1/${file}`);
     }
 
     if (!isOriginAllowed(request, env)) return json({ error: 'Origin not allowed' }, 403, request, env);

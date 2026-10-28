@@ -26,14 +26,17 @@
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
   const fixedClips = {
-    'Pipi đang phân tích câu hỏi.': 'assets/voice/planning.wav',
-    'Pipi đang tìm kiếm thông tin.': 'assets/voice/searching.wav',
-    'Pipi đang phân tích kết quả.': 'assets/voice/analyzing.wav',
-    'Bạn có cần Pipi giúp gì nữa không?': 'assets/voice/followup.wav'
+    'Pipi đang phân tích câu hỏi.': 'assets/voice/planning.wav?v=local-1',
+    'Pipi đang tìm kiếm thông tin.': 'assets/voice/searching.wav?v=local-1',
+    'Pipi đang phân tích kết quả.': 'assets/voice/analyzing.wav?v=local-1',
+    'Bạn có cần Pipi giúp gì nữa không?': 'assets/voice/followup.wav?v=local-1',
+    'Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.': 'assets/voice/unclear.wav?v=local-1',
+    'Bạn hãy cho phép dùng micro rồi thử lại nhé.': 'assets/voice/microphone-permission.wav?v=local-1',
+    'Pipi chưa kết nối được. Bạn thử lại nhé.': 'assets/voice/connection-unavailable.wav?v=local-1',
+    'Chế độ voice thử nghiệm chưa được bật trên máy chủ.': 'assets/voice/mode-unavailable.wav?v=local-1'
   };
-  let activeTtsFetch = null, activeAudio = null, activeAudioDone = null;
-  let audioContext = null, streamPlaybackDone = null;
-  const streamSources = new Set();
+  let activeAudio = null, activeAudioDone = null;
+  let voiceReady = false;
   const phaseText = {
     planning: 'Pipi đang phân tích câu hỏi…',
     searching: 'Pipi đang tìm kiếm thông tin…',
@@ -55,141 +58,40 @@
   }
   function stopSpeaking() {
     speechEpoch++;
-    activeTtsFetch?.abort(); activeTtsFetch = null;
     activeAudio?.pause(); activeAudio = null;
     activeAudioDone?.(); activeAudioDone = null;
-    for (const source of streamSources) { try { source.stop(); } catch { /* Already stopped. */ } }
-    streamSources.clear();
-    streamPlaybackDone?.(); streamPlaybackDone = null;
     panel.classList.remove('speaking');
-  }
-  function getAudioContext() {
-    const AudioContextType = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextType) return null;
-    if (!audioContext) audioContext = new AudioContextType();
-    return audioContext;
   }
   async function playAudioUrl(url, onStart) {
     const audio = new Audio(url); activeAudio = audio;
+    let done;
     try {
       await new Promise((resolve, reject) => {
-        activeAudioDone = resolve;
+        done = resolve; activeAudioDone = resolve;
         audio.onended = resolve;
         audio.onerror = () => reject(new Error('AUDIO_PLAYBACK_FAILED'));
         audio.play().then(() => onStart?.(), reject);
       });
     } finally {
       if (activeAudio === audio) activeAudio = null;
-      activeAudioDone = null;
-    }
-  }
-  async function playStreamedVoice(text, token, epoch, onStart) {
-    const context = getAudioContext();
-    if (!context) throw new Error('AUDIO_CONTEXT_UNAVAILABLE');
-    await context.resume();
-    const controller = new AbortController(); activeTtsFetch = controller;
-    let playbackComplete;
-    const playback = new Promise(resolve => { playbackComplete = resolve; });
-    streamPlaybackDone = playbackComplete;
-    let streamEnded = false, started = false, nextAt = 0, queuedSeconds = 0;
-    const queued = [];
-    const finishPlayback = () => { if (streamEnded && !streamSources.size) playbackComplete(); };
-    const schedule = () => {
-      if (!queued.length) return;
-      nextAt = Math.max(nextAt, context.currentTime + 0.08);
-      for (const buffer of queued.splice(0)) {
-        const source = context.createBufferSource();
-        source.buffer = buffer;
-        source.connect(context.destination);
-        source.onended = () => { streamSources.delete(source); finishPlayback(); };
-        streamSources.add(source);
-        source.start(nextAt);
-        nextAt += buffer.duration;
-      }
-      queuedSeconds = 0;
-      if (!started) { started = true; onStart?.(); }
-    };
-    const onEvent = event => {
-      if (event?.event_type !== 'step.delta' || event.delta?.type !== 'audio') return;
-      const raw = atob(event.delta.data || '');
-      if (!raw || raw.length % 2) throw new Error('INVALID_STREAM_AUDIO');
-      const sampleRate = Number(event.delta.sample_rate) || 24000;
-      const buffer = context.createBuffer(1, raw.length / 2, sampleRate);
-      const samples = buffer.getChannelData(0);
-      for (let i = 0; i < samples.length; i++) {
-        const value = raw.charCodeAt(i * 2) | (raw.charCodeAt(i * 2 + 1) << 8);
-        samples[i] = (value & 0x8000 ? value - 0x10000 : value) / 32768;
-      }
-      queued.push(buffer); queuedSeconds += buffer.duration;
-      if (started || queuedSeconds >= 0.35) schedule();
-    };
-    try {
-      const response = await fetch(`${CONFIG.WORKER_URL.replace(/\/+$/, '')}/voice-tts`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, stream: true }), signal: controller.signal
-      });
-      if (!response.ok || !response.body || !response.headers.get('content-type')?.includes('text/event-stream')) throw new Error('PIPI_VOICE_STREAM_UNAVAILABLE');
-      const reader = response.body.getReader(), decoder = new TextDecoder();
-      let pending = '';
-      const consume = block => {
-        const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-        if (!data || data === '[DONE]') return;
-        onEvent(JSON.parse(data));
-      };
-      while (true) {
-        const {value, done} = await reader.read();
-        if (done) break;
-        if (token !== generation || epoch !== speechEpoch) throw new Error('VOICE_INTERRUPTED');
-        pending += decoder.decode(value, {stream:true});
-        pending = pending.replace(/\r\n/g, '\n');
-        let boundary;
-        while ((boundary = pending.indexOf('\n\n')) !== -1) {
-          consume(pending.slice(0, boundary));
-          pending = pending.slice(boundary + 2);
-        }
-      }
-      if (pending.trim()) consume(pending);
-      if (!started) schedule();
-      if (!started) throw new Error('EMPTY_VOICE_STREAM');
-      streamEnded = true; finishPlayback();
-      await playback;
-      if (token !== generation || epoch !== speechEpoch) throw new Error('VOICE_INTERRUPTED');
-    } catch (error) {
-      for (const source of streamSources) { try { source.stop(); } catch { /* Already stopped. */ } }
-      streamSources.clear();
-      throw error;
-    } finally {
-      if (activeTtsFetch === controller) activeTtsFetch = null;
-      if (streamPlaybackDone === playbackComplete) streamPlaybackDone = null;
+      if (activeAudioDone === done) activeAudioDone = null;
     }
   }
   async function playNatural(text, token, epoch, onStart) {
-    if (!fixedClips[text] && getAudioContext()) return playStreamedVoice(text, token, epoch, onStart);
     let objectUrl = null;
     let url = fixedClips[text];
     if (!url) {
-      const controller = new AbortController(); activeTtsFetch = controller;
-      try {
-        const response = await fetch(`${CONFIG.WORKER_URL.replace(/\/+$/, '')}/voice-tts`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }), signal: controller.signal
-        });
-        if (!response.ok || token !== generation || epoch !== speechEpoch) throw new Error('PIPI_VOICE_UNAVAILABLE');
-        objectUrl = URL.createObjectURL(await response.blob());
-        url = objectUrl;
-      } finally {
-        if (activeTtsFetch === controller) activeTtsFetch = null;
-      }
+      const result = await window.PipiLocalVoice.synthesize(text);
+      if (token !== generation || epoch !== speechEpoch) throw new Error('VOICE_INTERRUPTED');
+      objectUrl = URL.createObjectURL(new Blob([result.wav], {type:'audio/wav'}));
+      url = objectUrl;
     }
     if (token !== generation || epoch !== speechEpoch) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       throw new Error('VOICE_INTERRUPTED');
     }
-    try {
-      await playAudioUrl(url, onStart);
-    } finally {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    }
+    try { await playAudioUrl(url, onStart); }
+    finally { if (objectUrl) URL.revokeObjectURL(objectUrl); }
   }
   function speak(text, token, priority = false, onStart = null) {
     if (priority) stopSpeaking();
@@ -221,18 +123,44 @@
     stopSpeaking();
     activeTyping?.remove(); activeTyping = null;
     mic.classList.remove('active');
-    mic.disabled = !Recognition;
+    mic.disabled = !Recognition || !voiceReady;
     panel.hidden = true;
     launch.focus();
   }
   function open() {
     panel.hidden = false;
-    getAudioContext()?.resume().catch(() => {});
-    setState('Pipi đang chờ bạn nói', 'ready');
     short.textContent = '';
-    caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
-    mic.disabled = !Recognition;
-    mic.focus();
+    mic.disabled = true;
+    if (voiceReady) {
+      setState('Pipi đang chờ bạn nói', 'ready');
+      caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
+      mic.disabled = !Recognition;
+      mic.focus();
+      return;
+    }
+    setState('Đang chuẩn bị giọng Pipi…', 'busy');
+    caption.textContent = 'Gói giọng khoảng 400 MB, chỉ tải lần đầu rồi dùng trên máy.';
+    window.PipiLocalVoice.prepare(progress => {
+      if (panel.hidden) return;
+      if (progress.phase === 'download') {
+        const percent = Math.min(100, Math.round(progress.loaded / progress.total * 100));
+        setState(`Đang tải giọng Pipi… ${percent}%`, 'busy');
+      } else setState('Đang khởi động giọng Pipi…', 'busy');
+    }).then(() => {
+      voiceReady = true;
+      if (!panel.hidden) {
+        setState('Pipi đang chờ bạn nói', 'ready');
+        caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
+        mic.disabled = !Recognition;
+        mic.focus();
+      }
+    }).catch(error => {
+      if (!panel.hidden) {
+        setState('Chưa tải được giọng Pipi. Bạn đóng rồi mở lại để thử nhé.', 'error');
+        caption.textContent = 'Bạn vẫn có thể trò chuyện bằng chữ.';
+      }
+      console.warn('Pipi local voice setup:', error);
+    });
   }
   window.PipiVoiceMode = { open, close };
   el('pvm-close').addEventListener('click', close);
@@ -355,7 +283,7 @@
   }
 
   function begin(event) {
-    if (!Recognition || sending || holding || panel.hidden) return;
+    if (!Recognition || !voiceReady || sending || holding || panel.hidden) return;
     event.preventDefault();
     mic.setPointerCapture?.(event.pointerId);
     stopSpeaking();

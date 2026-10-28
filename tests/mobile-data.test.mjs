@@ -63,6 +63,38 @@ test('signed APK downloads are served as immutable attachments', async () => {
   assert.deepEqual(new Uint8Array(await response.arrayBuffer()), bytes);
 });
 
+test('local voice model files are public, immutable and limited to the pinned pack', async () => {
+  const bytes = new Uint8Array([1,2,3]);
+  const key = 'voice-models/supertonic3-f3-vi-r1/onnx/text_encoder.onnx';
+  const env = {IMAGES:{get:async requested => {
+    assert.equal(requested,key);
+    return {size:bytes.length,body:bytes,httpEtag:'"voice-model"',writeHttpMetadata(headers){headers.set('Content-Type','application/octet-stream');}};
+  }}};
+  const response = await worker.fetch(new Request(`https://pipi.test/${key}`),env);
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'),'*');
+  assert.match(response.headers.get('Cache-Control'),/immutable/);
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()),bytes);
+  const unknown = await worker.fetch(new Request('https://pipi.test/voice-models/supertonic3-f3-vi-r1/private.json'),env);
+  assert.equal(unknown.status,404);
+});
+
+test('local voice model supports bounded chunks for reliable download', async () => {
+  const bytes = new Uint8Array([1,2,3,4,5,6]);
+  const key = 'voice-models/supertonic3-f3-vi-r1/onnx/text_encoder.onnx';
+  const env = {IMAGES:{get:async (requested, options) => {
+    assert.equal(requested,key);
+    assert.deepEqual(options,{range:{offset:2,length:3}});
+    return {size:bytes.length,body:bytes.slice(2,5),httpEtag:'"voice-model"',writeHttpMetadata(){}};
+  }}};
+  const response = await worker.fetch(new Request(`https://pipi.test/${key}`,{headers:{Range:'bytes=2-4'}}),env);
+  assert.equal(response.status,206);
+  assert.equal(response.headers.get('Content-Range'),'bytes 2-4/6');
+  assert.equal(response.headers.get('Content-Length'),'3');
+  assert.equal(response.headers.get('Accept-Ranges'),'bytes');
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()),bytes.slice(2,5));
+});
+
 test('native startup defers bot health and external reverse geocoding', async () => {
   const [chatSource, appSource] = await Promise.all([
     readFile(new URL('../chat.js', import.meta.url), 'utf8'),

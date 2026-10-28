@@ -1672,6 +1672,19 @@ test('Natural voice endpoint forwards streaming audio without waiting for a comp
   }finally{globalThis.fetch=previousFetch;}
 });
 
+test('Natural voice endpoint distinguishes quota errors without exposing provider details', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const previousFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(JSON.stringify({error:{status:'RESOURCE_EXHAUSTED',message:'private provider detail'}}),{status:429});
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/voice-tts',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({text:'Pipi chào bạn.',stream:true})}),{GEMINI_API_KEY:'server-secret',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    assert.equal(response.status,429);
+    const data=await response.json();
+    assert.equal(data.code,'TTS_RATE_LIMITED');
+    assert.doesNotMatch(JSON.stringify(data),/private provider detail|server-secret/);
+  }finally{globalThis.fetch=previousFetch;}
+});
+
 test('AI v3 preserves empty API evidence and expands the same backend search', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const initialRadii=[];

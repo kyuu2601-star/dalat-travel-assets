@@ -22,7 +22,7 @@ export function buildVoiceBrief(state, intent) {
   if (intent === 'ROUTE_MOBILITY' && route) {
     const destination = short(state.lastPlace?.localizedName || state.lastPlace?.name || 'điểm đến', 90);
     const duration = Number.isFinite(Number(route.duration)) ? ` khoảng ${Math.max(1, Math.round(Number(route.duration) / 60))} phút` : '';
-    return `Pipi đã tìm được đường tới ${destination}${duration}. Chi tiết tuyến ở phần chat bên dưới.`;
+    return `Pipi tìm được đường tới ${destination}${duration}.`;
   }
 
   const place = state.details || state.lastPlace;
@@ -30,7 +30,7 @@ export function buildVoiceBrief(state, intent) {
     const name = short(place.localizedName || place.name, 100);
     const opening = place.openNow === true ? ' Hiện đang mở cửa.' : place.openNow === false ? ' Hiện đang đóng cửa.' : '';
     const busy = state.busyness?.available && state.busyness?.label ? ` Mức độ đông: ${short(state.busyness.label, 40)}.` : '';
-    return `Pipi tìm được ${name}.${opening}${busy} Thông tin và vị trí ở phần chat bên dưới.`;
+    return `Pipi tìm được ${name}.${opening}${busy}`;
   }
 
   if (state.nearby) {
@@ -39,13 +39,13 @@ export function buildVoiceBrief(state, intent) {
     const first = pois[0];
     const name = short(first.localizedName || first.name || 'một địa điểm', 100);
     const proximity = distance(first.distance);
-    return `Pipi tìm được ${pois.length} địa điểm. Gần nhất là ${name}${proximity ? `, cách khoảng ${proximity}` : ''}. Danh sách nằm ở phần chat bên dưới.`;
+    return `Pipi tìm được ${pois.length} địa điểm. Gần nhất là ${name}${proximity ? `, cách khoảng ${proximity}` : ''}.`;
   }
 
   if (state.busyness?.available && place?.name) {
-    return `${short(place.localizedName || place.name, 100)} hiện ${short(state.busyness.label || 'có dữ liệu độ đông', 50)}. Pipi đang soạn thông tin chi tiết bên dưới.`;
+    return `${short(place.localizedName || place.name, 100)} hiện ${short(state.busyness.label || 'có dữ liệu độ đông', 50)}.`;
   }
 
-  if (route) return `Pipi tìm được một tuyến đường dài ${distance(route.distance) || 'chưa rõ khoảng cách'}. Chi tiết ở phần chat bên dưới.`;
+  if (route) return `Pipi tìm được một tuyến đường dài ${distance(route.distance) || 'chưa rõ khoảng cách'}.`;
   return '';
 }
