@@ -10,6 +10,10 @@
     if(root?.isConnected)return root;
     root=document.createElement('div');root.className='geo-nav-modal';root.setAttribute('aria-hidden','true');
     root.innerHTML=`<div class="geo-shell"><div class="geo-map-wrap"><div id="geo-map"></div><div id="geo-status">Đang tải bản đồ...</div><div class="google-maneuver" hidden><span class="google-maneuver-icon">↑</span><div><strong>Tiếp tục</strong><small>--</small></div></div></div><aside class="geo-side"><header class="geo-head"><div><span id="geo-provider">GOOGLE WALKING · GEOAPIFY MAP</span><h2 id="geo-title">Điểm đến</h2><p id="geo-summary">Đang tính đường...</p></div><button type="button" class="geo-close" aria-label="Đóng hoặc trở về danh sách">×</button></header><div class="google-mode-switch" role="group" aria-label="Phương tiện"><button type="button" data-mode="walk" aria-pressed="true">🚶 Đi bộ</button><button type="button" data-mode="motorbike" aria-pressed="false">🛵 Xe máy</button><button type="button" data-mode="drive" aria-pressed="false">🚗 Ô tô</button></div><section id="geo-note" class="geo-note destination-snapshot" aria-live="polite"><div class="destination-snapshot-loading"><span></span><div><strong>Thông tin điểm đến</strong><small>Đang lấy thời tiết, độ đông và review...</small></div></div></section><div id="geo-routes" class="geo-routes"></div><div id="geo-steps" class="geo-steps"></div><div class="google-nav-actions"><button type="button" class="google-start-nav">📍 Bắt đầu theo dõi vị trí</button></div></aside></div>`;
+    const scroll=document.createElement('div');scroll.className='geo-side-scroll';
+    const side=$('.geo-side',root),actions=$('.google-nav-actions',root);
+    ['.google-mode-switch','#geo-note','#geo-routes','#geo-steps'].forEach(selector=>scroll.appendChild($(selector,root)));
+    side.insertBefore(scroll,actions);
     document.body.appendChild(root);$('.geo-close',root).onclick=smartClose;$('.google-start-nav',root).onclick=toggleTracking;$('[data-mode="motorbike"]',root).onclick=()=>openGoogleDirections('two-wheeler');$('[data-mode="drive"]',root).onclick=()=>openGoogleDirections('driving');return root;
   }
   function stopTracking(){
