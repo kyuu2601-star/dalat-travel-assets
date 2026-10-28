@@ -102,6 +102,8 @@ test('Map Worker searches convenience-store categories with Google Nearby distan
     requestedUrl=String(url);requestedBody=JSON.parse(String(init.body||'{}'));
     return new Response(JSON.stringify({places:[
       {id:'gs25-near',displayName:{text:'GS25'},formattedAddress:'Ngay bên cạnh',location:{latitude:10.7701,longitude:106.69},primaryType:'convenience_store',types:['convenience_store','store']},
+      {id:'viettel',displayName:{text:'Viettel Store'},formattedAddress:'Điện thoại',location:{latitude:10.77005,longitude:106.69},primaryType:'electronics_store',types:['electronics_store','store','convenience_store']},
+      {id:'the-gioi-di-dong',displayName:{text:'Thế Giới Di Động'},formattedAddress:'Điện thoại',location:{latitude:10.77006,longitude:106.69},primaryType:'cell_phone_store',types:['cell_phone_store','store']},
       {id:'store-far',displayName:{text:'Cửa hàng xa'},formattedAddress:'Xa hơn',location:{latitude:10.78,longitude:106.69},primaryType:'convenience_store',types:['convenience_store','store']}
     ]}),{status:200,headers:{'Content-Type':'application/json'}});
   };
@@ -111,6 +113,7 @@ test('Map Worker searches convenience-store categories with Google Nearby distan
     assert.equal(response.status,200);
     assert.equal(data.source,'google-places-nearby-v1');
     assert.equal(data.pois[0].id,'gs25-near');
+    assert.deepEqual(data.pois.map(place=>place.id),['gs25-near','store-far']);
     assert.equal(requestedUrl,'https://places.googleapis.com/v1/places:searchNearby');
     assert.deepEqual(requestedBody.includedTypes,['convenience_store']);
     assert.equal(requestedBody.rankPreference,'DISTANCE');
@@ -1313,6 +1316,23 @@ test('AI v3 understands CHTL and deterministically searches nearest convenience 
   assert.equal(data.travelos.plan.tools[0].category,'convenience_store');
   assert.equal(data.travelos.nearby.pois[0].name,'GS25');
   assert.match(data.text,/GS25/);
+});
+
+test('AI v3 keeps a new around-here search on GPS despite a previous distant place', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();
+    assert.equal(body.center.lat,10.83);
+    assert.equal(body.center.lng,106.68);
+    assert.equal(body.category,'convenience_store');
+    return new Response(JSON.stringify({ok:true,source:'google-places-nearby-v1',provider:'google_places',center:body.center,pois:[{id:'gs25-govap',name:'GS25 Gò Vấp',lat:10.8301,lng:106.68,distance:11,provider:'google_places',primaryType:'convenience_store'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const previous={placeDetails:{id:'long-thanh',name:'GS25 Long Thành',lat:10.77,lng:106.95,provider:'google_places'},nearby:{center:{lat:10.77,lng:106.95},query:{keyword:'cửa hàng tiện lợi',category:'convenience_store',radius:3000},pois:[{id:'long-thanh',name:'GS25 Long Thành',lat:10.77,lng:106.95,provider:'google_places'}]}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Cửa hàng tiện lợi quanh đây',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.83,longitude:106.68,source:'app-anchor'},conversationContext:previous})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(data.travelos.nearby.center.lat,10.83);
+  assert.equal(data.travelos.nearby.pois[0].name,'GS25 Gò Vấp');
 });
 
 test('AI v3 understands generic nearby sightseeing in Chongqing without relying on Gemini', async () => {

@@ -2835,7 +2835,10 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
     let result={ok:false,error:'UNKNOWN_TOOL'};
     try {
       if(args.name==='search_places') {
-        const resolvedCenter=coordFrom(state.lastPlace),center=coordFrom(args)||resolvedCenter||gps;
+        // A fresh “quanh đây” request always starts at the app's location anchor.
+        // The previous POI is conversation context, never a replacement for GPS.
+        const currentNearby=Boolean(liveNearbyIntent(userMessage)?.explicitNearby)&&!remoteAreaSearchIntent(userMessage);
+        const resolvedCenter=coordFrom(state.lastPlace),center=currentNearby?gps:(coordFrom(args)||resolvedCenter||gps);
         let searchCenter=center;
         if(!searchCenter&&!isNearbyIntent(userMessage)&&(location.area||location.city)){
           const selectedQuery=[location.area,location.city].filter(Boolean).join(', '),selectedChina=isChinaTravelContext(location,userMessage,selectedQuery);

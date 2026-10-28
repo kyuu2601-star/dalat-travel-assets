@@ -681,6 +681,14 @@ function normalizeGooglePlace(place, center, country) {
   };
 }
 
+function matchesRequestedCategory(place, googleType) {
+  if(googleType!=='convenience_store') return true;
+  const types=new Set([place?.primaryType,...(place?.types||[])].map(value=>clean(value,120).toLowerCase()));
+  const excluded=['electronics_store','cell_phone_store','mobile_phone_store','computer_store','home_goods_store','clothing_store'];
+  if(excluded.some(type=>types.has(type))) return false;
+  return types.has('convenience_store');
+}
+
 function restrictionRectangle(center, radius) {
   const meters=Math.min(50000,Math.max(100,Number(radius)||3000));
   const latDelta=meters/111320,cosine=Math.max(.2,Math.cos(center.lat*Math.PI/180)),lngDelta=meters/(111320*cosine);
@@ -777,7 +785,7 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
   if(textQueries.length>1){
     const options={center,radius,limit:Math.min(20,candidateLimit),language:body?.language,country,restrictArea:true};
     const searches=await Promise.all(textQueries.map(query=>googleTextPlaces({...options,query},env)));
-    const places=mergeGooglePlaces(...searches.map(search=>search.places||[])).filter(place=>(place.distance??Infinity)<=radius);
+    const places=mergeGooglePlaces(...searches.map(search=>search.places||[])).filter(place=>(place.distance??Infinity)<=radius&&matchesRequestedCategory(place,info.googleType));
     result={ok:searches.some(search=>search.ok),places,error:searches.map(search=>search.error).filter(Boolean).join(' / ')};
     source='google-places-expanded-text-v1';
   }else if(categoryOnlyQuery||(!name&&!textQuery&&info.googleType)){
@@ -792,12 +800,15 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
   }
   if(result.ok&&result.places.length){
     const sortBy=clean(body?.sortBy,30).toLowerCase();
-    const ranked=name?rankNamedPlaces(result.places,[name,...(Array.isArray(body?.queryVariants)?body.queryVariants:[])])
-      : result.places.slice().sort((a,b)=>sortBy==='rating'
+    const eligible=name?result.places:result.places.filter(place=>matchesRequestedCategory(place,info.googleType));
+    const ranked=name?rankNamedPlaces(eligible,[name,...(Array.isArray(body?.queryVariants)?body.queryVariants:[])])
+      : eligible.slice().sort((a,b)=>sortBy==='rating'
         ? trustedRating(b)-trustedRating(a)||(Number(b.rating)||0)-(Number(a.rating)||0)||(Number(b.userRatingCount)||0)-(Number(a.userRatingCount)||0)||(a.distance??Infinity)-(b.distance??Infinity)
         : (a.distance??Infinity)-(b.distance??Infinity));
-    const pois=ranked.slice(0,limit);
-    return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,sortBy:name?'name_similarity':sortBy,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:result.places.length}},200,originHeader);
+    if(ranked.length){
+      const pois=ranked.slice(0,limit);
+      return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,sortBy:name?'name_similarity':sortBy,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,meta:{total:eligible.length}},200,originHeader);
+    }
   }
   if(env.GEOAPIFY_API_KEY) return geoapifyNearby(body,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
   return json({error:result.error||'Google Places không trả kết quả.',provider:'google_places'},502,originHeader);
