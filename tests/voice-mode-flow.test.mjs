@@ -157,6 +157,9 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   assert.equal(synthesisCalls,2,'Unclear speech uses its prepared clip immediately');
   assert.equal(networkCalls,2,'Unclear speech does not request an AI or cloud voice');
   assert.ok(playedUrls.some(url => url.includes('unclear.wav')));
+  assert.equal(elements.get('pvm-status').textContent,'Giữ mic để nói');
+  assert.equal(elements.get('pvm-caption').textContent,'Pipi đang chờ câu hỏi của bạn');
+  assert.ok(!log.children.some(child=>String(child.textContent).includes('Pipi chưa nghe rõ')),'A spoken prompt is not duplicated in the chat');
   const detailsButton=log.children.find(child=>child.className==='pvm-map-link');
   assert.equal(detailsButton?.textContent,'Chi Tiết');
   detailsButton.listeners.click();

@@ -350,7 +350,9 @@
         const message = error.message?.startsWith('Voice endpoint: 404')
           ? 'Chế độ voice thử nghiệm chưa được bật trên máy chủ.'
           : 'Pipi chưa kết nối được. Bạn thử lại nhé.';
-        setState(message, 'error'); append('ai', message); speak(message, token, true);
+        setState('Giữ mic để nói', 'ready');
+        caption.textContent = 'Pipi đang chờ câu hỏi của bạn';
+        speak(message, token, true);
         console.warn('Voice Mode:', error);
       }
     } finally {
@@ -370,12 +372,11 @@
       transcript = Array.from(result.results).map(part => part[0]?.transcript || '').join(' ').trim();
       const finalResult = Array.from(result.results).reverse().find(part => part.isFinal);
       if (finalResult && Number(finalResult[0]?.confidence) > 0) confidence = finalResult[0].confidence;
-      caption.textContent = transcript || 'Pipi đang nghe bạn…';
+      caption.textContent = 'Pipi đang nghe bạn…';
     };
     recognition.onerror = error => {
       if (error.error !== 'aborted') recognitionError = error.error || 'unknown';
-      if (error.error === 'not-allowed' || error.error === 'service-not-allowed') setState('Bạn hãy cho phép dùng micro rồi thử lại nhé.', 'error');
-      else if (error.error !== 'aborted') setState('Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.', 'error');
+      if (error.error !== 'aborted') setState('Giữ mic để nói', 'ready');
     };
     recognition.onend = () => {
       recognition = null;
@@ -395,8 +396,7 @@
     if (quality.clear) send(quality.text);
     else {
       const prompt = permissionDenied ? 'Bạn hãy cho phép dùng micro rồi thử lại nhé.' : 'Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.';
-      setState(prompt, 'unclear');
-      append('ai', prompt);
+      setState('Giữ mic để nói', 'ready');
       speak(prompt, ++generation, true);
     }
   }
