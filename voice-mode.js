@@ -352,6 +352,7 @@
           : 'Pipi chưa kết nối được. Bạn thử lại nhé.';
         setState('Giữ mic để nói', 'ready');
         caption.textContent = 'Pipi đang chờ câu hỏi của bạn';
+        append('ai', message);
         speak(message, token, true);
         console.warn('Voice Mode:', error);
       }
@@ -397,6 +398,7 @@
     else {
       const prompt = permissionDenied ? 'Bạn hãy cho phép dùng micro rồi thử lại nhé.' : 'Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.';
       setState('Giữ mic để nói', 'ready');
+      append('ai', prompt);
       speak(prompt, ++generation, true);
     }
   }
