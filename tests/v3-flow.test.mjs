@@ -1141,6 +1141,45 @@ test('English interpretation keeps Vietnamese source and never sends English to 
   assert.equal(normalizeSemanticPlan({...raw,needs:[{...raw.needs[0],sourceText:'ở Đà Lạt'}]},'Tìm cửa hàng tiện lợi quanh đây').needs.length,0);
 });
 
+test('GPT handles planning and reply first; Gemini answers when GPT fails', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;
+  const request=()=>new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Chào Pipi',userLocation:{country:'Việt Nam',latitude:10.77,longitude:106.69}})});
+  const env={OPENAI_API_KEY:'fake-openai',GEMINI_API_KEY:'fake-gemini',SEMANTIC_PLANNER_ENABLED:'true',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'};
+  const calls=[];
+  let failOpenAi=false;
+  globalThis.fetch=async (url,init={})=>{
+    if(String(url).includes('api.openai.com')){
+      calls.push('openai');
+      assert.equal(init.headers.Authorization,'Bearer fake-openai');
+      const body=JSON.parse(init.body);
+      assert.equal(body.store,false);
+      if(failOpenAi)return new Response(JSON.stringify({error:{message:'unavailable'}}),{status:503});
+      const text=body.text?.format?.type==='json_object'
+        ?JSON.stringify({englishMeaning:'Greet Pipi',primaryIntent:'LOCAL_GUIDE',needs:[],answerContract:[],clarificationQuestion:'',overallConfidence:.9,shouldUseLiveData:false})
+        :'Chào bạn, Pipi đây!';
+      return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text}]}]}),{status:200});
+    }
+    calls.push('gemini');
+    const body=JSON.parse(init.body);
+    const text=body.generationConfig?.responseMimeType==='application/json'
+      ?JSON.stringify({primaryIntent:'LOCAL_GUIDE',needs:[],answerContract:[],clarificationQuestion:'',overallConfidence:.9,shouldUseLiveData:false})
+      :'Chào bạn, Pipi đây!';
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200});
+  };
+  try{
+    let response=await worker.fetch(request(),env),data=await response.json();
+    assert.equal(response.status,200);
+    assert.match(data.text,/Pipi/);
+    assert.deepEqual(calls,['openai','openai']);
+    failOpenAi=true;calls.length=0;
+    response=await worker.fetch(request(),env);data=await response.json();
+    assert.equal(response.status,200);
+    assert.match(data.text,/Pipi/);
+    assert.deepEqual(calls,['openai','gemini','openai','gemini']);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('AI v3 reports provider suggestions for a live need that has no adapter', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const originalFetch=globalThis.fetch;let call=0;
