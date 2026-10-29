@@ -17,7 +17,7 @@ export const API_LIBRARY=Object.freeze({
 });
 
 const clean=(value,max=500)=>String(value??'').trim().slice(0,max);
-const tool=(name,overrides={})=>({name,query:'',category:'',placeName:'',address:'',placeId:'',radius:3000,limit:10,language:'vi',latitude:null,longitude:null,destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'general',...overrides});
+const tool=(name,overrides={})=>({name,query:'',queryEn:'',category:'',placeName:'',address:'',placeId:'',radius:3000,limit:10,language:'vi',latitude:null,longitude:null,destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'general',...overrides});
 const genericTarget=value=>['','current_location','selected_place','place_search_result','best_place_result'].includes(clean(value,300).toLowerCase());
 
 export function compileSemanticNeeds(semantic,{language='vi',hasGps=false}={}) {
@@ -41,7 +41,7 @@ export function compileSemanticNeeds(semantic,{language='vi',hasGps=false}={}) {
     if(need.kind==='PLACE_SEARCH'){
       resolveArea(need.area);
       const query=clean(need.query||need.target,300);
-      if(query)add(tool('search_places',{query,radius:need.area?3000:3000,limit:10,language}));
+      if(query)add(tool('search_places',{query,queryEn:language==='zh'?'':clean(need.queryEn,180),radius:3000,limit:10,language}));
     }else if(need.kind==='PLACE_DETAILS')ensureNamedTarget(need,{details:true});
     else if(need.kind==='BUSYNESS')ensureNamedTarget(need,{details:true,busyness:true});
     else if(need.kind==='WEATHER'){

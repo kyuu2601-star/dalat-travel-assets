@@ -2134,19 +2134,8 @@ function semanticPlannerEnabled(env) {
   return /^(?:1|true|yes|adaptive|always)$/i.test(clean(env.SEMANTIC_PLANNER_ENABLED||env.SEMANTIC_PLANNER_MODE,30));
 }
 
-function shouldUseSemanticPlanner(userMessage,basePlan,env) {
-  if(!semanticPlannerEnabled(env)||!env.GEMINI_API_KEY)return false;
-  if(clean(env.SEMANTIC_PLANNER_MODE,30).toLowerCase()==='always')return true;
-  if(basePlan.responseMode==='DIRECT'||basePlan.needsClarification)return true;
-  const text=fold(userMessage),groups=[
-    /\b(?:thoi tiet|mua|nang|nong|lanh|nhiet do)\b/,
-    /\b(?:tim|kiem|quanh|gan|o dau|cho nao|quan nao|tiem nao)\b/,
-    /\b(?:chi duong|duong di|di bo|lai xe|xe may|o to|metro|taxi|bao lau)\b/,
-    /\b(?:review|rating|danh gia|mo cua|dong cua|dong duc|vang)\b/,
-    /\b(?:gia ve|mua ve|dat ve|lich chay|chuyen cuoi|ty gia|doi tien)\b/,
-    /\b(?:an toan|nguy hiem|cap cuu|benh|thuoc|mat ho chieu)\b/
-  ];
-  return groups.filter(pattern=>pattern.test(text)).length>=2||(/\b(?:neu|roi|sau do|dong thoi|xong thi)\b/.test(text)&&text.split(/\s+/).length>=9);
+function shouldUseSemanticPlanner(env) {
+  return Boolean(semanticPlannerEnabled(env)&&env.GEMINI_API_KEY);
 }
 
 function deterministicUnsupportedNeeds(userMessage) {
@@ -2182,22 +2171,30 @@ function mergePlannedTools(primary=[],secondary=[]) {
 
 function mergeSemanticTools(baseTools=[],semanticTools=[],confidence=0) {
   if(confidence<.65||!semanticTools.length)return mergePlannedTools(baseTools,semanticTools);
-  const semanticNames=new Set(semanticTools.map(item=>item?.name).filter(Boolean));
-  const superseded=new Set(semanticNames);
-  if(semanticNames.has('search_places'))superseded.add('resolve_place');
-  const remainingBase=baseTools.filter(item=>!superseded.has(item?.name));
-  return mergePlannedTools(semanticTools,remainingBase);
+  // Keep a backend-verified category, even when Gemini uses a shorter English search term.
+  semanticTools=semanticTools.map(item=>{
+    if(item.name!=='search_places'||item.category)return item;
+    const base=baseTools.find(candidate=>candidate.name==='search_places'&&candidate.category&&!candidate.placeName);
+    return base?{...item,category:base.category}:item;
+  });
+  return mergePlannedTools(semanticTools);
 }
 
 async function planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge=starterKnowledge) {
+  // Interpretation happens before deterministic parsing. The original Vietnamese
+  // remains the source of truth for named places, country and location checks.
+  let semantic=null;
+  if(shouldUseSemanticPlanner(env)){
+    try{
+      const payload=semanticPlannerPayload(userMessage,location,previousContext,history);
+      const raw=await callGeminiJson(SEMANTIC_PLANNER_PROMPT,buildContents([],JSON.stringify(payload)),SEMANTIC_PLAN_SCHEMA,env,'planner');
+      semantic=normalizeSemanticPlan(raw,userMessage);
+    }catch(error){console.warn('[Semantic planner fallback]',errorText(error,'Planner unavailable',300));}
+  }
   const basePlan=await planV3(userMessage,history,location,previousContext,env,foodKnowledge);
   const foodRequest=foodDiscoveryRequest(userMessage,foodKnowledge);
-  if(foodRequest)return {...basePlan,foodQualitySearch:Boolean(foodRequest.quality),planner:'food-discovery',needs:[],answerContract:[],unsupportedNeeds:[]};
-  if(!shouldUseSemanticPlanner(userMessage,basePlan,env))return {...basePlan,planner:'deterministic',needs:[],answerContract:[],unsupportedNeeds:[]};
+  if(!semantic)return {...deterministicPlannerFallback(basePlan,userMessage,shouldUseSemanticPlanner(env)?'deterministic-fallback':'deterministic'),foodQualitySearch:Boolean(foodRequest?.quality)};
   try{
-    const payload=semanticPlannerPayload(userMessage,location,previousContext,history);
-    const raw=await callGeminiJson(SEMANTIC_PLANNER_PROMPT,buildContents([],JSON.stringify(payload)),SEMANTIC_PLAN_SCHEMA,env,'planner');
-    const semantic=normalizeSemanticPlan(raw,userMessage);
     if(semantic.overallConfidence<.55||(!semantic.needs.length&&!semantic.clarificationQuestion))return deterministicPlannerFallback(basePlan,userMessage,'deterministic-fallback',semantic);
     const compiled=compileSemanticNeeds(semantic,{language:isChinaTravelContext(location,userMessage)?'zh':'vi',hasGps:hasGps(location)});
     const tools=mergeSemanticTools(basePlan.tools,compiled.tools,semantic.overallConfidence),travelIntent=semantic.overallConfidence>=.65?semantic.primaryIntent:basePlan.travelIntent;
@@ -2206,7 +2203,7 @@ async function planRequestV3(userMessage,history,location,previousContext,env,fo
       ...basePlan,goal:`Hiểu và xử lý: ${semantic.answerContract.join('; ')||basePlan.goal}`,travelIntent,
       responseMode:clarify?'CLARIFY':(tools.length?'LIVE':basePlan.responseMode),needsClarification:clarify,
       clarificationQuestion:clarify?semantic.clarificationQuestion:basePlan.clarificationQuestion,tools,
-      planner:'gemini-structured',plannerConfidence:semantic.overallConfidence,needs:semantic.needs,
+      planner:'gemini-structured',plannerConfidence:semantic.overallConfidence,englishMeaning:semantic.englishMeaning,foodQualitySearch:Boolean(foodRequest?.quality),needs:semantic.needs,
       answerContract:semantic.answerContract,unsupportedNeeds:compiled.unsupportedNeeds
     };
   }catch(error){
@@ -2953,6 +2950,10 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
           const resultLimit=args.placeName?clamp(args.limit,1,12,5):requestedPlaceLimit(userMessage),sortBy=args.placeName?'name_similarity':(wantsRatingRanking(userMessage)?'rating':'distance');
           const originalQuery=args.query||args.placeName||args.category;
           let searchPlan=args.placeName?(china?await chinaNamedPlaceSearch(args.placeName,{...location,city:state.lastPlace?.city||location.city,area:location.area},env):{providerQuery:args.placeName,queryVariants:[],requestedDish:'',translationSource:'original'}):(qualitySearch?await resolvedFoodSearchPlan(foodRequest,china,env,foodKnowledge):semanticPlaceSearch(originalQuery,searchCountry,args.category,foodKnowledge));
+          const englishQuery=!china&&!qualitySearch&&!args.placeName?clean(args.queryEn,180):'';
+          if(englishQuery&&!/[\u4e00-\u9fff]/.test(englishQuery)){
+            searchPlan={...searchPlan,providerQuery:englishQuery,queryVariants:[...new Set([searchPlan.providerQuery,...searchPlan.queryVariants].filter(Boolean))].slice(0,7),translationSource:'semantic-english'};
+          }
           if(foodRequest&&!qualitySearch&&!china){
             const groupPlan=foodSearchVariants(foodRequest,false,foodKnowledge);
             searchPlan={...searchPlan,queryVariants:[...new Set([...searchPlan.queryVariants,groupPlan.providerQuery,...groupPlan.queryVariants])].slice(0,7)};

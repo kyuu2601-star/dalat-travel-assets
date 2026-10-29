@@ -2,10 +2,15 @@ const INTENTS=['PLACE_DISCOVERY','WEATHER_OUTDOOR','ROUTE_MOBILITY','ITINERARY_P
 const NEEDS=['PLACE_SEARCH','PLACE_DETAILS','WEATHER','BUSYNESS','WALKING_ROUTE','DRIVING_ROUTE','ITINERARY','SAFETY_GUIDANCE','TRAVEL_UTILITY','LOCAL_KNOWLEDGE','TRANSIT_SCHEDULE','TICKET_PRICE','FACT_CHECK','CURRENCY_RATE','PAYMENT_CONNECTIVITY'];
 
 export const SEMANTIC_PLANNER_PROMPT = `Bạn là semantic planner của Let's Go Pipi.
-Nhiệm vụ duy nhất: bóc tách câu hỏi user thành nhu cầu có cấu trúc để backend quyết định API.
+Nhiệm vụ duy nhất: hiểu câu hỏi tiếng Việt văn nói, diễn đạt đúng ý bằng tiếng Anh ngắn gọn, rồi bóc tách nhu cầu có cấu trúc để backend quyết định API. Làm cả hai việc trong MỘT phản hồi JSON.
 
 QUY TẮC:
 - Không trả lời user, không tư vấn và không gọi API.
+- englishMeaning diễn đạt ý chính bằng tiếng Anh; giữ nguyên tên riêng, tên món ăn và địa danh gốc trong ngoặc nếu dịch nghĩa. Không tự thêm nhu cầu.
+- Đọc englishMeaning trước khi tách needs. queryEn là từ tìm kiếm tiếng Anh ngắn gọn cho loại địa điểm/món ăn; không đưa cả câu hỏi vào queryEn. Với tên địa điểm cụ thể, giữ query và target nguyên văn tiếng Việt, queryEn có thể để trống.
+- "quanh đây/gần tôi" nghĩa là current_location trong app, không phải một tên địa danh. Không suy đoán vị trí từ lịch sử hay đổi tọa độ.
+- "đông" trong câu hỏi về quán là đông khách, không phải hướng Đông. "đóng cửa" có thể hỏi trạng thái hiện tại; không kết luận đóng vĩnh viễn.
+- Không chọn Google hay AMap. Backend chọn nhà cung cấp theo vị trí thực; tại Trung Quốc backend tự dùng từ khóa tiếng Trung.
 - Chỉ tạo nhu cầu được user nói trực tiếp hoặc cần thiết tất yếu để trả lời câu hỏi.
 - Mỗi need phải có sourceText là một đoạn nguyên văn ngắn xuất hiện trong câu user.
 - Không tự thêm ăn uống, thời tiết, chỉ đường, rating, vé hoặc địa điểm nếu user không yêu cầu.
@@ -23,13 +28,13 @@ export const SEMANTIC_PLAN_SCHEMA={
   properties:{
     primaryIntent:{type:'STRING',enum:INTENTS},
     needs:{type:'ARRAY',maxItems:4,items:{type:'OBJECT',properties:{
-      kind:{type:'STRING',enum:NEEDS},query:{type:'STRING'},target:{type:'STRING'},area:{type:'STRING'},time:{type:'STRING'},
+      kind:{type:'STRING',enum:NEEDS},query:{type:'STRING'},queryEn:{type:'STRING'},target:{type:'STRING'},area:{type:'STRING'},time:{type:'STRING'},
       travelMode:{type:'STRING',enum:['NONE','WALK','DRIVE','MOTORBIKE','TRANSIT']},sourceText:{type:'STRING'},required:{type:'BOOLEAN'},confidence:{type:'NUMBER'}
     },required:['kind','query','target','area','time','travelMode','sourceText','required','confidence']}},
-    answerContract:{type:'ARRAY',maxItems:6,items:{type:'STRING'}},
+    englishMeaning:{type:'STRING'},answerContract:{type:'ARRAY',maxItems:6,items:{type:'STRING'}},
     clarificationQuestion:{type:'STRING'},overallConfidence:{type:'NUMBER'},shouldUseLiveData:{type:'BOOLEAN'}
   },
-  required:['primaryIntent','needs','answerContract','clarificationQuestion','overallConfidence','shouldUseLiveData']
+  required:['englishMeaning','primaryIntent','needs','answerContract','clarificationQuestion','overallConfidence','shouldUseLiveData']
 };
 
 const clean=(value,max=500)=>String(value??'').trim().slice(0,max);
@@ -42,7 +47,7 @@ export function normalizeSemanticPlan(raw,userMessage) {
     const kind=clean(item?.kind,60),sourceText=clean(item?.sourceText,240),sourceKey=fold(sourceText);
     if(!NEEDS.includes(kind)||!sourceKey||!messageKey.includes(sourceKey))continue;
     const normalized={
-      kind,query:clean(item?.query,300),target:clean(item?.target,300),area:clean(item?.area,300),time:clean(item?.time,120),
+      kind,query:clean(item?.query,300),queryEn:clean(item?.queryEn,180),target:clean(item?.target,300),area:clean(item?.area,300),time:clean(item?.time,120),
       travelMode:['WALK','DRIVE','MOTORBIKE','TRANSIT'].includes(item?.travelMode)?item.travelMode:'',sourceText,
       required:item?.required!==false,confidence:clamp01(item?.confidence)
     };
@@ -52,7 +57,7 @@ export function normalizeSemanticPlan(raw,userMessage) {
   }
   const primaryIntent=INTENTS.includes(raw?.primaryIntent)?raw.primaryIntent:'LOCAL_GUIDE';
   return {
-    primaryIntent,needs,answerContract:(Array.isArray(raw?.answerContract)?raw.answerContract:[]).map(value=>clean(value,220)).filter(Boolean).slice(0,6),
+    englishMeaning:clean(raw?.englishMeaning,700),primaryIntent,needs,answerContract:(Array.isArray(raw?.answerContract)?raw.answerContract:[]).map(value=>clean(value,220)).filter(Boolean).slice(0,6),
     clarificationQuestion:clean(raw?.clarificationQuestion,400),overallConfidence:clamp01(raw?.overallConfidence),shouldUseLiveData:raw?.shouldUseLiveData===true
   };
 }

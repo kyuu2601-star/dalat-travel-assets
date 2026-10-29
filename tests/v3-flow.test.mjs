@@ -1091,9 +1091,9 @@ test('AI v3 semantic planner selects one answer prompt and does not duplicate ba
     geminiPrompts.push(payload.systemInstruction?.parts?.[0]?.text||'');
     geminiCalls++;
     if(payload.generationConfig?.responseMimeType==='application/json'){
-      const plan={primaryIntent:'PLACE_DISCOVERY',needs:[
+      const plan={englishMeaning:'It is raining; find convenience stores near my current location and give walking directions.',primaryIntent:'PLACE_DISCOVERY',needs:[
         {kind:'WEATHER',query:'',target:'current_location',area:'',time:'hiện tại',travelMode:'',sourceText:'Trời đang mưa',required:true,confidence:.92},
-        {kind:'PLACE_SEARCH',query:'cửa hàng tiện lợi',target:'current_location',area:'',time:'',travelMode:'',sourceText:'tìm cửa hàng tiện lợi quanh đây',required:true,confidence:.96},
+        {kind:'PLACE_SEARCH',query:'cửa hàng tiện lợi',queryEn:'convenience store',target:'current_location',area:'',time:'',travelMode:'',sourceText:'tìm cửa hàng tiện lợi quanh đây',required:true,confidence:.96},
         {kind:'WALKING_ROUTE',query:'',target:'best_place_result',area:'',time:'',travelMode:'WALK',sourceText:'chỉ đường đi bộ',required:true,confidence:.94}
       ],answerContract:['Cho biết thời tiết hiện tại','Tìm cửa hàng tiện lợi gần nhất','Chỉ đường đi bộ tới kết quả tốt nhất'],clarificationQuestion:'',overallConfidence:.95,shouldUseLiveData:true};
       return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(plan)}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
@@ -1118,11 +1118,27 @@ test('AI v3 semantic planner selects one answer prompt and does not duplicate ba
     assert.deepEqual(mapCalls.map(item=>item.path),['/weather/current','/poi/nearby','/route/walking']);
     assert.equal(mapCalls.filter(item=>item.path==='/poi/nearby').length,1);
     assert.equal(data.travelos.plan.planner,'gemini-structured');
+    assert.match(data.travelos.plan.englishMeaning,/current location/);
+    assert.equal(mapCalls.find(item=>item.path==='/poi/nearby').body.keyword,'convenience store');
+    assert.equal(mapCalls.find(item=>item.path==='/poi/nearby').body.category,'convenience_store');
     assert.deepEqual(data.travelos.plan.tools.map(item=>item.name),['weather','search_places','walking_route']);
     assert.match(geminiPrompts[0],/semantic planner/i);
     assert.match(geminiPrompts[1],/TÌM ĐỊA ĐIỂM/);
     assert.doesNotMatch(geminiPrompts[1],/LỊCH TRÌNH|AN TOÀN VÀ SỨC KHỎE|THỜI TIẾT VÀ HOẠT ĐỘNG NGOÀI TRỜI/);
   }finally{globalThis.fetch=originalFetch;}
+});
+
+test('English interpretation keeps Vietnamese source and never sends English to AMap', async () => {
+  const {normalizeSemanticPlan}=await import('../worker/src/bot/planner/semantic-planner.js');
+  const {compileSemanticNeeds}=await import('../worker/src/bot/library/api-registry.js');
+  const raw={englishMeaning:'Find convenience stores near my current location',primaryIntent:'PLACE_DISCOVERY',needs:[
+    {kind:'PLACE_SEARCH',query:'cửa hàng tiện lợi',queryEn:'convenience store',target:'current_location',area:'',time:'',travelMode:'NONE',sourceText:'cửa hàng tiện lợi quanh đây',required:true,confidence:.96}
+  ],answerContract:['Tìm cửa hàng tiện lợi gần nhất'],clarificationQuestion:'',overallConfidence:.96,shouldUseLiveData:true};
+  const plan=normalizeSemanticPlan(raw,'Tìm cửa hàng tiện lợi quanh đây');
+  assert.equal(plan.needs[0].query,'cửa hàng tiện lợi');
+  assert.equal(compileSemanticNeeds(plan,{language:'vi',hasGps:true}).tools[0].queryEn,'convenience store');
+  assert.equal(compileSemanticNeeds(plan,{language:'zh',hasGps:true}).tools[0].queryEn,'');
+  assert.equal(normalizeSemanticPlan({...raw,needs:[{...raw.needs[0],sourceText:'ở Đà Lạt'}]},'Tìm cửa hàng tiện lợi quanh đây').needs.length,0);
 });
 
 test('AI v3 reports provider suggestions for a live need that has no adapter', async () => {
