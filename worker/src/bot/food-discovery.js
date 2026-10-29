@@ -61,6 +61,7 @@ function venueRelevance(place,group,quality) {
   if(quality.dishFiveWithText>0)return 3;
   const name=fold(place?.name),tag=fold(place?.tag),types=[place?.primaryType,...(place?.types||[])].join(' ').toLowerCase();
   if(/wholesaler|grocery_store|supermarket|market|cafe|coffee_shop/.test(types)&&!(/restaurant/.test(types)))return 0;
+  if(group==='seafood'&&/\b(?:pho|bun|mi|ga ran|burger|pizza)\b/.test(name)&&!/seafood|hai san|\bghe\b|\bcua\b|\boc\b|\bhau\b|\btom\b/.test(name))return 0;
   const cues={
     seafood:/seafood|hai san|\bghe\b|\bcua\b|\boc\b|\btom\b|\bmuc\b|\bhau\b|\bcrab\b|海鲜|螃蟹|虾|鱼|蟹/u,
     fast_food:/fast.food|ga ran|fried chicken|chicken|burger|pizza|kfc|jollibee|lotteria|popeyes|薯条|炸鸡/u,

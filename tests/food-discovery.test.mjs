@@ -32,6 +32,7 @@ test('irrelevant cafes and wholesale crab shops are excluded when finding seafoo
   const places=[
     {id:'cafe',name:'Ryo Kafé',primaryType:'cafe',rating:5,userRatingCount:1},
     {id:'wholesale',name:'Cua Chú Mười Một',primaryType:'wholesaler',rating:5,userRatingCount:18},
+    {id:'mislabeled',name:'Quán Phở Hà Nội',primaryType:'restaurant',types:['seafood_restaurant'],rating:4.9,userRatingCount:300},
     {id:'seafood',name:'Hải Sản Miền Trung',primaryType:'restaurant',rating:4.5,userRatingCount:180}
   ];
   assert.deepEqual(rankFoodByReviews(places,'ghẹ',10,Date.now(),'seafood').map(place=>place.id),['seafood']);

@@ -1641,7 +1641,10 @@ function deterministicNearbyText(nearby, requestedArea='') {
   });
   const area=clean(requestedArea,180);
   const coverage=nearby?.meta?.coverageLimited?' Một số lượt tìm đã chạm giới hạn dữ liệu của bản đồ, nên danh sách có thể chưa bao gồm mọi địa điểm.':'';
-  const caution=qualitySearch?'Pipi không thể xác minh mọi đánh giá trên mạng. Danh sách này ưu tiên review 5 sao có nội dung rõ ràng trong mẫu tối đa 5 review mỗi quán; review trong 30 ngày được ưu tiên trước. Quán thuộc nhóm món bạn hỏi, nhưng Pipi chỉ xác nhận đúng món khi review có nhắc đến món đó.\n\n':'';
+  const hasReviewSamples=pois.some(poi=>Number(poi.reviewQuality?.sampleSize)>0);
+  const caution=qualitySearch?(hasReviewSamples
+    ?'Pipi không thể xác minh mọi đánh giá trên mạng. Danh sách này ưu tiên review 5 sao có nội dung rõ ràng trong mẫu tối đa 5 review mỗi quán; review trong 30 ngày được ưu tiên trước. Quán thuộc nhóm món bạn hỏi, nhưng Pipi chỉ xác nhận đúng món khi review có nhắc đến món đó.\n\n'
+    :'Pipi chưa lấy được nội dung review để kiểm tra món ăn hoặc chất lượng trong 30 ngày gần đây. Danh sách sau chỉ dựa trên loại quán và rating tổng đã điều chỉnh theo số lượt đánh giá; Pipi chưa thể khẳng định quán nào bán món bạn hỏi ngon.\n\n'):'';
   return `${caution}Pipi tìm được ${pois.length} địa điểm ${area?`gần ${area}`:qualitySearch?'trong khu vực':'gần bạn nhất'}:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.${coverage}`;
 }
 
@@ -3061,6 +3064,7 @@ async function synthesizeV3(userMessage, history, location, plan, evidence, prev
 function validFoodQualityAnswer(text,nearby) {
   const key=fold(text);
   if(!/khong the xac minh|khong chac|chua the xac minh/.test(key))return false;
+  if(!(nearby?.pois||[]).some(place=>Number(place.reviewQuality?.sampleSize)>0)&&!/chua lay duoc.*review|khong co.*review|chua co.*review/.test(key))return false;
   return (nearby?.pois||[]).slice(0,10).every(place=>{
     const name=clean(place.localizedName||place.name,300);
     return name&&(text.includes(name)||key.includes(fold(name)));
