@@ -26,3 +26,42 @@ CREATE TABLE IF NOT EXISTS places (
 
 CREATE INDEX IF NOT EXISTS idx_places_country_city_area ON places(country, city, area);
 CREATE INDEX IF NOT EXISTS idx_places_name ON places(name);
+
+-- Curated food/place vocabulary. These are candidate signals, not verified menus.
+CREATE TABLE IF NOT EXISTS food_categories (
+    id TEXT PRIMARY KEY,
+    label_vi TEXT NOT NULL,
+    aliases TEXT NOT NULL DEFAULT '[]',
+    query_en TEXT NOT NULL DEFAULT '[]',
+    query_zh TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS food_dishes (
+    id TEXT PRIMARY KEY,
+    category_id TEXT NOT NULL REFERENCES food_categories(id),
+    label_vi TEXT NOT NULL,
+    aliases TEXT NOT NULL DEFAULT '[]',
+    query_en TEXT NOT NULL DEFAULT '',
+    query_zh TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS food_affinities (
+    dish_id TEXT NOT NULL REFERENCES food_dishes(id),
+    category_id TEXT NOT NULL REFERENCES food_categories(id),
+    confidence REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
+    PRIMARY KEY (dish_id, category_id)
+);
+
+CREATE TABLE IF NOT EXISTS venue_brands (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category_id TEXT NOT NULL REFERENCES food_categories(id),
+    aliases TEXT NOT NULL DEFAULT '[]',
+    countries TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_food_dishes_category ON food_dishes(category_id);
+CREATE INDEX IF NOT EXISTS idx_venue_brands_category ON venue_brands(category_id);

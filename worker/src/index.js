@@ -3,6 +3,7 @@ import { SEMANTIC_PLANNER_PROMPT, SEMANTIC_PLAN_SCHEMA, normalizeSemanticPlan, s
 import { compileSemanticNeeds, missingApiSuggestions } from './bot/library/api-registry.js';
 import { buildVoiceBrief } from './bot/voice-brief.js';
 import { foodDiscoveryRequest, foodSearchVariants, rankFoodByReviews } from './bot/food-discovery.js';
+import { loadFoodKnowledge, starterKnowledge } from './bot/food-knowledge.js';
 import foodQueryPrompt from './bot/prompts/food-query.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
@@ -2048,11 +2049,11 @@ function routeDestinationQuery(userMessage) {
   return clean(match?.[1],300);
 }
 
-async function planV3(userMessage, history, location, previousContext, env) {
+async function planV3(userMessage, history, location, previousContext, env, foodKnowledge=starterKnowledge) {
   const detectedIntent=detectTravelIntent(userMessage,previousContext);
   const nearbyIntent=liveNearbyIntent(userMessage);
   const remote=remoteAreaSearchIntent(userMessage);
-  const foodRequest=foodDiscoveryRequest(userMessage);
+  const foodRequest=foodDiscoveryRequest(userMessage,foodKnowledge);
   const previousNearby=previousContext?.nearby||null;
   const followsPrevious=nearbyFollowupIntent(userMessage,previousNearby);
   const namedPlace=!followsPrevious&&!['WEATHER_OUTDOOR','ROUTE_MOBILITY','ITINERARY_PLANNING'].includes(detectedIntent)?namedPlaceSearchIntent(userMessage,remote):null;
@@ -2097,7 +2098,7 @@ async function planV3(userMessage, history, location, previousContext, env) {
     return normalizeV3Plan({goal:`Tìm đúng địa điểm có tên ${namedPlace.name} và lấy thông tin chi tiết`,travelIntent:'VENUE_INTELLIGENCE',responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools});
   }
   if(detectedIntent==='PLACE_DISCOVERY'||remote){
-    const query=clean(remote?.query||placeQueryFromMessage(userMessage),300),category=inferredPlaceCategory(query),brand=placeBrandInQuery(query),tools=[];
+    const query=clean(remote?.query||placeQueryFromMessage(userMessage),300),category=inferredPlaceCategory(query),brand=placeBrandInQuery(query,foodKnowledge),tools=[];
     if(remote?.area)tools.push(v3Tool('resolve_place',{query:remote.area,limit:5,language:isChinaTravelContext(location,remote.area)?'zh':'vi'}));
     tools.push(v3Tool('search_places',{query,category,placeName:brand?query:'',radius:remote?.radius||3000,limit:remote?.limit||requestedPlaceLimit(userMessage),language:isChinaTravelContext(location,remote?.area,userMessage)?'zh':'vi'}));
     const needsClarification=!query||(!remote?.area&&!hasGps(location));
@@ -2189,9 +2190,10 @@ function mergeSemanticTools(baseTools=[],semanticTools=[],confidence=0) {
   return mergePlannedTools(semanticTools,remainingBase);
 }
 
-async function planRequestV3(userMessage,history,location,previousContext,env) {
-  const basePlan=await planV3(userMessage,history,location,previousContext,env);
-  if(foodDiscoveryRequest(userMessage))return {...basePlan,foodQualitySearch:Boolean(foodDiscoveryRequest(userMessage)?.quality),planner:'food-discovery',needs:[],answerContract:[],unsupportedNeeds:[]};
+async function planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge=starterKnowledge) {
+  const basePlan=await planV3(userMessage,history,location,previousContext,env,foodKnowledge);
+  const foodRequest=foodDiscoveryRequest(userMessage,foodKnowledge);
+  if(foodRequest)return {...basePlan,foodQualitySearch:Boolean(foodRequest.quality),planner:'food-discovery',needs:[],answerContract:[],unsupportedNeeds:[]};
   if(!shouldUseSemanticPlanner(userMessage,basePlan,env))return {...basePlan,planner:'deterministic',needs:[],answerContract:[],unsupportedNeeds:[]};
   try{
     const payload=semanticPlannerPayload(userMessage,location,previousContext,history);
@@ -2322,7 +2324,7 @@ const PLACE_NOTES_SCHEMA={type:'OBJECT',properties:{items:{type:'ARRAY',items:{t
 const PLACE_CATEGORY_SCHEMA={type:'OBJECT',properties:{items:{type:'ARRAY',items:{type:'OBJECT',properties:{id:{type:'STRING'},verdict:{type:'STRING',enum:['match','reject','uncertain']}},required:['id','verdict']}}},required:['items']};
 const PLACE_TYPE_EVIDENCE={pharmacy:/pharmacy|chemist|药店|药房|大药房|nhà thuốc/i,hospital:/hospital|医院|bệnh viện/i,clinic:/doctor|clinic|诊所|门诊|phòng khám/i,convenience_store:/convenience_store|commercial\.convenience|便利店|小卖部|副食店|杂货店/i,grocery_store:/grocery_store|food_store|杂货店|副食店|小卖部/i,supermarket:/supermarket|超市/i,restaurant:/restaurant|fast_food|餐厅|饭店|餐馆|小吃/i,cafe:/cafe|coffee_shop|咖啡/i,hotel:/hotel|lodging|宾馆|酒店|旅馆|民宿/i,atm:/\batm\b|自动取款机/i,bank:/\bbank\b|银行/i,gas_station:/gas_station|加油站/i};
 
-async function selectNearbyCandidates(raw, category, center, sortBy, limit, env) {
+async function selectNearbyCandidates(raw, category, center, sortBy, limit, env, foodKnowledge=starterKnowledge) {
   const origin=coordFrom(center),items=(Array.isArray(raw)?raw:[]).slice(0,50).map(compactPoi).filter(p=>coordFrom(p));
   const unique=new Map();
   for(const place of items){
@@ -2340,7 +2342,7 @@ async function selectNearbyCandidates(raw, category, center, sortBy, limit, env)
     if(category==='convenience_store'){
       if(/electronics|cell_phone|mobile_phone|computer_store|clothing_store|家电|手机|数码|服装|通讯/.test(evidence))continue;
       if(/convenience_store|commercial\.convenience|便利店|小卖部|副食店|杂货店/.test(evidence)||/便利店|小卖部|副食店|杂货店/.test(place.name)){accepted.push(place);continue;}
-      if(/^(?:gs\s*25|circle\s*k|familymart|mini\s*stop|7[ -]?eleven|lawson)\b/.test(name)){accepted.push(place);continue;}
+      if((foodKnowledge?.brands||[]).some(brand=>brand.category==='convenience_store'&&(brand.aliases||[]).some(alias=>` ${name} `.includes(` ${fold(alias)} `)))){accepted.push(place);continue;}
       uncertain.push(place);continue;
     }
     const matches=PLACE_TYPE_EVIDENCE[category];
@@ -2400,9 +2402,9 @@ const FOOD_QUERY_LEXICON=[
 
 const PLACE_BRANDS=['pharmacity','long chau','an khang','gs25','circle k','familymart','7 eleven','lawson','kfc','jollibee','lotteria','popeyes','chicken plus','haidilao','yitel','starbucks','highlands coffee','the coffee house','phuc long'];
 
-function placeBrandInQuery(query) {
+function placeBrandInQuery(query,foodKnowledge=starterKnowledge) {
   const q=` ${fold(query)} `;
-  return PLACE_BRANDS.find(brand=>q.includes(` ${fold(brand)} `))||'';
+  return [...PLACE_BRANDS,...(foodKnowledge?.brands||[]).flatMap(brand=>brand.aliases||[])].find(brand=>q.includes(` ${fold(brand)} `))||'';
 }
 
 function isFoodPlaceSearch(query, category='') {
@@ -2430,12 +2432,16 @@ function semanticSearchKey(value) {
   return clean(value,500).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,' ').trim();
 }
 
-function semanticPlaceSearch(query, country, category) {
+function semanticPlaceSearch(query, country, category, foodKnowledge=starterKnowledge) {
   const original=clean(query,300),china=nearbyLanguage({country})==='zh',q=` ${fold(original)} `;
-  if(placeBrandInQuery(original))return {providerQuery:original,queryVariants:[],requestedDish:original};
+  if(placeBrandInQuery(original,foodKnowledge))return {providerQuery:original,queryVariants:[],requestedDish:original};
   const food=FOOD_QUERY_LEXICON.find(item=>item.aliases.some(alias=>q.includes(` ${fold(alias)} `)));
   const place=PLACE_SEARCH_LEXICON.find(item=>item.category===category)||PLACE_SEARCH_LEXICON.find(item=>item.aliases.some(alias=>q.includes(` ${fold(alias)} `)));
   const variants=(food?.[china?'zh':'vi']||place?.[china?'zh':'vi']||[]).map(value=>clean(value,100)).filter(Boolean);
+  if(category==='convenience_store'){
+    const countryCode=china?'CN':'VN';
+    variants.push(...(foodKnowledge?.brands||[]).filter(brand=>brand.category==='convenience_store'&&(!brand.countries?.length||brand.countries.includes(countryCode))).slice(0,4).map(brand=>brand.name));
+  }
   const fallback=china&&isFoodPlaceSearch(original,category)?'餐厅':original;
   const providerQuery=variants[0]||fallback||original;
   const seen=new Set([semanticSearchKey(providerQuery)]),queryVariants=[];
@@ -2448,10 +2454,10 @@ function semanticPlaceSearch(query, country, category) {
 
 const FOOD_QUERY_SCHEMA={type:'OBJECT',properties:{dishEn:{type:'STRING'},dishZh:{type:'STRING'},groupEn:{type:'STRING'},groupZh:{type:'STRING'}},required:['dishEn','dishZh','groupEn','groupZh']};
 
-async function resolvedFoodSearchPlan(request,china,env) {
+async function resolvedFoodSearchPlan(request,china,env,foodKnowledge=starterKnowledge) {
   const fallback=request.group==='restaurant'&&!china
     ?{providerQuery:request.dish,queryVariants:['restaurant'],requestedDish:request.dish,translationSource:'original-dish-fallback'}
-    :foodSearchVariants(request,china);
+    :foodSearchVariants(request,china,foodKnowledge);
   if(request.group!=='restaurant'||!env.GEMINI_API_KEY)return fallback;
   try{
     const parsed=await callGeminiJson(foodQueryPrompt,buildContents([],JSON.stringify({dish:request.dish})),FOOD_QUERY_SCHEMA,env,'planner');
@@ -2913,7 +2919,7 @@ function toolModules(args, plan) {
   return ['CSV_TIM_KIEM'];
 }
 
-async function executeV3Tools(plan, userMessage, location, previousContext, env) {
+async function executeV3Tools(plan, userMessage, location, previousContext, env, foodKnowledge=starterKnowledge) {
   const evidence=[];
   const previousNearby=previousContext?.nearby||null;
   const followup=nearbyFollowupIntent(userMessage,previousNearby),contextPlace=followup?contextPlaceForQuestion(userMessage,previousNearby):null;
@@ -2942,15 +2948,15 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         const contextCountry=currentNearby?location.country:(state.lastPlace?.country||location.country);
         const china=isChinaTravelContext({...location,latitude:searchCenter?.lat,longitude:searchCenter?.lng,country:contextCountry},userMessage,args.query,args.placeName,args.address,currentNearby?location.city:state.lastPlace?.city);
         const searchCountry=china?'Trung Quốc':clean(contextCountry,120);
-        const foodRequest=!args.placeName?foodDiscoveryRequest(userMessage):null;
+        const foodRequest=!args.placeName?foodDiscoveryRequest(userMessage,foodKnowledge):null;
         const qualitySearch=Boolean(foodRequest?.quality);
         if(!searchCenter) result={ok:false,error:'GPS_REQUIRED'};
         else {
           const resultLimit=args.placeName?clamp(args.limit,1,12,5):requestedPlaceLimit(userMessage),sortBy=args.placeName?'name_similarity':(wantsRatingRanking(userMessage)?'rating':'distance');
           const originalQuery=args.query||args.placeName||args.category;
-          let searchPlan=args.placeName?(china?await chinaNamedPlaceSearch(args.placeName,{...location,city:state.lastPlace?.city||location.city,area:location.area},env):{providerQuery:args.placeName,queryVariants:[],requestedDish:'',translationSource:'original'}):(qualitySearch?await resolvedFoodSearchPlan(foodRequest,china,env):semanticPlaceSearch(originalQuery,searchCountry,args.category));
+          let searchPlan=args.placeName?(china?await chinaNamedPlaceSearch(args.placeName,{...location,city:state.lastPlace?.city||location.city,area:location.area},env):{providerQuery:args.placeName,queryVariants:[],requestedDish:'',translationSource:'original'}):(qualitySearch?await resolvedFoodSearchPlan(foodRequest,china,env,foodKnowledge):semanticPlaceSearch(originalQuery,searchCountry,args.category,foodKnowledge));
           if(foodRequest&&!qualitySearch&&!china){
-            const groupPlan=foodSearchVariants(foodRequest,false);
+            const groupPlan=foodSearchVariants(foodRequest,false,foodKnowledge);
             searchPlan={...searchPlan,queryVariants:[...new Set([...searchPlan.queryVariants,groupPlan.providerQuery,...groupPlan.queryVariants])].slice(0,7)};
           }
           const firstRadius=clamp(args.radius,100,50000,3000),radii=[firstRadius];
@@ -2959,7 +2965,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
           for(const radius of radii){
             const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy:qualitySearch?'distance':sortBy,language:china?'zh':qualitySearch?'en':nearbyLanguage({country:searchCountry})},env);
             const pool=Array.isArray(attempt.data?.candidates)&&attempt.data.candidates.length?attempt.data.candidates:attempt.data?.pois||[];
-            selected=attempt.ok?(args.placeName?{pois:attempt.data?.pois||[]}:await selectNearbyCandidates(pool,args.category,searchCenter,qualitySearch?'distance':sortBy,qualitySearch?Math.min(50,pool.length):resultLimit,env)):null;
+            selected=attempt.ok?(args.placeName?{pois:attempt.data?.pois||[]}:await selectNearbyCandidates(pool,args.category,searchCenter,qualitySearch?'distance':sortBy,qualitySearch?Math.min(50,pool.length):resultLimit,env,foodKnowledge)):null;
             attempts.push({radius,ok:attempt.ok,count:selected?.pois?.length||0,error:clean(attempt.error,300)});
             result=attempt;
             if(!attempt.ok||selected?.pois?.length)break;
@@ -2968,7 +2974,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
             let pois=selected?.pois||[];
             if(qualitySearch){
               const reviewed=china?pois:await loadGoogleReviewEvidence(pois,searchCountry,env,true);
-              pois=rankFoodByReviews(reviewed,foodRequest.dish,resultLimit,Date.now(),foodRequest.group).map(place=>({...place,note:qualityPlaceNote(place,foodRequest.dish),noteConfidence:place.reviewQuality?.dishFiveWithText?'confirmed':'limited'}));
+              pois=rankFoodByReviews(reviewed,foodRequest.dish,resultLimit,Date.now(),foodRequest.group,foodKnowledge).map(place=>({...place,note:qualityPlaceNote(place,foodRequest.dish),noteConfidence:place.reviewQuality?.dishFiveWithText?'confirmed':'limited'}));
             }else pois=pois.slice(0,resultLimit);
             const normalizedQuery=typeof result.data?.query==='object'?result.data.query:{};
             result={...result,data:{...result.data,
@@ -3094,11 +3100,12 @@ async function handleAiV3(request, env) {
     },200,request,env);
   }
   try {
-    const plan=await planRequestV3(userMessage,history,location,previousContext,env);
+    const foodKnowledge=await loadFoodKnowledge(env);
+    const plan=await planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge);
     if(plan.needsClarification) {
       return json({text:plan.clarificationQuestion||'Bạn cho Pipi thêm địa điểm hoặc thời gian cụ thể để kiểm tra chính xác nhé.',travelos:{version:3,plan,sources:[]}},200,request,env);
     }
-    const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env);
+    const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env,foodKnowledge);
     const requestedLive=plan.tools.length>0;
     const successful=evidence.filter(item=>item.ok);
     let text;
@@ -3167,13 +3174,14 @@ async function handleVoiceV1(request, env) {
           emit('spoken',{text});emit('detail',{text,travelos:{version:3}});return;
         }
         emit('phase',{phase:'planning'});
-        const plan=await planRequestV3(userMessage,history,location,previousContext,env);
+        const foodKnowledge=await loadFoodKnowledge(env);
+        const plan=await planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge);
         if(plan.needsClarification){
           const text=normalizePipiVoice(plan.clarificationQuestion||'Bạn cho Pipi thêm thông tin để tìm chính xác nhé.');
           emit('spoken',{text});emit('detail',{text,travelos:{version:3,plan,sources:[]}});return;
         }
         emit('phase',{phase:'searching'});
-        const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env);
+        const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env,foodKnowledge);
         emit('phase',{phase:'analyzing'});
         const requestedLive=plan.tools.length>0,successful=evidence.filter(item=>item.ok);
         let brief=buildVoiceBrief(state,plan.travelIntent);

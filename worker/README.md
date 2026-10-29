@@ -27,6 +27,21 @@ Setup outline:
 7. Trong `config.js`, đặt `DATA_API_URL` tới URL `/api`, bật `D1_ENABLED` và giữ `AI_PATH: "/ai-v3"`.
 8. Migrate dữ liệu vào bảng `places`.
 
+## Kho kiến thức món ăn và chuỗi quán
+
+`schema.sql` tạo thêm bốn bảng D1: `food_categories`, `food_dishes`,
+`food_affinities`, `venue_brands`. Bộ dữ liệu khởi đầu nằm trong
+`src/bot/food-knowledge.js`; chạy `node scripts/build-food-knowledge-seed.mjs`
+từ thư mục gốc để tạo lại `worker/food-knowledge-seed.sql`. Nạp SQL này vào D1
+sau khi chạy schema. Lệnh seed chỉ thêm mã chưa có, nên các chỉnh sửa trực tiếp
+trong D1 sẽ được giữ nguyên.
+
+Mỗi quan hệ món–loại quán có `confidence` từ 0 đến 1. Đây là khả năng dùng để
+tìm ứng viên và xếp hạng, không phải xác nhận một chi nhánh đang bán món đó.
+Chỉ menu, tag hoặc review có nội dung cụ thể mới là bằng chứng về món ăn.
+Worker đọc D1 cho từng yêu cầu; nếu bảng chưa được tạo hoặc tạm lỗi, Worker dùng
+bộ dữ liệu khởi đầu trong code.
+
 The frontend Add Place form becomes visible only when D1 is enabled.
 
 ## V3 tools
