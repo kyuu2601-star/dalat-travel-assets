@@ -43,6 +43,8 @@ test('irrelevant cafes and wholesale crab shops are excluded when finding seafoo
 test('a seafood buffet is a crab candidate but a snail shop is not proof of crab', () => {
   const places=[
     {id:'snail',name:'Ốc Vui',primaryType:'restaurant',rating:5,userRatingCount:100},
+    {id:'oyster',name:'Hàu Nướng',primaryType:'restaurant',rating:4.9,userRatingCount:100},
+    {id:'low',name:'Hải Sản Điểm Thấp',primaryType:'restaurant',rating:1.7,userRatingCount:6},
     {id:'buffet',name:'Poseidon Buffet',primaryType:'restaurant',rating:4.3,userRatingCount:200},
     {id:'seafood',name:'Hải Sản Bờ Biển',primaryType:'restaurant',rating:4.1,userRatingCount:80}
   ];

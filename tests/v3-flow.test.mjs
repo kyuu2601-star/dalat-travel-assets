@@ -988,7 +988,7 @@ test('Destination summary keeps aggregate rating when Google returns no review s
   assert.equal(data.place.rating,4.4);
   assert.equal(data.place.userRatingCount,691);
   assert.equal(data.place.recentReviewCount,0);
-  assert.match(data.reviewSummary,/rating tổng 4\.4\/5/);
+  assert.match(data.reviewSummary,/được đánh giá 4\.4\/5/);
   assert.match(data.reviewSummary,/691 lượt/);
 });
 
@@ -1209,7 +1209,7 @@ test('AI v3 accepts compact lat/lng and plans tools deterministically on the bac
     assert.equal(data.travelos.nearby.pois[0].name,'Nhà thuốc Pharmacity');
     assert.equal(data.travelos.nearby.query.radius,50000);
     assert.equal(data.travelos.placeDetails.openNow,true);
-    assert.equal(data.travelos.reviewSummary,'Google đang ghi nhận rating tổng 4.7/5 từ 250 lượt; API chưa trả mẫu review 3 tháng để tóm tắt nội dung.');
+    assert.equal(data.travelos.reviewSummary,'Địa điểm được đánh giá 4.7/5 từ 250 lượt; Pipi chưa có nhận xét cụ thể để tóm tắt.');
     assert.deepEqual(mapCalls.map(call=>call.path),['/poi/nearby','/poi/details']);
     assert.equal(data.travelos.sources[0].source,'google-places-text-v1');
     assert.equal(geminiCalls,0);
@@ -1246,7 +1246,7 @@ test('AI v3 preserves an arbitrary venue name and returns verified details even 
   assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['search_places','place_details','place_busyness']);
   assert.equal(data.travelos.nearby.pois[0].id,'war-museum');
   assert.equal(data.travelos.placeDetails.openNow,true);
-  assert.match(data.travelos.reviewSummary,/1 review Google trong mẫu 3 tháng/);
+  assert.match(data.travelos.reviewSummary,/Các đánh giá gần đây chấm trung bình 5\.0\/5/);
   assert.match(data.text,/28 Võ Văn Tần/);
   assert.match(data.text,/đang mở/);
 });
@@ -1387,7 +1387,7 @@ test('AI v3 selects the nearest eligible places from the full provider candidate
   const data=await response.json();
   assert.deepEqual(data.travelos.nearby.pois.map(place=>place.id),['near','far']);
   assert.equal(data.travelos.nearby.selectionMeta.candidateCount,3);
-  assert.match(data.text,/giới hạn dữ liệu/);
+  assert.match(data.text,/có thể chưa tìm được hết mọi địa điểm quanh đây/);
 });
 
 test('AI v3 understands generic nearby sightseeing in Chongqing without relying on Gemini', async () => {
@@ -1606,8 +1606,9 @@ test('AI v3 ranks food venues by recent meaningful review evidence instead of ag
   assert.equal(calls[1].body.language,'en');
   assert.equal(data.travelos.nearby.query.sortBy,'review_quality');
   assert.equal(data.travelos.nearby.pois[0].id,'recent-review');
-  assert.match(data.text,/không thể xác minh mọi đánh giá/);
-  assert.match(data.travelos.nearby.pois[0].note,/30 ngày/);
+  assert.match(data.text,/Pipi đã tìm quanh.*có thể phù hợp với bạn/);
+  assert.doesNotMatch(data.text,/API|30 ngày|dữ liệu|review/);
+  assert.match(data.travelos.nearby.pois[0].note,/Có khách gần đây khen món gà rán/);
   assert.equal(data.travelos.remoteSearch.requestedArea,'Emart PVT');
 });
 

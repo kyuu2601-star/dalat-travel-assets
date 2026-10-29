@@ -78,6 +78,8 @@ function venueRelevance(place,group,quality,dish,knowledge=starterKnowledge) {
   const knownDish=(knowledge?.dishes||[]).find(item=>matchesAlias(dish,item.vi));
   if(knownDish){
     if((knownDish.aliases||[]).some(alias=>matchesAlias(name,alias)))return 3;
+    const otherDish=(knowledge?.dishes||[]).find(item=>item.id!==knownDish.id&&item.category===knownDish.category&&(item.aliases||[]).some(alias=>matchesAlias(name,alias)));
+    if(otherDish)return 0;
     const brand=(knowledge?.brands||[]).find(item=>(item.aliases||[]).some(alias=>matchesAlias(name,alias)));
     const category=brand?.category||(knowledge?.categories||[]).find(item=>(item.aliases||[]).some(alias=>matchesAlias(name,alias)||matchesAlias(tag,alias)||matchesAlias(types,alias)))?.id;
     if(category){
@@ -112,7 +114,7 @@ export function rankFoodByReviews(places,dish,limit=10,now=Date.now(),group='res
   return (Array.isArray(places)?places:[]).map(place=>{
     const quality=reviewQuality(place,dish,now,knowledge);
     return {...place,reviewQuality:quality,venueRelevance:venueRelevance(place,group,quality,dish,knowledge)};
-  }).filter(place=>place.venueRelevance>0)
+  }).filter(place=>place.venueRelevance>0&&(Number(place.rating)>=3.5||!Number.isFinite(Number(place.rating))||Number(place.rating)===0||place.reviewQuality.dishFiveWithText>0))
     .sort((a,b)=>{
       const x=a.reviewQuality,y=b.reviewQuality;
       return y.recentDishFiveWithText-x.recentDishFiveWithText

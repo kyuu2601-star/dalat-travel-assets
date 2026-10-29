@@ -1626,7 +1626,7 @@ function deterministicNearbyText(nearby, requestedArea='') {
   const pois = Array.isArray(nearby?.pois) ? nearby.pois.slice(0, qualitySearch?10:5) : [];
   if (!pois.length) {
     const query=typeof nearby?.query==='string'?nearby.query:(nearby?.query?.keyword||nearby?.query?.category||'địa điểm này');
-    if(qualitySearch)return `Pipi đã tìm bằng API bản đồ nhưng chưa có quán nào đủ dấu hiệu thuộc nhóm món “${clean(nearby?.query?.requestedDish||query,120)}” trong khu vực này. Pipi không muốn xếp các quán không liên quan là quán ngon. Bạn thử tăng bán kính hoặc hỏi một nhóm món rộng hơn nhé.`;
+    if(qualitySearch)return `Trong lượt tìm này, Pipi chưa thấy quán nào đủ phù hợp với món “${clean(nearby?.query?.requestedDish||query,120)}” quanh khu vực bạn hỏi. Bạn thử tìm xa hơn hoặc chọn một nhóm món rộng hơn nhé.`;
     const radii=(nearby?.attemptedRadii||nearby?.searchAttempts?.map(item=>item.radius)||[]).map(Number).filter(Number.isFinite);
     const range=radii.length?` trong các bán kính ${radii.map(value=>value>=1000?`${value/1000} km`:`${value} m`).join(', ')}`:'';
     const queryObject=nearby?.query&&typeof nearby.query==='object'?nearby.query:null,attempted=(queryObject?.keywords||[]).map(value=>clean(value,120)).filter(Boolean).slice(0,4);
@@ -1641,12 +1641,11 @@ function deterministicNearbyText(nearby, requestedArea='') {
     return `- ${index + 1}. ${clean(poi?.localizedName||poi?.name, 300) || 'Địa điểm'}${detail ? ` — ${detail}` : ''}${qualitySearch&&poi.note?` · ${clean(poi.note,160)}`:''}.`;
   });
   const area=clean(requestedArea,180);
-  const coverage=nearby?.meta?.coverageLimited?' Một số lượt tìm đã chạm giới hạn dữ liệu của bản đồ, nên danh sách có thể chưa bao gồm mọi địa điểm.':'';
-  const hasReviewSamples=pois.some(poi=>Number(poi.reviewQuality?.sampleSize)>0);
-  const caution=qualitySearch?(hasReviewSamples
-    ?'Pipi không thể xác minh mọi đánh giá trên mạng. Danh sách này ưu tiên review 5 sao có nội dung rõ ràng trong mẫu tối đa 5 review mỗi quán; review trong 30 ngày được ưu tiên trước. Quán thuộc nhóm món bạn hỏi, nhưng Pipi chỉ xác nhận đúng món khi review có nhắc đến món đó.\n\n'
-    :'Pipi chưa lấy được nội dung review để kiểm tra món ăn hoặc chất lượng trong 30 ngày gần đây. Danh sách sau chỉ dựa trên loại quán và rating tổng đã điều chỉnh theo số lượt đánh giá; Pipi chưa thể khẳng định quán nào bán món bạn hỏi ngon.\n\n'):'';
-  return `${caution}Pipi tìm được ${pois.length} địa điểm ${area?`gần ${area}`:qualitySearch?'trong khu vực':'gần bạn nhất'}:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.${coverage}`;
+  const coverage=nearby?.meta?.coverageLimited?' Pipi có thể chưa tìm được hết mọi địa điểm quanh đây.':'';
+  const intro=qualitySearch
+    ?`Pipi đã tìm quanh ${area||'khu vực của bạn'} và thấy những địa điểm có thể phù hợp với bạn:`
+    :`Pipi tìm được ${pois.length} địa điểm ${area?`gần ${area}`:'gần bạn nhất'}:`;
+  return `${intro}\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.${coverage}`;
 }
 
 function wantsRatingRanking(value) {
@@ -2685,12 +2684,12 @@ async function loadGoogleReviewEvidence(pois, country, env, force=false) {
 }
 
 function qualityPlaceNote(place,dish) {
-  const q=place.reviewQuality||{},rating=num(place.rating),count=int(place.userRatingCount),source=place.provider==='amap'?'AMap':'Google';
-  if(q.recentDishFiveWithText>0)return `${q.recentDishFiveWithText} review 5★ trong 30 ngày có nhắc ${dish} (mẫu ${q.sampleSize}/5).`;
-  if(q.dishFiveWithText>0)return `${q.dishFiveWithText} review 5★ có nhắc ${dish}; chưa xác minh trong 30 ngày.`;
-  if(q.recentFiveWithText>0)return `${q.recentFiveWithText} review 5★ có nội dung trong 30 ngày; chưa xác minh món ${dish}.`;
-  if(q.fiveWithText>0)return `${q.fiveWithText} review 5★ có nội dung; chưa xác minh món ${dish} hoặc chất lượng gần đây.`;
-  return rating!=null?`${source} rating tổng ${rating.toFixed(1)}/5${count?` từ ${count} lượt`:''}; chưa xác minh review 30 ngày hoặc món ${dish}.`:`${source} chưa có review đủ rõ để xác minh món ${dish}.`;
+  const q=place.reviewQuality||{},rating=num(place.rating),count=int(place.userRatingCount);
+  if(q.recentDishFiveWithText>0)return `Có khách gần đây khen món ${dish}`;
+  if(q.dishFiveWithText>0)return `Có khách khen món ${dish}`;
+  if(q.recentFiveWithText>0)return `Có đánh giá tốt gần đây; chưa rõ về món ${dish}`;
+  if(q.fiveWithText>0)return `Có đánh giá tốt; chưa rõ về món ${dish}`;
+  return rating!=null?`Được đánh giá ${rating.toFixed(1)}/5${count?` từ ${count} lượt`:''}; chưa rõ quán có món ${dish}`:`Chưa có đủ thông tin về món ${dish}`;
 }
 
 async function enrichPlaceNotes(pois, query, country, env) {
@@ -2839,11 +2838,10 @@ async function busynessTool(args, target, env) {
 
 function fallbackReviewSummary(place) {
   const recentRating=num(place?.recentRating),recentCount=int(place?.recentReviewCount),rating=num(place?.rating),count=int(place?.userRatingCount);
-  const source=/amap/i.test(clean(place?.provider,80))?'AMap':'Google';
-  if(recentRating!=null&&recentCount>0) return `${recentCount} review ${source} trong mẫu 3 tháng gần đây có điểm trung bình ${recentRating.toFixed(1)}/5.`;
-  if(rating>0&&count>0) return `${source} đang ghi nhận rating tổng ${rating.toFixed(1)}/5 từ ${count.toLocaleString('vi-VN')} lượt; API chưa trả mẫu review 3 tháng để tóm tắt nội dung.`;
-  if(rating>0) return `${source} đang ghi nhận rating tổng ${rating.toFixed(1)}/5; API chưa trả nội dung review gần đây.`;
-  return `${source} chưa trả dữ liệu rating hoặc review cho địa điểm này.`;
+  if(recentRating!=null&&recentCount>0) return `Các đánh giá gần đây chấm trung bình ${recentRating.toFixed(1)}/5.`;
+  if(rating>0&&count>0) return `Địa điểm được đánh giá ${rating.toFixed(1)}/5 từ ${count.toLocaleString('vi-VN')} lượt; Pipi chưa có nhận xét cụ thể để tóm tắt.`;
+  if(rating>0) return `Địa điểm được đánh giá ${rating.toFixed(1)}/5; Pipi chưa có nhận xét cụ thể để tóm tắt.`;
+  return 'Pipi chưa có đủ đánh giá để nhận xét thêm về địa điểm này.';
 }
 
 function recentReviewStats(place) {
@@ -3069,8 +3067,8 @@ async function synthesizeV3(userMessage, history, location, plan, evidence, prev
 
 function validFoodQualityAnswer(text,nearby) {
   const key=fold(text);
-  if(!/khong the xac minh|khong chac|chua the xac minh/.test(key))return false;
-  if(!(nearby?.pois||[]).some(place=>Number(place.reviewQuality?.sampleSize)>0)&&!/chua lay duoc.*review|khong co.*review|chua co.*review/.test(key))return false;
+  if(!key.startsWith('pipi da tim quanh')||!/co the phu hop/.test(key))return false;
+  if(/api|du lieu|30 ngay|mau review|rating tong/.test(key))return false;
   return (nearby?.pois||[]).slice(0,10).every(place=>{
     const name=clean(place.localizedName||place.name,300);
     return name&&(text.includes(name)||key.includes(fold(name)));
