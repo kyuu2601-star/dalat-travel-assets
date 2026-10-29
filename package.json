@@ -10,7 +10,7 @@
     "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
     "snapshot": "node scripts/fetch-data-snapshot.mjs",
-    "test": "node --test tests/v3-flow.test.mjs tests/mobile-data.test.mjs tests/voice-quality.test.mjs tests/voice-mode-flow.test.mjs"
+    "test": "node --test tests/v3-flow.test.mjs tests/mobile-data.test.mjs tests/voice-quality.test.mjs tests/voice-mode-flow.test.mjs tests/food-discovery.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",

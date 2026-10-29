@@ -2,6 +2,8 @@ import { INTENT_PROFILES, answerPromptFor } from './bot/prompts/index.js';
 import { SEMANTIC_PLANNER_PROMPT, SEMANTIC_PLAN_SCHEMA, normalizeSemanticPlan, semanticPlannerPayload } from './bot/planner/semantic-planner.js';
 import { compileSemanticNeeds, missingApiSuggestions } from './bot/library/api-registry.js';
 import { buildVoiceBrief } from './bot/voice-brief.js';
+import { foodDiscoveryRequest, foodSearchVariants, rankFoodByReviews } from './bot/food-discovery.js';
+import foodQueryPrompt from './bot/prompts/food-query.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_FALLBACK_MODELS = ['gemini-3.8-flash','gemini-3.1-flash-lite'];
@@ -1619,7 +1621,8 @@ function formatNearbyDistance(value) {
 }
 
 function deterministicNearbyText(nearby, requestedArea='') {
-  const pois = Array.isArray(nearby?.pois) ? nearby.pois.slice(0, 5) : [];
+  const qualitySearch=nearby?.query?.sortBy==='review_quality';
+  const pois = Array.isArray(nearby?.pois) ? nearby.pois.slice(0, qualitySearch?10:5) : [];
   if (!pois.length) {
     const query=typeof nearby?.query==='string'?nearby.query:(nearby?.query?.keyword||nearby?.query?.category||'địa điểm này');
     const radii=(nearby?.attemptedRadii||nearby?.searchAttempts?.map(item=>item.radius)||[]).map(Number).filter(Number.isFinite);
@@ -1633,15 +1636,16 @@ function deterministicNearbyText(nearby, requestedArea='') {
     const address = clean(poi?.localizedAddress||poi?.address, 500);
     const rating=poi?.rating!==null&&poi?.rating!==undefined&&poi?.rating!==''&&Number.isFinite(Number(poi.rating))?`⭐ ${Number(poi.rating).toFixed(1)}${poi?.userRatingCount?` (${Number(poi.userRatingCount).toLocaleString('vi-VN')} đánh giá)`:''}`:'';
     const detail = [rating,distance, address].filter(Boolean).join(' · ');
-    return `- ${index + 1}. ${clean(poi?.localizedName||poi?.name, 300) || 'Địa điểm'}${detail ? ` — ${detail}` : ''}.`;
+    return `- ${index + 1}. ${clean(poi?.localizedName||poi?.name, 300) || 'Địa điểm'}${detail ? ` — ${detail}` : ''}${qualitySearch&&poi.note?` · ${clean(poi.note,160)}`:''}.`;
   });
   const area=clean(requestedArea,180);
   const coverage=nearby?.meta?.coverageLimited?' Một số lượt tìm đã chạm giới hạn dữ liệu của bản đồ, nên danh sách có thể chưa bao gồm mọi địa điểm.':'';
-  return `Pipi tìm được ${pois.length} địa điểm ${area?`gần ${area}`:'gần bạn nhất'}:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.${coverage}`;
+  const caution=qualitySearch?'Pipi không thể xác minh mọi đánh giá trên mạng. Danh sách này ưu tiên review 5 sao có nội dung rõ ràng trong mẫu tối đa 5 review mỗi quán; review trong 30 ngày được ưu tiên trước. Quán thuộc nhóm món bạn hỏi, nhưng Pipi chỉ xác nhận đúng món khi review có nhắc đến món đó.\n\n':'';
+  return `${caution}Pipi tìm được ${pois.length} địa điểm ${area?`gần ${area}`:qualitySearch?'trong khu vực':'gần bạn nhất'}:\n${lines.join('\n')}\n\nBạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường.${coverage}`;
 }
 
 function wantsRatingRanking(value) {
-  return /\b(?:rating|review|đánh\s*giá|được\s+đánh\s*giá|xếp\s*hạng)\b/i.test(clean(value,2000));
+  return /\b(?:rating|review|đánh\s*giá|được\s+đánh\s*giá|xếp\s*hạng)\b/i.test(clean(value,2000))||Boolean(foodDiscoveryRequest(value)?.quality);
 }
 
 function requestedPlaceLimit(value) {
@@ -2009,6 +2013,7 @@ function genericPlaceQuery(value) {
 }
 
 function namedPlaceSearchIntent(userMessage, remoteIntent = null) {
+  if(foodDiscoveryRequest(userMessage))return null;
   const raw=clean(userMessage,1000),quoted=raw.match(/[“"']([^”"']{2,160})[”"']/)?.[1];
   let candidate=clean(remoteIntent?.query||quoted,300);
   const explicitCue=/\b(?:tim|kiem|thong tin|dia chi|vi tri|review|danh gia|rating|gio mo cua|o dau|nam o dau|dong|dong duc|vang|dang mo|mo cua)\b/.test(fold(raw));
@@ -2043,6 +2048,7 @@ async function planV3(userMessage, history, location, previousContext, env) {
   const detectedIntent=detectTravelIntent(userMessage,previousContext);
   const nearbyIntent=liveNearbyIntent(userMessage);
   const remote=remoteAreaSearchIntent(userMessage);
+  const foodRequest=foodDiscoveryRequest(userMessage);
   const previousNearby=previousContext?.nearby||null;
   const followsPrevious=nearbyFollowupIntent(userMessage,previousNearby);
   const namedPlace=!followsPrevious&&!['WEATHER_OUTDOOR','ROUTE_MOBILITY','ITINERARY_PLANNING'].includes(detectedIntent)?namedPlaceSearchIntent(userMessage,remote):null;
@@ -2061,6 +2067,13 @@ async function planV3(userMessage, history, location, previousContext, env) {
       tools:[v3Tool('search_places',{query:nearbyIntent.keyword,category:nearbyIntent.category,radius:nearbyIntent.radius,language:nearbyLanguage(location)})]
     };
     return enforceTravelIntentPlan(normalizeV3Plan(deterministic),'PLACE_DISCOVERY',userMessage,location,previousContext);
+  }
+  if(foodRequest&&!['WEATHER_OUTDOOR','ROUTE_MOBILITY','ITINERARY_PLANNING'].includes(detectedIntent)){
+    const tools=[];
+    if(remote?.area)tools.push(v3Tool('resolve_place',{query:remote.area,limit:5,language:isChinaTravelContext(location,remote.area)?'zh':'vi'}));
+    tools.push(v3Tool('search_places',{query:remote?.query||userMessage,category:'restaurant',radius:remote?.radius||3000,limit:requestedPlaceLimit(userMessage),language:isChinaTravelContext(location,remote?.area,userMessage)?'zh':'vi'}));
+    const needsClarification=!remote?.area&&!hasGps(location);
+    return normalizeV3Plan({goal:`Tìm quán thuộc nhóm ${foodRequest.group} cho món ${foodRequest.dish}`,travelIntent:'PLACE_DISCOVERY',responseMode:needsClarification?'CLARIFY':'LIVE',needsClarification,clarificationQuestion:'Pipi cần vị trí hiện tại hoặc tên khu vực để tìm quán cho bạn.',isItinerary:false,tools});
   }
   if(detectedIntent==='WEATHER_OUTDOOR'){
     const deterministic={goal:'Kiểm tra thời tiết live và đánh giá khả năng đi chơi',travelIntent:detectedIntent,responseMode:'LIVE',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]};
@@ -2174,6 +2187,7 @@ function mergeSemanticTools(baseTools=[],semanticTools=[],confidence=0) {
 
 async function planRequestV3(userMessage,history,location,previousContext,env) {
   const basePlan=await planV3(userMessage,history,location,previousContext,env);
+  if(foodDiscoveryRequest(userMessage))return {...basePlan,foodQualitySearch:Boolean(foodDiscoveryRequest(userMessage)?.quality),planner:'food-discovery',needs:[],answerContract:[],unsupportedNeeds:[]};
   if(!shouldUseSemanticPlanner(userMessage,basePlan,env))return {...basePlan,planner:'deterministic',needs:[],answerContract:[],unsupportedNeeds:[]};
   try{
     const payload=semanticPlannerPayload(userMessage,location,previousContext,history);
@@ -2224,7 +2238,8 @@ function compactPoi(poi) {
     rating:num(poi?.rating),userRatingCount:int(poi?.userRatingCount),reviews:Array.isArray(poi?.reviews)?poi.reviews.slice(0,5):[],
     provider,coordSystem,primaryType:clean(poi?.primaryType,120),type:clean(poi?.type,500),types:Array.isArray(poi?.types)?poi.types.slice(0,12):[],
     tag:clean(poi?.tag,500),cost:clean(poi?.cost,80),businessArea:clean(poi?.businessArea,200),alias:clean(poi?.alias,300),
-    note:clean(poi?.note,220),noteConfidence:clean(poi?.noteConfidence,30)
+    note:clean(poi?.note,220),noteConfidence:clean(poi?.noteConfidence,30),
+    reviewQuality:poi?.reviewQuality&&typeof poi.reviewQuality==='object'?poi.reviewQuality:null
   };
 }
 
@@ -2427,6 +2442,20 @@ function semanticPlaceSearch(query, country, category) {
   return {providerQuery,queryVariants:queryVariants.slice(0,7),requestedDish:original};
 }
 
+const FOOD_QUERY_SCHEMA={type:'OBJECT',properties:{dishEn:{type:'STRING'},dishZh:{type:'STRING'},groupEn:{type:'STRING'},groupZh:{type:'STRING'}},required:['dishEn','dishZh','groupEn','groupZh']};
+
+async function resolvedFoodSearchPlan(request,china,env) {
+  const fallback=foodSearchVariants(request,china);
+  if(request.group!=='restaurant'||!env.GEMINI_API_KEY)return fallback;
+  try{
+    const parsed=await callGeminiJson(foodQueryPrompt,buildContents([],JSON.stringify({dish:request.dish})),FOOD_QUERY_SCHEMA,env,'planner');
+    const group=clean(parsed?.[china?'groupZh':'groupEn'],80),dish=clean(parsed?.[china?'dishZh':'dishEn'],80);
+    if(!group||!dish||/[\n\r{}]/.test(group+dish))return fallback;
+    if(china&&!/[^\x00-\x7f]/.test(group+dish))return fallback;
+    return {providerQuery:group,queryVariants:[dish],requestedDish:request.dish,translationSource:'food-query-parser'};
+  }catch(error){console.warn('[Food query parser fallback]',errorText(error,'Food translation unavailable',180));return fallback;}
+}
+
 const CHINA_NAMED_PLACE_QUERY_SCHEMA={
   type:'OBJECT',
   properties:{primary:{type:'STRING'},variants:{type:'ARRAY',maxItems:5,items:{type:'STRING'}}},
@@ -2504,8 +2533,7 @@ function fallbackPlaceNote(place, query='') {
   if(highlight&&rating&&cost)return `${highlight} · ${rating.toFixed(1)}/5 · khoảng ¥${cost}/người.`;
   if(highlight&&rating)return `${highlight} · ${rating.toFixed(1)}/5 trên AMap.`;
   if(highlight)return `${highlight}${cost?` · khoảng ¥${cost}/người`:''}.`;
-  const dish=requestedDishLabel(query),types=Array.isArray(place?.types)?place.types:[],name=fold(place?.name),googleHighlights=[];
-  if(dish)googleHighlights.push(dish);
+  const types=Array.isArray(place?.types)?place.types:[],name=fold(place?.name),googleHighlights=[];
   if(types.includes('meal_takeaway'))googleHighlights.push('tiện mua mang đi');
   else if(types.includes('fast_food_restaurant')||/(?:kfc|jollibee|lotteria|popeyes|chicken plus)/.test(name))googleHighlights.push('phù hợp ăn nhanh');
   if(googleHighlights.length&&rating&&count)return `Nổi bật: ${googleHighlights.slice(0,2).join(', ')} · ${rating.toFixed(1)}/5 từ ${count.toLocaleString('vi-VN')} lượt.`;
@@ -2632,16 +2660,25 @@ async function localizeChinaPlaces(pois, country, env, options={}) {
   }catch(error){console.warn('[China localization fallback]',errorText(error,'Translation unavailable',240));return fallback;}
 }
 
-async function loadGoogleReviewEvidence(pois, country, env) {
-  const source=(Array.isArray(pois)?pois:[]).slice(0,10).map(compactPoi);
-  return Promise.all(source.map(async place=>{
-    if(place.provider!=='google_places'||!place.id||!place.rating)return place;
+async function loadGoogleReviewEvidence(pois, country, env, force=false) {
+  const source=(Array.isArray(pois)?pois:[]).slice(0,50).map(compactPoi);
+  return Promise.all(source.map(async (place,index)=>{
+    if(place.provider!=='google_places'||!place.id||place.reviews.length||(!force&&!place.rating)||index>=25)return place;
     try{
       const result=await mapTool('/poi/details',{placeId:place.id,name:place.name,center:coordFrom(place),country,language:'vi'},env);
       const details=result.ok?compactPoi(result.data?.place||result.data?.places?.[0]):null;
       return details?{...place,reviews:details.reviews,rating:details.rating??place.rating,userRatingCount:details.userRatingCount||place.userRatingCount}:place;
     }catch{return place;}
   }));
+}
+
+function qualityPlaceNote(place,dish) {
+  const q=place.reviewQuality||{},rating=num(place.rating),source=place.provider==='amap'?'AMap':'Google';
+  if(q.recentDishFiveWithText>0)return `${q.recentDishFiveWithText} review 5★ trong 30 ngày có nhắc ${dish} (mẫu ${q.sampleSize}/5).`;
+  if(q.dishFiveWithText>0)return `${q.dishFiveWithText} review 5★ có nhắc ${dish}; chưa xác minh trong 30 ngày.`;
+  if(q.recentFiveWithText>0)return `${q.recentFiveWithText} review 5★ có nội dung trong 30 ngày; chưa xác minh món ${dish}.`;
+  if(q.fiveWithText>0)return `${q.fiveWithText} review 5★ có nội dung; chưa xác minh món ${dish} hoặc chất lượng gần đây.`;
+  return rating!=null?`${source} ${rating.toFixed(1)}/5; chưa có review đủ rõ để xác minh món ${dish}.`:`${source} chưa có review đủ rõ để xác minh món ${dish}.`;
 }
 
 async function enrichPlaceNotes(pois, query, country, env) {
@@ -2899,29 +2936,40 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
         const contextCountry=currentNearby?location.country:(state.lastPlace?.country||location.country);
         const china=isChinaTravelContext({...location,latitude:searchCenter?.lat,longitude:searchCenter?.lng,country:contextCountry},userMessage,args.query,args.placeName,args.address,currentNearby?location.city:state.lastPlace?.city);
         const searchCountry=china?'Trung Quốc':clean(contextCountry,120);
+        const foodRequest=!args.placeName?foodDiscoveryRequest(userMessage):null;
+        const qualitySearch=Boolean(foodRequest?.quality);
         if(!searchCenter) result={ok:false,error:'GPS_REQUIRED'};
         else {
           const resultLimit=args.placeName?clamp(args.limit,1,12,5):requestedPlaceLimit(userMessage),sortBy=args.placeName?'name_similarity':(wantsRatingRanking(userMessage)?'rating':'distance');
-          const originalQuery=args.query||args.placeName||args.category,searchPlan=args.placeName?(china?await chinaNamedPlaceSearch(args.placeName,{...location,city:state.lastPlace?.city||location.city,area:location.area},env):{providerQuery:args.placeName,queryVariants:[],requestedDish:'',translationSource:'original'}):semanticPlaceSearch(originalQuery,searchCountry,args.category);
+          const originalQuery=args.query||args.placeName||args.category;
+          let searchPlan=args.placeName?(china?await chinaNamedPlaceSearch(args.placeName,{...location,city:state.lastPlace?.city||location.city,area:location.area},env):{providerQuery:args.placeName,queryVariants:[],requestedDish:'',translationSource:'original'}):(qualitySearch?await resolvedFoodSearchPlan(foodRequest,china,env):semanticPlaceSearch(originalQuery,searchCountry,args.category));
+          if(foodRequest&&!qualitySearch&&!china){
+            const groupPlan=foodSearchVariants(foodRequest,false);
+            searchPlan={...searchPlan,queryVariants:[...new Set([...searchPlan.queryVariants,groupPlan.providerQuery,...groupPlan.queryVariants])].slice(0,7)};
+          }
           const firstRadius=clamp(args.radius,100,50000,3000),radii=[firstRadius];
           for(const candidate of firstRadius<5000?[5000,10000]:firstRadius<10000?[10000,15000]:firstRadius<15000?[15000]:[])if(!radii.includes(candidate))radii.push(candidate);
           const attempts=[];let selected=null;
           for(const radius of radii){
-            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy,language:nearbyLanguage({country:searchCountry})},env);
+            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy:qualitySearch?'distance':sortBy,language:china?'zh':qualitySearch?'en':nearbyLanguage({country:searchCountry})},env);
             const pool=Array.isArray(attempt.data?.candidates)&&attempt.data.candidates.length?attempt.data.candidates:attempt.data?.pois||[];
-            selected=attempt.ok?(args.placeName?{pois:attempt.data?.pois||[]}:await selectNearbyCandidates(pool,args.category,searchCenter,sortBy,resultLimit,env)):null;
+            selected=attempt.ok?(args.placeName?{pois:attempt.data?.pois||[]}:await selectNearbyCandidates(pool,args.category,searchCenter,qualitySearch?'distance':sortBy,qualitySearch?Math.min(50,pool.length):resultLimit,env)):null;
             attempts.push({radius,ok:attempt.ok,count:selected?.pois?.length||0,error:clean(attempt.error,300)});
             result=attempt;
             if(!attempt.ok||selected?.pois?.length)break;
           }
           if(result.ok){
-            const pois=selected?.pois||[];
+            let pois=selected?.pois||[];
+            if(qualitySearch){
+              const reviewed=china?pois:await loadGoogleReviewEvidence(pois,searchCountry,env,true);
+              pois=rankFoodByReviews(reviewed,foodRequest.dish,resultLimit).map(place=>({...place,note:qualityPlaceNote(place,foodRequest.dish),noteConfidence:place.reviewQuality?.dishFiveWithText?'confirmed':'limited'}));
+            }else pois=pois.slice(0,resultLimit);
             const normalizedQuery=typeof result.data?.query==='object'?result.data.query:{};
             result={...result,data:{...result.data,
-              query:{...normalizedQuery,...(args.placeName?{}:{keyword:searchPlan.providerQuery,keywords:[searchPlan.providerQuery,...searchPlan.queryVariants]}),category:args.category||normalizedQuery.category,radius:attempts.at(-1)?.radius||firstRadius},
+              query:{...normalizedQuery,...(args.placeName?{}:{keyword:searchPlan.providerQuery,keywords:[searchPlan.providerQuery,...searchPlan.queryVariants]}),category:args.category||normalizedQuery.category,radius:attempts.at(-1)?.radius||firstRadius,sortBy:qualitySearch?'review_quality':sortBy,requestedDish:foodRequest?.dish||''},
               attemptedRadii:attempts.map(item=>item.radius),searchAttempts:attempts,
               selectionMeta:{candidateCount:selected.candidateCount??pois.length,acceptedCount:selected.acceptedCount??pois.length,uncertainCount:selected.uncertainCount||0,aiChecked:Boolean(selected.aiChecked)},
-              pois:args.placeName?(china?await localizeChinaPlaces(pois,searchCountry,env,{query:args.placeName}):pois):isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};
+              pois:qualitySearch?(china?await localizeChinaPlaces(pois,searchCountry,env):pois):args.placeName?(china?await localizeChinaPlaces(pois,searchCountry,env,{query:args.placeName}):pois):isFoodPlaceSearch(originalQuery,args.category)?await enrichPlaceNotes(pois,searchPlan.requestedDish||originalQuery,searchCountry,env):(china?await localizeChinaPlaces(pois,searchCountry,env):pois)}};
           }
         }
         if(result.ok) {
@@ -3003,8 +3051,17 @@ async function synthesizeV3(userMessage, history, location, plan, evidence, prev
   const profile=INTENT_PROFILES[plan.travelIntent]||INTENT_PROFILES.LOCAL_GUIDE;
   const payload=`USER REQUEST:\n${userMessage}\n\nSELECTED INTENT:\n${plan.travelIntent}: ${profile}\n\nANSWER CONTRACT:\n${JSON.stringify(plan.answerContract||[])}\n\nUNSUPPORTED LIVE NEEDS:\n${JSON.stringify(plan.unsupportedNeeds||[])}\n\nLOCATION LABEL:\n${locationLabel||'Không xác định'}\n\nPREVIOUS_TRAVEL_CONTEXT:\n${JSON.stringify(previousContext||null)}\n\nPLAN:\n${JSON.stringify(plan)}\n\nEVIDENCE:\n${JSON.stringify(evidenceForModel(evidence))}`;
   const contents=buildContents(history,payload);
-  const result=await callGemini(answerPromptFor(plan.travelIntent),contents,env,null,false);
+  const result=await callGemini(answerPromptFor(plan.travelIntent,plan.foodQualitySearch),contents,env,null,false);
   return normalizePipiVoice(modelText(result));
+}
+
+function validFoodQualityAnswer(text,nearby) {
+  const key=fold(text);
+  if(!/khong the xac minh|khong chac|chua the xac minh/.test(key))return false;
+  return (nearby?.pois||[]).slice(0,10).every(place=>{
+    const name=clean(place.localizedName||place.name,300);
+    return name&&(text.includes(name)||key.includes(fold(name)));
+  });
 }
 
 async function handleAiV3(request, env) {
@@ -3050,6 +3107,12 @@ async function handleAiV3(request, env) {
       // A named-place lookup already has verified provider evidence. Avoid two
       // extra Gemini calls (localization + prose) after AMap/Google succeeds.
       text=deterministicEvidenceAnswer(state);
+    } else if(state.nearby?.query?.sortBy==='review_quality') {
+      const fallback=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
+      if(env.GEMINI_API_KEY){
+        try{const drafted=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env);text=validFoodQualityAnswer(drafted,state.nearby)?drafted:fallback;}
+        catch{text=fallback;}
+      }else text=fallback;
     } else if(state.nearby?.provider==='amap') {
       text=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
     } else {
@@ -3127,7 +3190,7 @@ async function handleVoiceV1(request, env) {
         else if(plan.travelIntent==='WEATHER_OUTDOOR'&&state.weather)detail=deterministicWeatherAdvice(state.weather,state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại');
         else if(state.nearby&&!(state.nearby.pois||[]).length)detail=deterministicNearbyText(state.nearby);
         else if(state.namedPlaceSearch)detail=deterministicEvidenceAnswer(state);
-        else if(state.nearby?.provider==='amap')detail=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
+        else if(state.nearby?.query?.sortBy==='review_quality'||state.nearby?.provider==='amap')detail=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
         else {
           try{detail=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env);}
           catch{detail=deterministicEvidenceAnswer(state)||deterministicUnsupportedAnswer(plan.unsupportedNeeds)||brief;}

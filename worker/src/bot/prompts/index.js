@@ -7,6 +7,7 @@ import venueIntelligence from './venue-intelligence.js';
 import safetyHealth from './safety-health.js';
 import travelUtility from './travel-utility.js';
 import localGuide from './local-guide.js';
+import foodQuality from './food-quality.js';
 
 export const INTENT_PROMPTS = Object.freeze({
   PLACE_DISCOVERY:placeDiscovery,
@@ -30,7 +31,7 @@ export const INTENT_PROFILES = Object.freeze({
   LOCAL_GUIDE:'Giải thích kiến thức địa phương ổn định như một hướng dẫn viên.'
 });
 
-export function answerPromptFor(intent) {
-  return `${CORE_ANSWER_RULES}\n\n${INTENT_PROMPTS[intent]||INTENT_PROMPTS.LOCAL_GUIDE}`;
+export function answerPromptFor(intent, foodQualitySearch=false) {
+  return `${CORE_ANSWER_RULES}\n\n${foodQualitySearch?foodQuality:(INTENT_PROMPTS[intent]||INTENT_PROMPTS.LOCAL_GUIDE)}`;
 }
 

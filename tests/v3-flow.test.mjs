@@ -1581,13 +1581,17 @@ test('AI v3 translates ordinary AMap POI names to Vietnamese with Workers AI', a
   assert.match(data.text,/Cửa hàng tiện lợi Lù Kè \(路客便利店\)/);
 });
 
-test('AI v3 cleans casual remote-area wording and requests ten highest-rated places', async () => {
+test('AI v3 ranks food venues by recent meaningful review evidence instead of aggregate stars', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const calls=[];
   const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
     const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
     if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'emart-pvt',name:'Emart Phan Văn Trị',address:'Gò Vấp, TP.HCM',lat:10.8273,lng:106.6785,country:'Việt Nam',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
-    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'top-rated',name:'Gà Rán Rating Cao',address:'Gò Vấp, TP.HCM',lat:10.8275,lng:106.6787,distance:80,rating:4.9,userRatingCount:321,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    const venues=[
+      {id:'old-rating',name:'Quán điểm tổng cao',address:'Gò Vấp, TP.HCM',lat:10.8275,lng:106.6787,distance:80,rating:4.9,userRatingCount:321,primaryType:'restaurant',provider:'google_places',reviews:[{rating:5,text:'Ngon và phục vụ rất tốt, gà rán nóng giòn thơm ngon.',publishTime:'2020-01-01T00:00:00Z'}]},
+      {id:'recent-review',name:'Quán được khen gần đây',address:'Gò Vấp, TP.HCM',lat:10.8276,lng:106.6788,distance:110,rating:4.4,userRatingCount:81,primaryType:'restaurant',provider:'google_places',reviews:[{rating:5,text:'Gà rán nóng giòn, phần thịt mềm và sốt chấm rất hợp vị.',publishTime:new Date().toISOString()}]}
+    ];
+    return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:venues,candidates:venues}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
   const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Có quán gà rán nào rating cao ở quanh khu vực Emart PVT k'})}),env);
   const data=await response.json();
@@ -1595,10 +1599,15 @@ test('AI v3 cleans casual remote-area wording and requests ten highest-rated pla
   assert.equal(calls[0].path,'/place/resolve');
   assert.equal(calls[0].body.query,'Emart PVT');
   assert.equal(calls[1].path,'/poi/nearby');
-  assert.equal(calls[1].body.query,'gà rán');
+  assert.equal(calls[1].body.query,'fast food restaurant');
+  assert.ok(calls[1].body.queryVariants.includes('fried chicken'));
   assert.equal(calls[1].body.limit,10);
-  assert.equal(calls[1].body.sortBy,'rating');
-  assert.match(data.text,/⭐ 4\.9/);
+  assert.equal(calls[1].body.sortBy,'distance');
+  assert.equal(calls[1].body.language,'en');
+  assert.equal(data.travelos.nearby.query.sortBy,'review_quality');
+  assert.equal(data.travelos.nearby.pois[0].id,'recent-review');
+  assert.match(data.text,/không thể xác minh mọi đánh giá/);
+  assert.match(data.travelos.nearby.pois[0].note,/30 ngày/);
   assert.equal(data.travelos.remoteSearch.requestedArea,'Emart PVT');
 });
 
