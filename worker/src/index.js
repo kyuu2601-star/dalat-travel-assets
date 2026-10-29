@@ -1625,6 +1625,7 @@ function deterministicNearbyText(nearby, requestedArea='') {
   const pois = Array.isArray(nearby?.pois) ? nearby.pois.slice(0, qualitySearch?10:5) : [];
   if (!pois.length) {
     const query=typeof nearby?.query==='string'?nearby.query:(nearby?.query?.keyword||nearby?.query?.category||'địa điểm này');
+    if(qualitySearch)return `Pipi đã tìm bằng API bản đồ nhưng chưa có quán nào đủ dấu hiệu thuộc nhóm món “${clean(nearby?.query?.requestedDish||query,120)}” trong khu vực này. Pipi không muốn xếp các quán không liên quan là quán ngon. Bạn thử tăng bán kính hoặc hỏi một nhóm món rộng hơn nhé.`;
     const radii=(nearby?.attemptedRadii||nearby?.searchAttempts?.map(item=>item.radius)||[]).map(Number).filter(Number.isFinite);
     const range=radii.length?` trong các bán kính ${radii.map(value=>value>=1000?`${value/1000} km`:`${value} m`).join(', ')}`:'';
     const queryObject=nearby?.query&&typeof nearby.query==='object'?nearby.query:null,attempted=(queryObject?.keywords||[]).map(value=>clean(value,120)).filter(Boolean).slice(0,4);
@@ -2445,7 +2446,9 @@ function semanticPlaceSearch(query, country, category) {
 const FOOD_QUERY_SCHEMA={type:'OBJECT',properties:{dishEn:{type:'STRING'},dishZh:{type:'STRING'},groupEn:{type:'STRING'},groupZh:{type:'STRING'}},required:['dishEn','dishZh','groupEn','groupZh']};
 
 async function resolvedFoodSearchPlan(request,china,env) {
-  const fallback=foodSearchVariants(request,china);
+  const fallback=request.group==='restaurant'&&!china
+    ?{providerQuery:request.dish,queryVariants:['restaurant'],requestedDish:request.dish,translationSource:'original-dish-fallback'}
+    :foodSearchVariants(request,china);
   if(request.group!=='restaurant'||!env.GEMINI_API_KEY)return fallback;
   try{
     const parsed=await callGeminiJson(foodQueryPrompt,buildContents([],JSON.stringify({dish:request.dish})),FOOD_QUERY_SCHEMA,env,'planner');
@@ -2673,12 +2676,12 @@ async function loadGoogleReviewEvidence(pois, country, env, force=false) {
 }
 
 function qualityPlaceNote(place,dish) {
-  const q=place.reviewQuality||{},rating=num(place.rating),source=place.provider==='amap'?'AMap':'Google';
+  const q=place.reviewQuality||{},rating=num(place.rating),count=int(place.userRatingCount),source=place.provider==='amap'?'AMap':'Google';
   if(q.recentDishFiveWithText>0)return `${q.recentDishFiveWithText} review 5★ trong 30 ngày có nhắc ${dish} (mẫu ${q.sampleSize}/5).`;
   if(q.dishFiveWithText>0)return `${q.dishFiveWithText} review 5★ có nhắc ${dish}; chưa xác minh trong 30 ngày.`;
   if(q.recentFiveWithText>0)return `${q.recentFiveWithText} review 5★ có nội dung trong 30 ngày; chưa xác minh món ${dish}.`;
   if(q.fiveWithText>0)return `${q.fiveWithText} review 5★ có nội dung; chưa xác minh món ${dish} hoặc chất lượng gần đây.`;
-  return rating!=null?`${source} ${rating.toFixed(1)}/5; chưa có review đủ rõ để xác minh món ${dish}.`:`${source} chưa có review đủ rõ để xác minh món ${dish}.`;
+  return rating!=null?`${source} rating tổng ${rating.toFixed(1)}/5${count?` từ ${count} lượt`:''}; chưa xác minh review 30 ngày hoặc món ${dish}.`:`${source} chưa có review đủ rõ để xác minh món ${dish}.`;
 }
 
 async function enrichPlaceNotes(pois, query, country, env) {
@@ -2962,7 +2965,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env)
             let pois=selected?.pois||[];
             if(qualitySearch){
               const reviewed=china?pois:await loadGoogleReviewEvidence(pois,searchCountry,env,true);
-              pois=rankFoodByReviews(reviewed,foodRequest.dish,resultLimit).map(place=>({...place,note:qualityPlaceNote(place,foodRequest.dish),noteConfidence:place.reviewQuality?.dishFiveWithText?'confirmed':'limited'}));
+              pois=rankFoodByReviews(reviewed,foodRequest.dish,resultLimit,Date.now(),foodRequest.group).map(place=>({...place,note:qualityPlaceNote(place,foodRequest.dish),noteConfidence:place.reviewQuality?.dishFiveWithText?'confirmed':'limited'}));
             }else pois=pois.slice(0,resultLimit);
             const normalizedQuery=typeof result.data?.query==='object'?result.data.query:{};
             result={...result,data:{...result.data,

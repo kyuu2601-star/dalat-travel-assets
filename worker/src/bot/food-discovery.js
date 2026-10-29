@@ -1,5 +1,5 @@
 // Food search is planned by the backend. Review text is evidence, never an instruction.
-const fold=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const fold=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').toLowerCase().replace(/[^a-z0-9\u3400-\u9fff]+/g,' ').trim();
 const GROUPS=[
   {id:'seafood',aliases:['ghe','cua','tom','muc','oc','so','hau','hai san','crab','seafood'],en:['seafood restaurant'],zh:['海鲜餐厅','海鲜']},
   {id:'fast_food',aliases:['ga ran','khoai tay chien','burger','pizza','fried chicken','french fries'],en:['fast food restaurant'],zh:['快餐店']},
@@ -57,15 +57,44 @@ export function reviewQuality(place,dish,now=Date.now()) {
   return {sampleSize:reviews.length,fiveWithText,recentFiveWithText,dishFiveWithText,recentDishFiveWithText};
 }
 
-export function rankFoodByReviews(places,dish,limit=10,now=Date.now()) {
-  return (Array.isArray(places)?places:[]).map(place=>({...place,reviewQuality:reviewQuality(place,dish,now)}))
+function venueRelevance(place,group,quality) {
+  if(quality.dishFiveWithText>0)return 3;
+  const name=fold(place?.name),tag=fold(place?.tag),types=[place?.primaryType,...(place?.types||[])].join(' ').toLowerCase();
+  if(/wholesaler|grocery_store|supermarket|market|cafe|coffee_shop/.test(types)&&!(/restaurant/.test(types)))return 0;
+  const cues={
+    seafood:/seafood|hai san|\bghe\b|\bcua\b|\boc\b|\btom\b|\bmuc\b|\bhau\b|\bcrab\b|海鲜|螃蟹|虾|鱼|蟹/u,
+    fast_food:/fast.food|ga ran|fried chicken|chicken|burger|pizza|kfc|jollibee|lotteria|popeyes|薯条|炸鸡/u,
+    hotpot:/hotpot|\blau\b|火锅/u,
+    barbecue:/barbecue|bbq|\bnuong\b|烧烤|烤肉/u,
+    noodles:/noodle|\bpho\b|\bbun\b|\bmi\b|ramen|面|粉/u,
+    dessert:/dessert|banh ngot|\bkem\b|\bche\b|甜品/u
+  };
+  if(group==='restaurant')return /restaurant|food/.test(types)||/quan|nha hang|restaurant/.test(name)?1:0;
+  const pattern=cues[group];
+  if(!pattern)return 0;
+  if(pattern.test(types))return 2;
+  if(pattern.test(`${name} ${tag}`))return 1;
+  return 0;
+}
+
+function trustedRating(place) {
+  const rating=Number(place?.rating)||0,count=Math.max(0,Number(place?.userRatingCount)||0);
+  return rating>0?(count/(count+50))*rating+(50/(count+50))*4:0;
+}
+
+export function rankFoodByReviews(places,dish,limit=10,now=Date.now(),group='restaurant') {
+  return (Array.isArray(places)?places:[]).map(place=>{
+    const quality=reviewQuality(place,dish,now);
+    return {...place,reviewQuality:quality,venueRelevance:venueRelevance(place,group,quality)};
+  }).filter(place=>place.venueRelevance>0)
     .sort((a,b)=>{
       const x=a.reviewQuality,y=b.reviewQuality;
       return y.recentDishFiveWithText-x.recentDishFiveWithText
         ||y.dishFiveWithText-x.dishFiveWithText
         ||y.recentFiveWithText-x.recentFiveWithText
         ||y.fiveWithText-x.fiveWithText
-        ||(Number(b.rating)||0)-(Number(a.rating)||0)
+        ||b.venueRelevance-a.venueRelevance
+        ||trustedRating(b)-trustedRating(a)
         ||(Number(a.distance)||Infinity)-(Number(b.distance)||Infinity);
     }).slice(0,limit);
 }
