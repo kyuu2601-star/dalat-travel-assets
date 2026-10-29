@@ -3117,6 +3117,9 @@ async function handleVoiceV1(request, env) {
             brief=normalizePipiVoice(modelText(await callGemini(prompt,buildContents(history,payload),env,null,false)));
           }catch{brief=deterministicEvidenceAnswer(state)||'Pipi đang hoàn tất câu trả lời ở phần chat bên dưới.';}
         }
+        if(state.nearby?.pois?.length){
+          brief=`Pipi đã tìm được ${state.nearby.pois.length} địa điểm phù hợp. Hãy bấm vào nút Chi tiết ở bên dưới để xem danh sách Pipi đã tìm được.`;
+        }
         emit('spoken',{text:clean(brief,450)});
         emit('phase',{phase:'writing'});
         let detail='';

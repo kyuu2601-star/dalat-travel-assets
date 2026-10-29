@@ -1752,7 +1752,8 @@ test('Voice Mode streams progress, a short spoken answer, and detail from one AP
   assert.match(response.headers.get('content-type'),/application\/x-ndjson/);
   assert.deepEqual(radii,[3000]);
   assert.deepEqual(events.filter(event=>event.type==='phase').map(event=>event.phase),['planning','searching','analyzing','writing']);
-  assert.match(events.find(event=>event.type==='spoken').text,/Lawson/);
+  assert.match(events.find(event=>event.type==='spoken').text,/Chi tiết ở bên dưới/);
+  assert.doesNotMatch(events.find(event=>event.type==='spoken').text,/Lawson/);
   assert.equal(events.find(event=>event.type==='detail').travelos.nearby.pois[0].name,'罗森便利店');
   assert.equal(events.at(-1).type,'done');
 });

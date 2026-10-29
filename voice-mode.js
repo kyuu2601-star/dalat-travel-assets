@@ -11,13 +11,12 @@
   panel.hidden = true;
   panel.innerHTML = `
     <header class="pvm-header"><span>LET'S GO <strong>PIPI</strong> · VOICE THỬ NGHIỆM</span><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></header>
-    <div class="pvm-top"><div class="pvm-mic-halo"><button type="button" id="pvm-mic" aria-label="Giữ để nói, thả ra để gửi"><svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button></div><div id="pvm-tip">Giữ mic để nói · Thả tay để gửi</div><p id="pvm-status" aria-live="polite">Pipi đang chờ bạn nói</p><p id="pvm-caption" aria-live="polite">Nói rõ ràng và gần mic</p><p id="pvm-short" aria-live="polite"></p></div>
+    <div class="pvm-top"><div class="pvm-mic-halo"><button type="button" id="pvm-mic" aria-label="Giữ mic để nói"><svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button></div><p id="pvm-status" aria-live="polite">Giữ mic để nói</p><p id="pvm-caption" aria-live="polite">Pipi đang chờ câu hỏi của bạn</p></div>
     <div class="pvm-bottom"><div class="pvm-chat-title">Trò chuyện với Pipi</div><div id="pvm-chat" role="log" aria-live="polite"></div></div>`;
   document.body.appendChild(panel);
 
   const el = id => document.getElementById(id);
   const status = el('pvm-status');
-  const short = el('pvm-short');
   const log = el('pvm-chat');
   const mic = el('pvm-mic');
   const caption = el('pvm-caption');
@@ -100,7 +99,29 @@
     speechEpoch++;
     activeAudio?.pause(); activeAudio = null;
     activeAudioDone?.(); activeAudioDone = null;
+    nativeVoice?.stop?.().catch(() => {});
+    window.speechSynthesis?.cancel?.();
     panel.classList.remove('speaking');
+  }
+  async function playFallback(text, token, epoch, onStart) {
+    if (token !== generation || epoch !== speechEpoch) return false;
+    if (nativeVoice?.speak) {
+      const playback = nativeVoice.speak({text,language:'vi-VN'});
+      onStart?.();
+      await playback;
+      return token === generation && epoch === speechEpoch;
+    }
+    const synth = window.speechSynthesis;
+    if (!synth || typeof SpeechSynthesisUtterance !== 'function') return false;
+    await new Promise((resolve,reject) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';utterance.rate = 1.05;
+      utterance.onstart = () => onStart?.();
+      utterance.onend = resolve;
+      utterance.onerror = () => reject(new Error('VOICE_FALLBACK_FAILED'));
+      synth.speak(utterance);
+    });
+    return token === generation && epoch === speechEpoch;
   }
   async function playAudioUrl(url, onStart) {
     const audio = new Audio(url); activeAudio = audio;
@@ -144,6 +165,8 @@
         return token === generation && epoch === speechEpoch;
       } catch (error) {
         if (epoch === speechEpoch && token === generation) {
+          try { if (await playFallback(text, token, epoch, onStart)) return true; }
+          catch (fallbackError) { console.warn('Pipi fallback voice playback unavailable:', fallbackError); }
           caption.textContent = 'Chưa phát được giọng Pipi. Bạn có thể đọc nội dung trên màn hình.';
           console.warn('Pipi voice playback unavailable:', error);
         }
@@ -175,8 +198,8 @@
       setState('Pipi cần quyền micro để nghe bạn nói', 'error');
       caption.textContent = 'Hãy cho phép khi Android hỏi. Nếu đã từ chối, bật Micro trong Cài đặt ứng dụng.';
     } else if (voiceReady) {
-      setState('Pipi đang chờ bạn nói', 'ready');
-      caption.textContent = Recognition ? 'Nói rõ ràng và gần mic' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
+      setState('Giữ mic để nói', 'ready');
+      caption.textContent = Recognition ? 'Pipi đang chờ câu hỏi của bạn' : 'Thiết bị chưa hỗ trợ nhận giọng nói';
       if (Recognition) mic.focus();
     }
   }
@@ -195,7 +218,6 @@
   }
   function open() {
     panel.hidden = false;
-    short.textContent = '';
     mic.disabled = true;
     if (window.TRAVELOS_NATIVE) requestMicrophone();
     if (voiceReady) {
@@ -242,9 +264,7 @@
     log.scrollTop = log.scrollHeight;
     if (typeof addMessage === 'function') addMessage('user', text);
     if (typeof saveMessage === 'function') saveMessage('user', text);
-    short.textContent = '';
     setState(phaseText.planning, 'busy');
-    speak('Pipi đang phân tích câu hỏi.', token);
     const history = typeof readHistory === 'function' ? readHistory() : null;
     const messages = (history?.messages || []).slice(-7, -1).map(message => ({ role: message.role, content: message.content }));
     const latestContext = [...(history?.messages || [])].reverse().find(message => message?.travelContext || message?.nearby);
@@ -269,8 +289,8 @@
         const mapButton = document.createElement('button');
         mapButton.type = 'button';
         mapButton.className = 'pvm-map-link';
-        mapButton.textContent = 'Xem danh sách trên bản đồ';
-        mapButton.addEventListener('click', () => { close(); message?.scrollIntoView?.({ block: 'end' }); });
+        mapButton.textContent = 'Chi Tiết';
+        mapButton.addEventListener('click', () => { close(); window.TravelNearby?.openFull?.(nearby); });
         log.appendChild(mapButton);
       }
       const travelContext = typeof compactTravelContext === 'function' ? compactTravelContext(detail.travelos) : null;
@@ -279,8 +299,7 @@
     const revealReply = () => {
       if (replyStarted || token !== generation || panel.hidden) return;
       replyStarted = true;
-      short.textContent = spokenText;
-      setState('Pipi đã tìm thấy câu trả lời', 'answer');
+      setState('Pipi đang trả lời bạn…', 'answer');
       showDetail();
     };
     try {
@@ -296,8 +315,6 @@
         let event; try { event = JSON.parse(line); } catch { return; }
         if (event.type === 'phase' && phaseText[event.phase]) {
           if (!replyStarted) setState(phaseText[event.phase], 'busy');
-          if (event.phase === 'searching') speak('Pipi đang tìm kiếm thông tin.', token);
-          if (event.phase === 'analyzing') speak('Pipi đang phân tích kết quả.', token);
         } else if (event.type === 'spoken') {
           spokenText = event.text || '';
           setState('Pipi đang chuẩn bị nói…', 'busy');
@@ -319,11 +336,11 @@
       }
       consume(buffer);
       if (token === generation && detail) {
-        const played = await briefPromise;
+        await briefPromise;
         revealReply();
         if (token === generation) {
-          setState('Bạn có cần Pipi giúp gì nữa không?', 'ready');
-          if (played) await speak('Bạn có cần Pipi giúp gì nữa không?', token);
+          setState('Giữ mic để nói', 'ready');
+          caption.textContent = 'Pipi đang chờ câu hỏi của bạn';
         }
       } else if (token === generation) throw new Error('Pipi chưa nhận được câu trả lời chi tiết.');
     } catch (error) {
@@ -364,9 +381,9 @@
       recognition = null;
       if (panel.hidden) return;
       if (!holding) finish();
-      else caption.textContent = 'Thả tay để Pipi kiểm tra câu vừa nghe';
+      else caption.textContent = 'Pipi đang ghi nhận câu hỏi của bạn';
     };
-    try { recognition.start(); setState('Pipi đang nghe bạn…', 'listening'); mic.classList.add('active'); caption.textContent = 'Thả tay để gửi'; }
+    try { recognition.start(); setState('Pipi đang nghe bạn…', 'listening'); mic.classList.add('active'); caption.textContent = 'Pipi đang ghi nhận câu hỏi của bạn'; }
     catch { holding = false; recognition = null; setState('Không mở được mic. Bạn kiểm tra quyền micro nhé.', 'error'); }
   }
   function finish() {
@@ -374,12 +391,11 @@
     const quality = window.PipiVoiceQuality?.(transcript, confidence, recognitionError) || { clear: Boolean(transcript.trim()), text: transcript.trim() };
     const permissionDenied = recognitionError === 'not-allowed' || recognitionError === 'service-not-allowed';
     transcript = ''; confidence = null; recognitionError = '';
-    caption.textContent = 'Giữ mic để thử lại';
+    caption.textContent = 'Pipi đang chờ câu hỏi của bạn';
     if (quality.clear) send(quality.text);
     else {
       const prompt = permissionDenied ? 'Bạn hãy cho phép dùng micro rồi thử lại nhé.' : 'Pipi chưa nghe rõ. Bạn hãy nói to, rõ hơn vào mic nhé.';
       setState(prompt, 'unclear');
-      short.textContent = '';
       append('ai', prompt);
       speak(prompt, ++generation, true);
     }

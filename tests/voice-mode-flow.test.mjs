@@ -78,10 +78,10 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   const voiceEvents = [
     {type:'phase',phase:'planning'},
     {type:'spoken',text:'Pipi chào bạn.'},
-    {type:'detail',text:'Đây là câu trả lời chi tiết.',travelos:{version:3}},
+    {type:'detail',text:'Đây là câu trả lời chi tiết.',travelos:{version:3,nearby:{provider:'google_places',pois:[{id:'shop',name:'Cửa hàng gần đây',lat:10.77,lng:106.69}]}}},
     {type:'done'}
   ].map(event => JSON.stringify(event)).join('\n') + '\n';
-  let networkCalls = 0, synthesisCalls = 0;
+  let networkCalls = 0, synthesisCalls = 0, nativeSpeakCalls = 0, failSynthesis = false;
   const playedUrls = [];
   const fetch = async url => {
     networkCalls++;
@@ -96,6 +96,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   let finishPreparation;
   const preparation = new Promise(resolve => { finishPreparation = resolve; });
   let permission = 'denied', permissionRequests = 0, recognitionStarts = 0, nativeListener = null;
+  let openedMap = null;
   const window = {
     SpeechRecognition:Recognition,
     TRAVELOS_NATIVE:true,
@@ -104,14 +105,17 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
       addListener:async(_event,listener)=>{nativeListener=listener;return {remove(){nativeListener=null;}};},
       startRecognition:async()=>{recognitionStarts++;},
       stopRecognition:async()=>{nativeListener?.({type:'final',transcript:recognizedText,confidence:0.9});},
-      cancelRecognition:async()=>{}
+      cancelRecognition:async()=>{},
+      speak:async()=>{nativeSpeakCalls++;},
+      stop:async()=>{}
     }}},
+    TravelNearby:{openFull:payload=>{openedMap=payload;}},
     PipiLocalVoice:{
       prepare:async()=>{await preparation;return {ready:true};},
-      synthesize:async()=>{synthesisCalls++;await audioGate;return {wav:new Uint8Array([82,73,70,70]).buffer};}
+      synthesize:async()=>{synthesisCalls++;if(failSynthesis)throw new Error('LOCAL_VOICE_FAILED');await audioGate;return {wav:new Uint8Array([82,73,70,70]).buffer};}
     }
   };
-  const context = vm.createContext({window,document,fetch,Audio:FakeAudio,Blob,Response,ReadableStream,TextEncoder,TextDecoder,AbortController,atob,URL,CONFIG:{WORKER_URL:'https://pipi.test'},console,queueMicrotask});
+  const context = vm.createContext({window,document,fetch,Audio:FakeAudio,Blob,Response,ReadableStream,TextEncoder,TextDecoder,AbortController,atob,URL,CONFIG:{WORKER_URL:'https://pipi.test'},compactNearbySnapshot:value=>value,console,queueMicrotask});
   vm.runInContext(await readFile(new URL('../voice-mode.js',import.meta.url),'utf8'),context);
   window.PipiVoiceMode.open();
   const mic=elements.get('pvm-mic');
@@ -133,19 +137,28 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   mic.listeners.pointerup({preventDefault() {}});
   await new Promise(resolve => setTimeout(resolve,10));
   const log=elements.get('pvm-chat');
-  assert.equal(elements.get('pvm-short').textContent,'');
+  assert.equal(elements.has('pvm-short'),false,'Spoken answer is not duplicated above the detailed text');
   assert.ok(log.children.some(child => child.className === 'pvm-message ai pvm-typing'));
   assert.ok(!log.children.some(child => child.textContent === 'Đây là câu trả lời chi tiết.'));
   releaseAudio();
   await new Promise(resolve => setTimeout(resolve,10));
-  assert.equal(elements.get('pvm-short').textContent,'Pipi chào bạn.');
   assert.ok(log.children.some(child => child.textContent === 'Đây là câu trả lời chi tiết.'));
   assert.ok(!log.children.some(child => child.className === 'pvm-message ai pvm-typing'));
+  assert.equal(playedUrls.length,1,'The first answer uses the local voice');
+  failSynthesis = true;
+  mic.listeners.pointerdown({pointerId:3,preventDefault() {}});
+  mic.listeners.pointerup({preventDefault() {}});
+  await new Promise(resolve => setTimeout(resolve,10));
+  assert.equal(nativeSpeakCalls,1,'Android speaks the answer when local synthesis fails');
   recognizedText = '';
   mic.listeners.pointerdown({pointerId:2,preventDefault() {}});
   mic.listeners.pointerup({preventDefault() {}});
   await new Promise(resolve => setTimeout(resolve,0));
-  assert.equal(synthesisCalls,1,'Unclear speech uses its prepared clip immediately');
-  assert.equal(networkCalls,1,'Unclear speech does not request an AI or cloud voice');
+  assert.equal(synthesisCalls,2,'Unclear speech uses its prepared clip immediately');
+  assert.equal(networkCalls,2,'Unclear speech does not request an AI or cloud voice');
   assert.ok(playedUrls.some(url => url.includes('unclear.wav')));
+  const detailsButton=log.children.find(child=>child.className==='pvm-map-link');
+  assert.equal(detailsButton?.textContent,'Chi Tiết');
+  detailsButton.listeners.click();
+  assert.equal(openedMap?.pois?.[0]?.id,'shop','Voice details open the place list map directly');
 });
