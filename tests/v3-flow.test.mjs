@@ -70,6 +70,24 @@ test('Map Worker uses Google Places as primary for a Pharmacity brand search', a
   } finally { globalThis.fetch=originalFetch; }
 });
 
+test('Map Worker uses dish-specific text searches for food quality instead of generic nearby restaurants', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requests=[];
+  globalThis.fetch=async (url,init={})=>{
+    const body=JSON.parse(String(init.body||'{}'));requests.push({url:String(url),body});
+    return new Response(JSON.stringify({places:[{id:'seafood-1',displayName:{text:'Hải Sản Gò Vấp'},formattedAddress:'Gò Vấp',location:{latitude:10.8351,longitude:106.67},primaryType:'seafood_restaurant',types:['restaurant','seafood_restaurant'],rating:4.6,userRatingCount:200}]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:10.835,lng:106.67},country:'Việt Nam',query:'seafood restaurant',keyword:'seafood restaurant',queryVariants:['crab'],category:'restaurant',preferTextSearch:true,radius:3000,limit:10,candidateLimit:50})}),{GOOGLE_MAPS_API_KEY:'google-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.source,'google-places-expanded-text-v1');
+    assert.equal(data.pois[0].id,'seafood-1');
+    assert.deepEqual(requests.map(item=>item.body.textQuery),['seafood restaurant','crab']);
+    assert.ok(requests.every(item=>item.url.endsWith('places:searchText')));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker ranks an exact named place above a closer partial match inside 50 km', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch;let requestedBody=null;
@@ -233,17 +251,18 @@ test('Map Worker translates and similarity-ranks a named China place with AMap',
   const originalFetch=globalThis.fetch,requestedUrls=[];
   globalThis.fetch=async url=>{
     requestedUrls.push(String(url));
-    return new Response(JSON.stringify({status:'1',info:'OK',count:'2',pois:[
-      {id:'near-other',name:'重庆来福士探索舱观景台',address:'接圣街8号',location:'106.585,29.565',cityname:'重庆市',business:{rating:'4.6'}},
-      {id:'exact-raffles',name:'重庆来福士广场',address:'接圣街8号',location:'106.586,29.566',cityname:'重庆市',business:{rating:'4.7',business_status:'营业中',opentime_today:'10:00-22:00'}}
-    ]}),{status:200,headers:{'Content-Type':'application/json'}});
+    const places=String(url).includes('/place/text')
+      ?[{id:'exact-raffles',name:'重庆来福士广场',address:'接圣街8号',location:'106.586,29.566',cityname:'重庆市',type:'购物服务;商场;购物中心',business:{rating:'4.7',business_status:'营业中',opentime_today:'10:00-22:00'}}]
+      :[{id:'near-other',name:'重庆来福士住宅',address:'接圣街8号',location:'106.585,29.565',cityname:'重庆市',type:'商务住宅;住宅区;住宅区',business:{rating:'4.6'}}];
+    return new Response(JSON.stringify({status:'1',info:'OK',count:String(places.length),pois:places}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try{
     const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',query:'Raffles City Trùng Khánh',keyword:'Raffles City Trùng Khánh',name:'Raffles City Trùng Khánh',radius:50000,limit:5,sortBy:'name_similarity'})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json(),urls=requestedUrls.map(value=>new URL(value));
     assert.equal(response.status,200);
     assert.ok(urls.some(url=>/重庆来福士广场/.test(url.searchParams.get('keywords')||'')));
-    assert.ok(urls.every(url=>url.searchParams.get('radius')==='50000'));
+    assert.ok(urls.filter(url=>url.pathname.includes('/place/around')).every(url=>url.searchParams.get('radius')==='50000'));
+    assert.ok(urls.some(url=>url.pathname.includes('/place/text')));
     assert.equal(data.query.sortBy,'name_similarity');
     assert.equal(data.pois[0].id,'exact-raffles');
     assert.equal(data.pois[0].openNow,true);
@@ -1009,6 +1028,12 @@ test('AI v3 uses current GPS for outdoor weather and still answers when Gemini i
     assert.equal(data.travelos.sources[0].source,'google-weather-v1');
     assert.match(data.text,/vị trí hiện tại/);
     assert.match(data.text,/tiện để đi chơi/);
+    const around=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết quanh đây có tiện đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69,source:'gps'}})}),env);
+    const aroundData=await around.json();
+    assert.deepEqual(aroundData.travelos.plan.tools.map(tool=>tool.name),['weather']);
+    assert.equal(weatherBody.location.lat,10.77);
+    assert.equal(weatherBody.location.lng,106.69);
+    assert.match(aroundData.text,/vị trí hiện tại/);
   }finally{}
 });
 
@@ -1154,9 +1179,11 @@ test('GPT handles planning and reply first; Gemini answers when GPT fails', asyn
       assert.equal(init.headers.Authorization,'Bearer fake-openai');
       const body=JSON.parse(init.body);
       assert.equal(body.store,false);
+      assert.equal(typeof body.input,'string');
+      if(body.text?.format?.type==='json_object')assert.match(body.input,/JSON/);
       if(failOpenAi)return new Response(JSON.stringify({error:{message:'unavailable'}}),{status:503});
       const text=body.text?.format?.type==='json_object'
-        ?JSON.stringify({englishMeaning:'Greet Pipi',primaryIntent:'LOCAL_GUIDE',needs:[],answerContract:[],clarificationQuestion:'',overallConfidence:.9,shouldUseLiveData:false})
+        ?JSON.stringify({englishMeaning:'Greet Pipi',primaryIntent:'LOCAL_GUIDE',needs:[],answerContract:[],clarificationQuestion:'Chào bạn, mình giúp gì?',overallConfidence:.9,shouldUseLiveData:false})
         :'Chào bạn, Pipi đây!';
       return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text}]}]}),{status:200});
     }
@@ -1171,12 +1198,26 @@ test('GPT handles planning and reply first; Gemini answers when GPT fails', asyn
     let response=await worker.fetch(request(),env),data=await response.json();
     assert.equal(response.status,200);
     assert.match(data.text,/Pipi/);
+    assert.equal(data.travelos.plan.needsClarification,false);
     assert.deepEqual(calls,['openai','openai']);
     failOpenAi=true;calls.length=0;
     response=await worker.fetch(request(),env);data=await response.json();
     assert.equal(response.status,200);
     assert.match(data.text,/Pipi/);
     assert.deepEqual(calls,['openai','gemini','openai','gemini']);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('OpenAI errors expose only safe diagnostic codes, not credentials', async () => {
+  const {requestOpenAi}=await import('../worker/src/bot/openai-provider.js');
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(JSON.stringify({error:{code:'insufficient_quota',param:'text.format',message:'sensitive details'}}),{status:429});
+  try{
+    await assert.rejects(requestOpenAi('Say hello',[{role:'user',parts:[{text:'hello'}]}],{OPENAI_API_KEY:'secret-test'}),error=>{
+      assert.equal(error.message,'OPENAI_HTTP_429_insufficient_quota_text.format');
+      assert.doesNotMatch(error.message,/secret-test|sensitive details/);
+      return true;
+    });
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -1195,7 +1236,8 @@ test('AI v3 reports provider suggestions for a live need that has no adapter', a
   try{
     const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'tỷ giá CNY sang VND hôm nay',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),{GEMINI_API_KEY:'test',SEMANTIC_PLANNER_ENABLED:'true',SEMANTIC_PLANNER_MODE:'adaptive',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
     const data=await response.json();
-    assert.equal(call,2);
+    assert.equal(call,0);
+    assert.equal(data.text,'Pipi chưa thể hỗ trợ câu hỏi này.');
     assert.equal(data.travelos.missingApiSuggestions[0].need,'CURRENCY_RATE');
     assert.ok(data.travelos.missingApiSuggestions[0].suggestedProviders.includes('Frankfurter API'));
   }finally{globalThis.fetch=originalFetch;}
@@ -1214,11 +1256,21 @@ test('AI v3 keeps unsupported live needs safe when Gemini rejects the Worker loc
     const data=await response.json();
     assert.equal(response.status,200);
     assert.equal(data.error,undefined);
-    assert.match(data.text,/chưa có nguồn dữ liệu đã xác minh cho tỷ giá live/i);
-    assert.equal(data.travelos.plan.planner,'deterministic-fallback');
+    assert.equal(data.text,'Pipi chưa thể hỗ trợ câu hỏi này.');
     assert.equal(data.travelos.missingApiSuggestions[0].need,'CURRENCY_RATE');
-    assert.equal(calls.length,6);
+    assert.equal(calls.length,0);
   }finally{globalThis.fetch=originalFetch;console.warn=originalWarn;}
+});
+
+test('AI v3 does not mistake a currency conversion for a China place name', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('Map should not be called');}}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Đổi 100 tệ sang VND',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.565,longitude:106.587}})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(data.text,'Pipi chưa thể hỗ trợ câu hỏi này.');
+  assert.equal(mapCalls,0);
 });
 
 test('AI v3 accepts compact lat/lng and plans tools deterministically on the backend', async () => {
@@ -1304,6 +1356,12 @@ test('AI v3 preserves an arbitrary venue name and returns verified details even 
   assert.match(data.travelos.reviewSummary,/Các đánh giá gần đây chấm trung bình 5\.0\/5/);
   assert.match(data.text,/28 Võ Văn Tần/);
   assert.match(data.text,/đang mở/);
+  calls.length=0;
+  const where=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Bảo tàng Chứng tích Chiến tranh ở đâu?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),env);
+  const whereData=await where.json();
+  assert.deepEqual(calls.map(call=>call.path),['/poi/nearby','/poi/details']);
+  assert.equal(whereData.travelos.nearby.pois[0].id,'war-museum');
+  assert.doesNotMatch(whereData.text,/AMap|Trung Quốc/);
 });
 
 test('AI v3 translates a Vietnamese China landmark name before AMap search', async () => {
@@ -1332,6 +1390,23 @@ test('AI v3 translates a Vietnamese China landmark name before AMap search', asy
   assert.equal(data.travelos.placeDetails.id,'B00170BPJJ');
   assert.equal(data.travelos.nearby.pois[0].id,'B00170BPJJ');
   assert.match(data.text,/重庆市人民大礼堂/);
+});
+
+test('AI v3 searches the venue named in a social-media closure rumor', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const venue={id:'raffles-cq',name:'重庆来福士广场',address:'接圣街8号',lat:29.566,lng:106.587,distance:250,rating:'4.6',provider:'amap',country:'Trung Quốc'};
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/poi/nearby')return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[venue]}),{headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({ok:true,source:'amap-place-detail-v5',provider:'amap',place:venue}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'TikTok nói Raffles City Trùng Khánh đóng cửa, có thật không?',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.565,longitude:106.587}})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(calls[0].path,'/poi/nearby');
+  assert.equal(calls[0].body.name,'Raffles City Trùng Khánh');
+  assert.equal(data.travelos.placeDetails.id,'raffles-cq');
 });
 
 test('AI v3 keeps a named China hotel readable in chat and the map list without AI', async () => {
@@ -1665,6 +1740,24 @@ test('AI v3 ranks food venues by recent meaningful review evidence instead of ag
   assert.doesNotMatch(data.text,/API|30 ngày|dữ liệu|review/);
   assert.match(data.travelos.nearby.pois[0].note,/Có khách gần đây khen món gà rán/);
   assert.equal(data.travelos.remoteSearch.requestedArea,'Emart PVT');
+});
+
+test('AI v3 retries a dish-name search when broad food categories have no relevant venue', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();calls.push(body);
+    const dish=body.name==='bánh xèo';
+    const pois=dish?[{id:'banh-xeo-1',name:'Bánh Xèo Miền Trung',address:'Gò Vấp',lat:10.85,lng:106.68,distance:2100,provider:'geoapify',country:'Việt Nam'},{id:'banh-xeo-duplicate',name:'Bánh Xèo Miền Trung',address:'Gò Vấp',lat:10.85001,lng:106.68001,distance:2101,provider:'geoapify',country:'Việt Nam'}]:[{id:'rice-1',name:'Cơm tấm',address:'Gò Vấp',lat:10.836,lng:106.67,distance:100,provider:'geoapify',country:'Việt Nam',primaryType:'restaurant'}];
+    return new Response(JSON.stringify({ok:true,source:'geoapify-places-v2',provider:'geoapify',center:body.center,pois}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán bánh xèo ngon quanh đây',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.835,longitude:106.67}})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.ok(calls.some(call=>call.name==='bánh xèo'&&call.radius>=10000));
+  assert.equal(data.travelos.nearby.pois[0].name,'Bánh Xèo Miền Trung');
+  assert.equal(data.travelos.nearby.pois.length,1);
+  assert.match(data.travelos.nearby.pois[0].note,/Tên quán ghi món bánh xèo/);
 });
 
 test('AI v3 strips trailing ranking words from a remote China area and forces AMap', async () => {

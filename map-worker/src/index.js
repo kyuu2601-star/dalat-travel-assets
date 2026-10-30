@@ -446,6 +446,7 @@ const AMAP_TYPE_EVIDENCE={
 };
 function categoryInfo(keyword, category='', name='') {
   const q=fold(`${category} ${keyword}`);
+  if(name&&/(?:raffles?\s*city|来福士)/iu.test(name))return {geoCategories:['commercial.shopping_mall'],googleType:'shopping_mall',amapKeyword:clean(name,120),amapVariants:[],name:clean(name,120)};
   for(const rule of SEARCH_RULES) if(rule.aliases.some(x=>q.includes(fold(x)))) {
     return {geoCategories:rule.geo,googleType:rule.google,amapKeyword:clean(name,120)||rule.amap,amapVariants:clean(name,120)?[]:(rule.amapVariants||[]),name:clean(name,120)};
   }
@@ -475,7 +476,7 @@ async function amapNearby(body, env, originHeader, center, keyword, types, radiu
   try{
     const requestKeywords=info.name?amapQueries.slice(0,4):amapQueries.slice(0,3);
     const requests=requestKeywords.flatMap(query=>info.name?[{query,radius,page:1}]:[{query,radius:Math.min(radius,700),page:1},{query,radius,page:1},{query,radius,page:2}]);
-    const attempts=await Promise.all(requests.map(async ({query,radius:searchRadius,page})=>{
+    const aroundRequests=Promise.all(requests.map(async ({query,radius:searchRadius,page})=>{
       const params=new URLSearchParams({key:env.AMAP_WEB_KEY,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,radius:String(searchRadius),output:'json',page_size:String(Math.min(25,candidateLimit)),page_num:String(page),sortrule:'distance',show_fields:'business,navi'});
       if(query)params.set('keywords',query);if(types)params.set('types',types);
       try{
@@ -483,13 +484,20 @@ async function amapNearby(body, env, originHeader, center, keyword, types, radiu
         return {query,searchRadius,page,ok:response.ok&&String(raw?.status)==='1',status:response.status,raw,error:!response.ok?`HTTP ${response.status}`:String(raw?.status)==='1'?'':clean(raw?.info||'unknown error',200)};
       }catch(error){return {query,searchRadius,page,ok:false,status:0,raw:null,error:clean(error?.message,200)};}
     }));
+    const namedTextQuery=info.googleType==='shopping_mall'&&/(?:raffles?\s*city|来福士)/iu.test(info.name)?'重庆来福士':requestKeywords[0]||info.name;
+    const textParams=info.name?new URLSearchParams({key:env.AMAP_WEB_KEY,keywords:namedTextQuery,location:`${queryCenter.lng.toFixed(6)},${queryCenter.lat.toFixed(6)}`,sortrule:'distance',page_size:String(Math.min(25,candidateLimit)),page_num:'1',show_fields:'business,navi',output:'json'}):null;
+    const [attempts,namedText]=await Promise.all([aroundRequests,textParams?fetchJson(`${AMAP_TEXT_SEARCH_URL}?${textParams.toString()}`).catch(()=>null):Promise.resolve(null)]);
     const successful=attempts.filter(item=>item.ok);
-    if(!successful.length){
+    if(!successful.length&&!(namedText?.ok&&String(namedText.data?.status)==='1')){
       const first=attempts[0]||{};
       return json({error:`AMap Nearby: ${first.error||'unknown error'}`,infocode:first.raw?.infocode||'',provider:'amap'},502,originHeader);
     }
     const unique=new Map();
     for(const attempt of successful)for(const rawPoi of Array.isArray(attempt.raw?.pois)?attempt.raw.pois:[]){
+      const poi=normalizeAmapPoi(rawPoi,queryCenter,country),key=clean(poi?.id,200)||`${poi?.lat},${poi?.lng},${fold(poi?.name)}`;
+      if(poi&&!unique.has(key))unique.set(key,poi);
+    }
+    if(namedText?.ok&&String(namedText.data?.status)==='1')for(const rawPoi of Array.isArray(namedText.data?.pois)?namedText.data.pois:[]){
       const poi=normalizeAmapPoi(rawPoi,queryCenter,country),key=clean(poi?.id,200)||`${poi?.lat},${poi?.lng},${fold(poi?.name)}`;
       if(poi&&!unique.has(key))unique.set(key,poi);
     }
@@ -500,8 +508,9 @@ async function amapNearby(body, env, originHeader, center, keyword, types, radiu
       // A restaurant inside a hotel often contains “酒店” in its name. Use
       // AMap's category/tag evidence instead of the display name so it cannot
       // replace the requested hotel itself.
-      const categoryMatches=ranked.filter(place=>categoryEvidence.test(`${place.type} ${place.tag}`));
+      const categoryMatches=ranked.filter(place=>info.googleType==='shopping_mall'?/;商场;|;购物中心|;购物广场/u.test(place.type):categoryEvidence.test(`${place.type} ${place.tag}`));
       if(categoryMatches.length)ranked=categoryMatches;
+      else if(info.googleType==='shopping_mall')ranked=[];
     }
     const pois=ranked.slice(0,limit);
     return json({ok:true,source:'amap-place-v5',provider:'amap',query:{keyword:info.name?requestKeywords[0]:amapKeyword,keywords:amapQueries,category:clean(body?.category,80),name:clean(body?.name,120),sortBy:info.name?'name_similarity':sortBy,types,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,candidates:ranked.slice(0,50),meta:{info:'OK',infocode:'10000',total:normalized.length,coverageLimited:attempts.some(item=>Array.isArray(item.raw?.pois)&&item.raw.pois.length>=Math.min(25,candidateLimit)),attempts:attempts.map(item=>({query:item.query,radius:item.searchRadius,page:item.page,ok:item.ok,count:Array.isArray(item.raw?.pois)?item.raw.pois.length:0,error:item.error}))}},200,originHeader);
@@ -788,7 +797,7 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
   const expansion=!name&&textQuery?expandedSearchQuery(textQuery):'';
   const textQueries=!name?uniqueSearchQueries(textQuery,body?.queryVariants,expansion):[];
   const categoryRule=SEARCH_RULES.find(rule=>rule.google===info.googleType);
-  const categoryOnlyQuery=!name&&Boolean(info.googleType)&&Boolean(categoryRule)&&categoryRule.aliases.some(alias=>fold(textQuery||keyword).includes(fold(alias)));
+  const categoryOnlyQuery=!body?.preferTextSearch&&!name&&Boolean(info.googleType)&&Boolean(categoryRule)&&categoryRule.aliases.some(alias=>fold(textQuery||keyword).includes(fold(alias)));
   let result,source;
   if(categoryOnlyQuery||(!name&&!textQuery&&info.googleType)){
     const options={googleType:info.googleType,center,limit:20,language:body?.language,country};
@@ -827,7 +836,10 @@ async function googleNearby(body, env, originHeader, center, keyword, radius, li
       return json({ok:true,source,provider:'google_places',query:{keyword,name,googleType:info.googleType,sortBy:name?'name_similarity':sortBy,radius,limit,candidateLimit},center:{lat:center.lat,lng:center.lng,coordSystem:'wgs84',country},count:pois.length,pois,candidates:ranked.slice(0,Math.min(50,candidateLimit)),meta:{total:eligible.length,coverageLimited:Boolean(result.coverageLimited)}},200,originHeader);
     }
   }
-  if(env.GEOAPIFY_API_KEY) return geoapifyNearby(body,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
+  if(env.GEOAPIFY_API_KEY){
+    if(body?.preferTextSearch)console.warn('GOOGLE_TEXT_SEARCH_FALLBACK',/quota exceeded/i.test(result?.error||'')?'DAILY_QUOTA_EXCEEDED':result?.error?'UPSTREAM_ERROR':'NO_MATCHING_PLACES');
+    return geoapifyNearby(body,env,originHeader,center,keyword,radius,limit,candidateLimit,country);
+  }
   return json({error:result.error||'Google Places không trả kết quả.',provider:'google_places'},502,originHeader);
 }
 

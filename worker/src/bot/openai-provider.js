@@ -27,14 +27,21 @@ export async function requestOpenAi(systemPrompt,contents,env,{json=false,purpos
   const model=clean(planner?env.OPENAI_PLANNER_MODEL||env.OPENAI_MODEL:env.OPENAI_MODEL,120)||'gpt-6-luna';
   const timeout=purpose==='place-category'?4000:Math.min(20000,Math.max(4000,Number(env.OPENAI_TIMEOUT_MS)||12000));
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
-  const body={model,instructions:String(systemPrompt||'')+(json?'\nReturn one valid JSON object and no other text.':''),input:openAiInput(contents),store:false};
+  const transcript=openAiInput(contents).map(item=>`${item.role==='assistant'?'Previous assistant':'User'}: ${item.content}`).join('\n\n');
+  const body={model,instructions:String(systemPrompt||'')+(json?'\nReturn one valid JSON object and no other text.':''),input:json?`Return JSON.\n\n${transcript}`:transcript,store:false};
   if(json)body.text={format:{type:'json_object'}};
   try{
     const response=await fetch('https://api.openai.com/v1/responses',{
       method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${env.OPENAI_API_KEY}`},
       body:JSON.stringify(body),signal:controller.signal
     });
-    if(!response.ok)throw new Error(`OPENAI_HTTP_${response.status}`);
+    if(!response.ok){
+      // Log only provider error metadata; never log the key, prompt or raw body.
+      const failure=await response.json().catch(()=>({}));
+      const code=clean(failure?.error?.code||failure?.error?.type,60).replace(/[^a-zA-Z0-9_.-]/g,'');
+      const param=clean(failure?.error?.param,60).replace(/[^a-zA-Z0-9_.-]/g,'');
+      throw new Error(['OPENAI_HTTP',response.status,code,param].filter(Boolean).join('_'));
+    }
     const data=await response.json();
     if(data?.status==='incomplete'||data?.status==='failed')throw new Error('OPENAI_INCOMPLETE');
     const text=openAiText(data);

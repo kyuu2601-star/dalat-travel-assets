@@ -1709,7 +1709,7 @@ function remoteAreaSearchIntent(userMessage) {
       .replace(/\s+(?:giúp|cho)\s+(?:tôi|tui|mình)$/i,'')
       .trim();
     const areaKey=fold(area);
-    if(!query||!area||['toi','tui','minh','day','gan day','cho toi','cho minh','nhat'].includes(areaKey))continue;
+    if(!query||!area||['toi','tui','minh','day','gan day','cho toi','cho minh','nhat','dau','o dau','nam o dau','nao','cho nao'].includes(areaKey))continue;
     return {query,area,radius:3000,limit:requestedPlaceLimit(text),sortBy:ranking};
   }
   return null;
@@ -1909,7 +1909,7 @@ function detectTravelIntent(userMessage, previousContext = null) {
 function weatherLocationQuery(userMessage) {
   const text=clean(userMessage,500).replace(/[?!.]+$/,'').trim();
   const normalized=fold(text);
-  if(/\b(?:o day|tai day|cho toi|cho tui|vi tri hien tai|gan toi|quanh toi)\b/.test(normalized))return'';
+  if(/\b(?:o day|tai day|cho toi|cho tui|vi tri hien tai|gan toi|quanh toi|quanh day|xung quanh day)\b/.test(normalized))return'';
   const match=text.match(/(?:^|\s)(?:ở|tại|o|tai)\s+(.+)$/i)||text.match(/^(?:thời tiết|dự báo thời tiết)\s+(.+)$/i);
   if(!match)return'';
   const place=clean(match[1],300)
@@ -1917,7 +1917,7 @@ function weatherLocationQuery(userMessage) {
     .replace(/\s+(?:có\s+)?(?:tiện|ổn)\s+(?:để\s+)?đi\s+chơi.*$/i,'')
     .replace(/\s+(?:thế nào|ra sao|như thế nào)$/i,'').trim();
   if(/^(?:co|the nao|ra sao|hom nay|bay gio|luc nay|hien tai)\b/.test(fold(place)))return'';
-  return ['day','cho toi','cho tui','vi tri hien tai','gan toi','quanh toi'].includes(fold(place))?'':place;
+  return ['day','cho toi','cho tui','vi tri hien tai','gan toi','quanh toi','quanh day','xung quanh day'].includes(fold(place))?'':place;
 }
 
 function sameTool(a,b){return a?.name===b?.name&&clean(a?.query,300)===clean(b?.query,300)&&clean(a?.placeName,200)===clean(b?.placeName,200);}
@@ -1999,6 +1999,7 @@ function placeQueryFromMessage(userMessage) {
 function cleanNamedPlaceQuery(value) {
   return clean(value,500)
     .replace(/[?!.]+$/,'')
+    .replace(/^(?:(?:tiktok|douyin|mạng xã hội)\s+(?:nói|bảo|đồn)(?:\s+là)?|nghe\s+nói(?:\s+là)?|có\s+tin\s+đồn(?:\s+là)?)\s+/i,'')
     .replace(/^(?:bây giờ|hiện tại|giờ)\s+/i,'')
     .replace(/^cho\s+(?:tôi|tui|mình)\s+/i,'')
     .replace(/^(?:biết|xem|kiểm tra|check)\s+(?:thông tin\s+)?(?:về\s+)?/i,'')
@@ -2007,6 +2008,7 @@ function cleanNamedPlaceQuery(value) {
     .replace(/\s+(?:ở đâu|nằm ở đâu|chỗ nào)$/i,'')
     .replace(/\s+(?:bây giờ|hiện tại|giờ)?\s*(?:có\s+)?(?:đông|đông đúc|vắng|busy|crowd)(?:\s+không|\s+k|\s+ko)?$/i,'')
     .replace(/\s+(?:đang\s+)?(?:mở cửa|đóng cửa)(?:\s+không|\s+k|\s+ko)?$/i,'')
+    .replace(/\s+(?:(?:đã|đang|sắp)\s+)?(?:mở|đóng)\s+cửa\s*[,;:]?\s*(?:(?:có|liệu)\s+)?(?:thật|đúng)\s+(?:không|k|ko)$/i,'')
     .replace(/\s+(?:mở|đóng)\s+cửa\s+(?:lúc\s+)?(?:mấy giờ|khi nào)$/i,'')
     .replace(/\s+(?:có\s+)?(?:review|đánh giá|rating)(?:\s+(?:thế nào|ra sao|tốt không|cao không))?$/i,'')
     .replace(/\s+(?:có\s+)?gì\s+(?:hay|đặc biệt|đáng xem|để chơi).*$/i,'')
@@ -2158,12 +2160,23 @@ function shouldUseSemanticPlanner(env) {
 function deterministicUnsupportedNeeds(userMessage) {
   const text=fold(userMessage),sourceText=clean(userMessage,240),matches=[];
   const add=(kind,query)=>matches.push({kind,query,target:'',area:'',time:'',travelMode:'',sourceText,required:true,confidence:.9});
-  if(/\b(?:ty gia|doi tien|quy doi|cny|rmb|usd|jpy|krw|eur)\b/.test(text))add('CURRENCY_RATE',sourceText);
+  if(/\b(?:ty gia|doi tien|quy doi|cny|rmb|usd|jpy|krw|eur|vnd|te)\b/.test(text))add('CURRENCY_RATE',sourceText);
   if(/\b(?:gia ve|mua ve|dat ve|ticket|bao nhieu tien vao cua)\b/.test(text))add('TICKET_PRICE',sourceText);
   if(/\b(?:lich chay|gio tau|gio metro|chuyen cuoi|chuyen dau|xe buyt may gio|tau may gio)\b/.test(text))add('TRANSIT_SCHEDULE',sourceText);
   if(/\b(?:fact check|kiem chung|xac minh tin|tiktok noi|tin don|co that khong)\b/.test(text))add('FACT_CHECK',sourceText);
   if(/\b(?:alipay|wechat pay|thanh toan|esim|sim quoc te|roaming|mang co hoat dong|facebook co vao duoc)\b/.test(text))add('PAYMENT_CONNECTIVITY',sourceText);
   return matches.slice(0,4);
+}
+
+function explicitlyUnsupportedTravelQuestion(userMessage) {
+  const text=fold(userMessage);
+  if(/\b(?:ty gia|doi tien|quy doi|cny|rmb|usd|jpy|krw|eur|vnd)\b/.test(text)||/\b(?:doi|quy doi)\s+(?:\d+[\d.,]*\s+)?(?:te|nhan dan te|dong|vnd)\b/.test(text))return 'CURRENCY_RATE';
+  if(/\b(?:alipay|wechat pay)\b/.test(text))return 'PAYMENT_CONNECTIVITY';
+  return '';
+}
+
+function unsupportedTravelResponse(kind) {
+  return {text:'Pipi chưa thể hỗ trợ câu hỏi này.',travelos:{version:3,travelIntent:'TRAVEL_UTILITY',sources:[],missingApiSuggestions:missingApiSuggestions([{kind}])}};
 }
 
 function deterministicPlannerFallback(basePlan,userMessage,planner='deterministic-fallback',semantic=null) {
@@ -2212,7 +2225,7 @@ async function planRequestV3(userMessage,history,location,previousContext,env,fo
   const foodRequest=foodDiscoveryRequest(userMessage,foodKnowledge);
   if(!semantic)return {...deterministicPlannerFallback(basePlan,userMessage,shouldUseSemanticPlanner(env)?'deterministic-fallback':'deterministic'),foodQualitySearch:Boolean(foodRequest?.quality)};
   try{
-    if(semantic.overallConfidence<.55||(!semantic.needs.length&&!semantic.clarificationQuestion))return deterministicPlannerFallback(basePlan,userMessage,'deterministic-fallback',semantic);
+    if(semantic.overallConfidence<.55||(!semantic.needs.length&&!semantic.shouldUseLiveData))return deterministicPlannerFallback(basePlan,userMessage,'deterministic-fallback',semantic);
     const compiled=compileSemanticNeeds(semantic,{language:isChinaTravelContext(location,userMessage)?'zh':'vi',hasGps:hasGps(location)});
     const tools=mergeSemanticTools(basePlan.tools,compiled.tools,semantic.overallConfidence),travelIntent=semantic.overallConfidence>=.65?semantic.primaryIntent:basePlan.travelIntent;
     const clarify=Boolean(semantic.clarificationQuestion)&&!tools.length&&basePlan.responseMode==='DIRECT';
@@ -2701,6 +2714,9 @@ function qualityPlaceNote(place,dish) {
   const q=place.reviewQuality||{},rating=num(place.rating),count=int(place.userRatingCount);
   if(q.recentDishFiveWithText>0)return `Có khách gần đây khen món ${dish}`;
   if(q.dishFiveWithText>0)return `Có khách khen món ${dish}`;
+  if(` ${fold(place.name)} `.includes(` ${fold(dish)} `))return `Tên quán ghi món ${dish}; chưa đủ review gần đây để kết luận ngon`;
+  const venueEvidence=`${place.name||''} ${place.type||''} ${place.primaryType||''} ${(place.types||[]).join(' ')} ${place.tag||''}`;
+  if(/\b(?:lẩu|lau|hotpot)\b/iu.test(dish)&&/(?:火锅|hotpot|\blẩu\b)/iu.test(venueEvidence))return `Có món lẩu theo thông tin quán; ${rating!=null?`đánh giá ${rating.toFixed(1)}/5; `:''}chưa đủ review gần đây để kết luận ngon`;
   if(q.recentFiveWithText>0)return `Có đánh giá tốt gần đây; chưa rõ về món ${dish}`;
   if(q.fiveWithText>0)return `Có đánh giá tốt; chưa rõ về món ${dish}`;
   return rating!=null?`Được đánh giá ${rating.toFixed(1)}/5${count?` từ ${count} lượt`:''}; chưa rõ quán có món ${dish}`:`Chưa có đủ thông tin về món ${dish}`;
@@ -2979,7 +2995,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
           for(const candidate of firstRadius<5000?[5000,10000]:firstRadius<10000?[10000,15000]:firstRadius<15000?[15000]:[])if(!radii.includes(candidate))radii.push(candidate);
           const attempts=[];let selected=null;
           for(const radius of radii){
-            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy:qualitySearch?'distance':sortBy,language:china?'zh':qualitySearch?'en':nearbyLanguage({country:searchCountry})},env);
+            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,preferTextSearch:qualitySearch,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy:qualitySearch?'distance':sortBy,language:china?'zh':qualitySearch?'en':nearbyLanguage({country:searchCountry})},env);
             const pool=Array.isArray(attempt.data?.candidates)&&attempt.data.candidates.length?attempt.data.candidates:attempt.data?.pois||[];
             selected=attempt.ok?(args.placeName?{pois:attempt.data?.pois||[]}:await selectNearbyCandidates(pool,args.category,searchCenter,qualitySearch?'distance':sortBy,qualitySearch?Math.min(50,pool.length):resultLimit,env,foodKnowledge)):null;
             attempts.push({radius,ok:attempt.ok,count:selected?.pois?.length||0,error:clean(attempt.error,300)});
@@ -2991,6 +3007,16 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
             if(qualitySearch){
               const reviewed=china?pois:await loadGoogleReviewEvidence(pois,searchCountry,env,true);
               pois=rankFoodByReviews(reviewed,foodRequest.dish,resultLimit,Date.now(),foodRequest.group,foodKnowledge).map(place=>({...place,note:qualityPlaceNote(place,foodRequest.dish),noteConfidence:place.reviewQuality?.dishFiveWithText?'confirmed':'limited'}));
+              if(!pois.length&&!china){
+                const dishRadius=Math.max(10000,firstRadius);
+                const dishAttempt=await mapTool('/poi/nearby',{provider:'geoapify',center:{...searchCenter,country:searchCountry},country:searchCountry,query:foodRequest.dish,keyword:foodRequest.dish,name:foodRequest.dish,category:'restaurant',radius:dishRadius,limit:resultLimit,candidateLimit:50,sortBy:'distance',language:'vi'},env);
+                const rawDishCandidates=dishAttempt.ok?(dishAttempt.data?.candidates||dishAttempt.data?.pois||[]):[];
+                const seenDishPlaces=new Set();
+                const dishCandidates=rawDishCandidates.filter(place=>{const key=`${fold(place.name)}:${Number(place.lat).toFixed(3)},${Number(place.lng).toFixed(3)}`;if(seenDishPlaces.has(key))return false;seenDishPlaces.add(key);return true;});
+                const dishPois=rankFoodByReviews(dishCandidates,foodRequest.dish,resultLimit,Date.now(),foodRequest.group,foodKnowledge).map(place=>({...place,note:qualityPlaceNote(place,foodRequest.dish),noteConfidence:place.reviewQuality?.dishFiveWithText?'confirmed':'limited'}));
+                attempts.push({radius:dishRadius,ok:dishAttempt.ok,count:dishPois.length,error:clean(dishAttempt.error,300)});
+                if(dishPois.length){result=dishAttempt;selected={pois:dishPois,candidateCount:dishCandidates.length,acceptedCount:dishPois.length,uncertainCount:0,aiChecked:false};pois=dishPois;}
+              }
             }else pois=pois.slice(0,resultLimit);
             const normalizedQuery=typeof result.data?.query==='object'?result.data.query:{};
             result={...result,data:{...result.data,
@@ -3098,6 +3124,8 @@ async function handleAiV3(request, env) {
   let body; try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
   const userMessage=clean(body?.userMessage,10000);
   if(!userMessage) return json({error:'userMessage is required'},400,request,env);
+  const unsupportedKind=explicitlyUnsupportedTravelQuestion(userMessage);
+  if(unsupportedKind)return json(unsupportedTravelResponse(unsupportedKind),200,request,env);
   const history=Array.isArray(body?.chatHistory)?body.chatHistory.slice(-8):[];
   const previousContext=compactConversationContext(body?.conversationContext);
   const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
@@ -3182,6 +3210,8 @@ async function handleVoiceV1(request, env) {
     async start(controller) {
       const emit=(type,payload={})=>controller.enqueue(encoder.encode(JSON.stringify({type,...payload})+'\n'));
       try {
+        const unsupportedKind=explicitlyUnsupportedTravelQuestion(userMessage);
+        if(unsupportedKind){const answer=unsupportedTravelResponse(unsupportedKind);emit('spoken',{text:answer.text});emit('detail',answer);return;}
         const nearbyIntent=liveNearbyIntent(userMessage),remote=remoteAreaSearchIntent(userMessage);
         if(nearbyIntent?.explicitNearby&&!remote&&(location.locationMismatch||!hasGps(location))){
           const text=location.locationMismatch
