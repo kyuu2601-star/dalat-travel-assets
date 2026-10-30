@@ -1,6 +1,6 @@
 import { INTENT_PROFILES, answerPromptFor } from './bot/prompts/index.js';
 import { SEMANTIC_PLANNER_PROMPT, SEMANTIC_PLAN_SCHEMA, normalizeSemanticPlan, semanticPlannerPayload } from './bot/planner/semantic-planner.js';
-import { hasTextModel, requestOpenAi } from './bot/openai-provider.js';
+import { hasTextModel, openAiEnabled, requestOpenAi } from './bot/openai-provider.js';
 import { compileSemanticNeeds, missingApiSuggestions } from './bot/library/api-registry.js';
 import { buildVoiceBrief } from './bot/voice-brief.js';
 import { foodDiscoveryRequest, foodSearchVariants, rankFoodByReviews } from './bot/food-discovery.js';
@@ -1452,7 +1452,7 @@ async function callGeminiJson(systemPrompt, contents, responseSchema, env, purpo
 }
 
 async function callTextModel(systemPrompt,contents,env,tools=null,forceFunctionCall=false) {
-  if(env.OPENAI_API_KEY&&!tools){
+  if(openAiEnabled(env)&&!tools){
     try{return await requestOpenAi(systemPrompt,contents,env);}
     catch(error){console.warn('[OpenAI fallback]',errorText(error,'OpenAI unavailable',120));}
   }
@@ -1460,7 +1460,7 @@ async function callTextModel(systemPrompt,contents,env,tools=null,forceFunctionC
 }
 
 async function callJsonModel(systemPrompt,contents,responseSchema,env,purpose='default') {
-  if(env.OPENAI_API_KEY){
+  if(openAiEnabled(env)){
     try{return await requestOpenAi(systemPrompt,contents,env,{json:true,purpose});}
     catch(error){console.warn('[OpenAI JSON fallback]',errorText(error,'OpenAI unavailable',120));}
   }
@@ -2364,7 +2364,7 @@ const PLACE_CATEGORY_SCHEMA={type:'OBJECT',properties:{items:{type:'ARRAY',items
 const PLACE_TYPE_EVIDENCE={pharmacy:/pharmacy|chemist|药店|药房|大药房|nhà thuốc/i,hospital:/hospital|医院|bệnh viện/i,clinic:/doctor|clinic|诊所|门诊|phòng khám/i,convenience_store:/convenience_store|commercial\.convenience|便利店|小卖部|副食店|杂货店/i,grocery_store:/grocery_store|food_store|杂货店|副食店|小卖部/i,supermarket:/supermarket|超市/i,restaurant:/restaurant|fast_food|餐厅|饭店|餐馆|小吃/i,cafe:/cafe|coffee_shop|咖啡/i,hotel:/hotel|lodging|宾馆|酒店|旅馆|民宿/i,atm:/\batm\b|自动取款机/i,bank:/\bbank\b|银行/i,gas_station:/gas_station|加油站/i};
 
 async function selectNearbyCandidates(raw, category, center, sortBy, limit, env, foodKnowledge=starterKnowledge) {
-  const origin=coordFrom(center),items=(Array.isArray(raw)?raw:[]).slice(0,50).map(compactPoi).filter(p=>coordFrom(p));
+  const origin=coordFrom(center),items=(Array.isArray(raw)?raw:[]).slice(0,150).map(compactPoi).filter(p=>coordFrom(p));
   const unique=new Map();
   for(const place of items){
     const radians=Math.PI/180,lat1=(origin?.lat||0)*radians,lat2=Number(place.lat)*radians,dLat=lat2-lat1,dLng=(Number(place.lng)-(origin?.lng||0))*radians;
@@ -2382,6 +2382,9 @@ async function selectNearbyCandidates(raw, category, center, sortBy, limit, env,
       if(/electronics|cell_phone|mobile_phone|computer_store|clothing_store|家电|手机|数码|服装|通讯/.test(evidence))continue;
       if(/convenience_store|commercial\.convenience|便利店|小卖部|副食店|杂货店/.test(evidence)||/便利店|小卖部|副食店|杂货店/.test(place.name)){accepted.push(place);continue;}
       if((foodKnowledge?.brands||[]).some(brand=>brand.category==='convenience_store'&&(brand.aliases||[]).some(alias=>` ${name} `.includes(` ${fold(alias)} `)))){accepted.push(place);continue;}
+      // Geoapify's category is the only reliable evidence when Google ratings
+      // and type information are unavailable. Do not guess from a generic shop.
+      if(place.provider==='geoapify')continue;
       uncertain.push(place);continue;
     }
     const matches=PLACE_TYPE_EVIDENCE[category];
@@ -3007,13 +3010,19 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
           const firstRadius=clamp(args.radius,100,50000,3000),radii=[firstRadius];
           for(const candidate of firstRadius<5000?[5000,10000]:firstRadius<10000?[10000,15000]:firstRadius<15000?[15000]:[])if(!radii.includes(candidate))radii.push(candidate);
           const attempts=[];let selected=null;
+          const collectedCandidates=[];
           for(const radius of radii){
             const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,preferTextSearch:qualitySearch,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy:qualitySearch?'distance':sortBy,language:china?'zh':qualitySearch?'en':nearbyLanguage({country:searchCountry})},env);
+            if(!attempt.ok&&collectedCandidates.length){
+              attempts.push({radius,ok:false,count:selected?.pois?.length||0,error:clean(attempt.error,300)});
+              break;
+            }
             const pool=Array.isArray(attempt.data?.candidates)&&attempt.data.candidates.length?attempt.data.candidates:attempt.data?.pois||[];
-            selected=attempt.ok?(args.placeName?{pois:attempt.data?.pois||[]}:await selectNearbyCandidates(pool,args.category,searchCenter,qualitySearch?'distance':sortBy,qualitySearch?Math.min(50,pool.length):resultLimit,env,foodKnowledge)):null;
+            if(attempt.ok)collectedCandidates.push(...pool);
+            selected=attempt.ok?(args.placeName?{pois:attempt.data?.pois||[]}:await selectNearbyCandidates(collectedCandidates,args.category,searchCenter,qualitySearch?'distance':sortBy,qualitySearch?Math.min(50,collectedCandidates.length):resultLimit,env,foodKnowledge)):null;
             attempts.push({radius,ok:attempt.ok,count:selected?.pois?.length||0,error:clean(attempt.error,300)});
             result=attempt;
-            if(!attempt.ok||selected?.pois?.length)break;
+            if(!attempt.ok||args.placeName||selected?.pois?.length>=resultLimit||(attempt.data?.provider!=='geoapify'&&selected?.pois?.length))break;
           }
           if(result.ok){
             let pois=selected?.pois||[];
@@ -3378,7 +3387,7 @@ export default {
         try { db = { bound: true, ready: true, ...await stats(env) }; }
         catch (error) { db = { bound: true, ready: false, error: errorText(error, 'Unknown error', 500) }; }
       }
-      return json({ ok: true, worker: "Let's Go Pipi", db, images: { bound: Boolean(env.IMAGES) }, besttime: { bound: Boolean(env.BESTTIME_PRIVATE_KEY) }, ai:{primary:env.OPENAI_API_KEY?'openai':'gemini',openai:Boolean(env.OPENAI_API_KEY),gemini:Boolean(env.GEMINI_API_KEY),models:geminiModels(env)} }, 200, request, env);
+      return json({ ok: true, worker: "Let's Go Pipi", db, images: { bound: Boolean(env.IMAGES) }, besttime: { bound: Boolean(env.BESTTIME_PRIVATE_KEY) }, ai:{primary:openAiEnabled(env)?'openai':'gemini',openai:openAiEnabled(env),gemini:Boolean(env.GEMINI_API_KEY),models:geminiModels(env)} }, 200, request, env);
     }
 
     if (path === '/api/places' && request.method === 'GET') {

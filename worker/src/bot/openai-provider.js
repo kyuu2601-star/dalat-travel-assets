@@ -2,7 +2,11 @@
 const clean=(value,max=1000)=>String(value??'').trim().slice(0,max);
 
 export function hasTextModel(env={}) {
-  return Boolean(env.OPENAI_API_KEY||env.GEMINI_API_KEY);
+  return Boolean((env.OPENAI_ENABLED!=='false'&&env.OPENAI_API_KEY)||env.GEMINI_API_KEY);
+}
+
+export function openAiEnabled(env={}) {
+  return env.OPENAI_ENABLED!=='false'&&Boolean(env.OPENAI_API_KEY);
 }
 
 export function openAiInput(contents=[]) {

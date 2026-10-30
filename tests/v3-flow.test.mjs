@@ -3,6 +3,33 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
+test('Gemini-only configuration skips an exhausted OpenAI API key', async () => {
+  const {hasTextModel,openAiEnabled}=await import('../worker/src/bot/openai-provider.js');
+  const env={OPENAI_API_KEY:'test',OPENAI_ENABLED:'false',GEMINI_API_KEY:'test'};
+  assert.equal(openAiEnabled(env),false);
+  assert.equal(hasTextModel(env),true);
+});
+
+test('Geoapify fallback keeps only verified convenience stores and fills nearest results across radii', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const radii=[];
+  const places=[
+    {id:'gs25',name:'GS25 gần đây',lat:10.8031,lng:106.69,type:'commercial.convenience',types:['commercial.convenience'],provider:'geoapify'},
+    {id:'phone',name:'Viettel Store',lat:10.8032,lng:106.69,type:'commercial.electronics',types:['commercial.electronics'],provider:'geoapify'},
+    {id:'unknown',name:'Cửa hàng tổng hợp',lat:10.8033,lng:106.69,type:'commercial',types:['commercial'],provider:'geoapify'},
+    {id:'circle',name:'Circle K',lat:10.805,lng:106.69,type:'commercial.convenience',types:['commercial.convenience'],provider:'geoapify'}
+  ];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();radii.push(body.radius);
+    const candidates=body.radius===3000?places.slice(0,3):places;
+    return new Response(JSON.stringify({ok:true,source:'geoapify-places-v2',provider:'geoapify',query:{category:'convenience_store'},center:body.center,pois:candidates,candidates}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm cửa hàng tiện lợi quanh đây',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.803,longitude:106.69}})}),env);
+  const data=await response.json();
+  assert.deepEqual(radii,[3000,5000,10000]);
+  assert.deepEqual(data.travelos.nearby.pois.map(place=>place.id),['gs25','circle']);
+});
+
 async function importWorker(path) {
   return import(`${new URL(path,import.meta.url).href}?test=${Date.now()}-${Math.random()}`);
 }
