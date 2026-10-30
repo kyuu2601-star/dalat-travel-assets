@@ -1273,6 +1273,21 @@ test('AI v3 does not mistake a currency conversion for a China place name', asyn
   assert.equal(mapCalls,0);
 });
 
+test('AI v3 answers ambiguous and nearest list follow-ups from saved results without a new map search', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('No new map search expected');}}};
+  const conversationContext={nearby:{provider:'google_places',center:{lat:10.835,lng:106.67},query:{keyword:'cửa hàng tiện lợi',category:'convenience_store'},pois:[{id:'store-1',name:'GS25',lat:10.8351,lng:106.6701,distance:20,provider:'google_places'}]}};
+  for(const [userMessage,expected] of [['Cửa hàng đầu tiên mở đến mấy giờ?','nói rõ tên cửa hàng'],['Trong danh sách chỗ nào gần nhất?','bấm nút Chi tiết']]){
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage,conversationContext,userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.835,longitude:106.67}})}),env);
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.match(data.text,new RegExp(expected));
+    assert.equal(data.travelos.nearby.pois[0].name,'GS25');
+  }
+  assert.equal(mapCalls,0);
+});
+
 test('AI v3 accepts compact lat/lng and plans tools deterministically on the backend', async () => {
   const { default: worker } = await importWorker('../worker/src/index.js');
   const originalFetch = globalThis.fetch;

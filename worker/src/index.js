@@ -2006,13 +2006,14 @@ function cleanNamedPlaceQuery(value) {
     .replace(/^(?:hãy\s+)?(?:tìm kiếm|tìm giúp|kiếm giúp|tìm|kiếm)(?:\s+(?:cho\s+)?(?:tôi|tui|mình))?\s+/i,'')
     .replace(/^(?:thông tin|địa chỉ|vị trí|review|đánh giá|rating|giờ mở cửa|địa điểm)(?:\s+(?:của|về))?\s+/i,'')
     .replace(/\s+(?:ở đâu|nằm ở đâu|chỗ nào)$/i,'')
-    .replace(/\s+(?:bây giờ|hiện tại|giờ)?\s*(?:có\s+)?(?:đông|đông đúc|vắng|busy|crowd)(?:\s+không|\s+k|\s+ko)?$/i,'')
+    .replace(/\s+(?:bây giờ|hiện tại|hiện|giờ)?\s*(?:có\s+)?(?:đông|đông đúc|vắng|busy|crowd)(?:\s+không|\s+k|\s+ko)?$/i,'')
     .replace(/\s+(?:đang\s+)?(?:mở cửa|đóng cửa)(?:\s+không|\s+k|\s+ko)?$/i,'')
     .replace(/\s+(?:(?:đã|đang|sắp)\s+)?(?:mở|đóng)\s+cửa\s*[,;:]?\s*(?:(?:có|liệu)\s+)?(?:thật|đúng)\s+(?:không|k|ko)$/i,'')
     .replace(/\s+(?:mở|đóng)\s+cửa\s+(?:lúc\s+)?(?:mấy giờ|khi nào)$/i,'')
     .replace(/\s+(?:có\s+)?(?:review|đánh giá|rating)(?:\s+(?:thế nào|ra sao|tốt không|cao không))?$/i,'')
     .replace(/\s+(?:có\s+)?gì\s+(?:hay|đặc biệt|đáng xem|để chơi).*$/i,'')
     .replace(/\s+(?:gần nhất|rating cao nhất|đánh giá cao nhất)$/i,'')
+    .replace(/\s+(?:bây giờ|hiện tại|hiện|giờ)$/i,'')
     .replace(/\s+(?:thế nào|ra sao)$/i,'')
     .replace(/\s+(?:giúp(?:\s+(?:tôi|tui|mình))?|nhé|nha|với)$/i,'')
     .trim();
@@ -2323,6 +2324,18 @@ function compactConversationContext(raw) {
   const curated=raw.curated&&typeof raw.curated==='object'?{places:Array.isArray(raw.curated.places)?raw.curated.places.slice(0,18):[],searchLocation:raw.curated.searchLocation||null}:null;
   if(!nearby&&!placeDetails&&!weather&&!busyness&&!routes&&!curated)return null;
   return {nearby,placeDetails:placeDetails?.name?placeDetails:null,weather,busyness,routes,curated,travelIntent:TRAVEL_INTENT_IDS.includes(raw.travelIntent)?raw.travelIntent:''};
+}
+
+function listFollowupResponse(userMessage,previousContext) {
+  const message=fold(userMessage),nearby=previousContext?.nearby;
+  if(!nearby?.pois?.length)return null;
+  if(/\b(?:cua hang|quan|tiem|dia diem) dau tien\b/.test(message)&&/\b(?:mo|dong|may gio|gio nao)\b/.test(message)){
+    return {text:'Pipi chưa biết bạn đang hỏi cửa hàng nào. Bạn nói rõ tên cửa hàng để Pipi kiểm tra giờ mở cửa nhé.',travelos:{version:3,travelIntent:'VENUE_INTELLIGENCE',sources:[],nearby}};
+  }
+  if(/\b(?:cho|quan|tiem|cua hang|dia diem) nao gan nhat\b/.test(message)&&/\b(?:danh sach|trong do|o tren|vua roi)\b/.test(message)){
+    return {text:'Bạn bấm nút Chi tiết bên dưới để xem danh sách địa điểm theo khoảng cách trên bản đồ nhé.',travelos:{version:3,travelIntent:'PLACE_DISCOVERY',sources:[],nearby}};
+  }
+  return null;
 }
 
 function nearbyFollowupIntent(userMessage, nearby) {
@@ -3128,6 +3141,8 @@ async function handleAiV3(request, env) {
   if(unsupportedKind)return json(unsupportedTravelResponse(unsupportedKind),200,request,env);
   const history=Array.isArray(body?.chatHistory)?body.chatHistory.slice(-8):[];
   const previousContext=compactConversationContext(body?.conversationContext);
+  const listFollowup=listFollowupResponse(userMessage,previousContext);
+  if(listFollowup)return json(listFollowup,200,request,env);
   const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
   const currentNearbyIntent=liveNearbyIntent(userMessage);
   const explicitRemoteIntent=remoteAreaSearchIntent(userMessage);
@@ -3165,6 +3180,8 @@ async function handleAiV3(request, env) {
       // A named-place lookup already has verified provider evidence. Avoid two
       // extra Gemini calls (localization + prose) after AMap/Google succeeds.
       text=deterministicEvidenceAnswer(state);
+      if(plan.tools.some(tool=>tool.name==='place_busyness')&&/\b(?:dong|dong duc|vang|busy|crowd)\b/.test(fold(userMessage))&&!state.busyness?.available)
+        text=`${text} Pipi chưa có dữ liệu độ đông trực tiếp để xác minh lúc này.`.trim();
     } else if(state.nearby?.query?.sortBy==='review_quality') {
       const fallback=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
       if(hasTextModel(env)){
@@ -3210,6 +3227,8 @@ async function handleVoiceV1(request, env) {
     async start(controller) {
       const emit=(type,payload={})=>controller.enqueue(encoder.encode(JSON.stringify({type,...payload})+'\n'));
       try {
+        const listFollowup=listFollowupResponse(userMessage,previousContext);
+        if(listFollowup){emit('spoken',{text:listFollowup.text});emit('detail',listFollowup);return;}
         const unsupportedKind=explicitlyUnsupportedTravelQuestion(userMessage);
         if(unsupportedKind){const answer=unsupportedTravelResponse(unsupportedKind);emit('spoken',{text:answer.text});emit('detail',answer);return;}
         const nearbyIntent=liveNearbyIntent(userMessage),remote=remoteAreaSearchIntent(userMessage);
