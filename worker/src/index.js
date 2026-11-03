@@ -3316,6 +3316,44 @@ async function handleVoiceV1(request, env) {
   return new Response(stream,{headers:{'Content-Type':'application/x-ndjson; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(request,env)}});
 }
 
+// A short-lived, model-restricted credential lets the phone stream audio to
+// Gemini directly. The long-lived API key never leaves this Worker.
+async function handleLiveTranslateToken(request, env) {
+  if (!(await rateLimit(request, env))) return json({error:'Too many voice sessions'},429,request,env);
+  if (!env.GEMINI_API_KEY) return json({error:'Gemini voice is not configured'},503,request,env);
+  let body;
+  try { body=await request.json(); } catch { return json({error:'Invalid JSON body'},400,request,env); }
+  const target=clean(body?.targetLanguageCode,20);
+  if (target!=='vi' && target!=='zh-Hans') return json({error:'Unsupported target language'},400,request,env);
+  const now=Date.now();
+  const setup={
+    model:'models/gemini-3.5-live-translate-preview',
+    inputAudioTranscription:{},
+    outputAudioTranscription:{},
+    generationConfig:{
+      responseModalities:['AUDIO'],
+      translationConfig:{targetLanguageCode:target,echoTargetLanguage:false}
+    }
+  };
+  const tokenRequest={
+    uses:1,
+    newSessionExpireTime:new Date(now+60_000).toISOString(),
+    expireTime:new Date(now+30*60_000).toISOString(),
+    bidiGenerateContentSetup:setup
+  };
+  try {
+    const response=await fetch('https://generativelanguage.googleapis.com/v1beta/auth_tokens',{
+      method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
+      body:JSON.stringify(tokenRequest)
+    });
+    const result=await response.json().catch(()=>({}));
+    if (!response.ok || !result.name) return json({error:'Live Translate unavailable',providerStatus:response.status,providerMessage:clean(result?.error?.message,500)},502,request,env);
+    return json({token:result.name,targetLanguageCode:target,expiresAt:tokenRequest.expireTime},200,request,env);
+  } catch(error) {
+    return json({error:'Live Translate connection failed',detail:errorText(error,'Unknown error',200)},502,request,env);
+  }
+}
+
 // Pipi speech stays on the Worker so the Gemini key never reaches the browser.
 async function handleVoiceTts(request, env) {
   if(!(await rateLimit(request,env))) return json({error:'Rate limit exceeded'},429,request,env);
@@ -3396,6 +3434,7 @@ export default {
 
     if (path === '/ai-v3' && request.method === 'POST') return handleAiV3(request, env);
     if (path === '/voice-v1' && request.method === 'POST') return handleVoiceV1(request, env);
+    if (path === '/voice-live-token' && request.method === 'POST') return handleLiveTranslateToken(request, env);
     if (path === '/voice-tts' && request.method === 'POST') return handleVoiceTts(request, env);
     if (path === '/destination-summary' && request.method === 'POST') return handleDestinationSummary(request, env);
     if ((path === '/' || path === '/ai') && request.method === 'POST') return handleAiV3(request, env);
