@@ -25,6 +25,7 @@ test('Live translation token stays restricted to its model and target language',
     assert.equal(upstream.bidiGenerateContentSetup.model,'models/gemini-3.5-live-translate-preview');
     assert.equal(upstream.bidiGenerateContentSetup.generationConfig.translationConfig.targetLanguageCode,'zh-Hans');
     assert.equal(upstream.bidiGenerateContentSetup.generationConfig.translationConfig.echoTargetLanguage,false);
+    assert.deepEqual(upstream.bidiGenerateContentSetup.inputAudioTranscription,{});
     assert.equal(upstream.uses,1);
     assert.ok(!JSON.stringify(result).includes('server-only-secret'));
     const bad=await worker.fetch(new Request('https://pipi.test/voice-live-token',{
@@ -43,7 +44,11 @@ test('Interpreter streams speech while held and plays only after release', async
     constructor(url){this.url=url;this.readyState=1;sockets.push(this);setTimeout(()=>this.onopen?.(),0);}
     send(raw){
       const message=JSON.parse(raw);
-      if(message.setup)setTimeout(()=>this.onmessage?.({data:JSON.stringify({setupComplete:{}})}),0);
+      if(message.setup){
+        assert.deepEqual(message.setup.inputAudioTranscription,{});
+        assert.deepEqual(message.setup.outputAudioTranscription,{});
+        setTimeout(()=>this.onmessage?.({data:new Blob([JSON.stringify({setupComplete:{}})])}),0);
+      }
       if(message.realtimeInput?.audio)packets++;
       if(message.realtimeInput?.audioStreamEnd && this.url.includes('access_token=vi')) {
         const pcm=Buffer.alloc(480);
@@ -71,7 +76,7 @@ test('Interpreter streams speech while held and plays only after release', async
     navigator:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){stopped++;}}]})}},
     fetch:async(_url,options)=>new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode})),
     WebSocket:FakeSocket,Response,Uint8Array,Float32Array,DataView,Buffer,
-    atob,btoa,setTimeout,clearTimeout,console
+    atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
   });
   vm.runInContext(source,context);
   const translator=new context.window.PipiLiveTranslate('https://pipi.test');

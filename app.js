@@ -1024,6 +1024,13 @@ async function initTravelOS() {
         updateProgress();
     })(), 900000, 'Giọng Pipi') : Promise.resolve();
 
+    // Establish both interpreter directions on the loading screen. On a first
+    // install, wait for the large local voice pack before starting short-lived
+    // Live sessions, so they do not expire during that download.
+    const translateWarmup = (voiceBoot ? voiceTask.catch(() => {}) : Promise.resolve())
+        .then(() => window.PipiVoiceMode?.prewarmTranslate?.())
+        .catch(error => { console.warn('Pipi Live Translate warmup:', error); });
+
     const placesTask = withBootTimeout((async () => {
         fullData = await TravelData.loadPlaces();
         window.fullData = fullData;
@@ -1052,6 +1059,12 @@ async function initTravelOS() {
     })(), 12000, 'Trợ lý');
 
     const [placesResult, botResult, voiceResult] = await Promise.allSettled([placesTask, botTask, voiceTask]);
+    if (window.PipiVoiceMode?.prewarmTranslate) {
+        setLoadingStatus('Đang kết nối phiên dịch Trung–Việt...');
+        await withBootTimeout(translateWarmup, 10000, 'Phiên dịch').catch(error => {
+            console.warn('Pipi Live Translate startup:', error);
+        });
+    }
     const failures = [];
     if (placesResult.status === 'rejected') {
         const error = placesResult.reason;

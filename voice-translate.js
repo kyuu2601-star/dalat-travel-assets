@@ -34,7 +34,11 @@
     }
     async prepare() {
       if (this.ready) return;
-      await Promise.all(targets.map(target=>this.connect(target)));
+      try { await Promise.all(targets.map(target=>this.connect(target))); }
+      catch(error) {
+        this.close();
+        throw error;
+      }
       this.ready=true;
     }
     async connect(target) {
@@ -47,7 +51,7 @@
       return new Promise((resolve,reject)=>{
         const socket=new WebSocket(`${WS_BASE}?access_token=${encodeURIComponent(data.token)}`);
         let settled=false;
-        const timeout=setTimeout(()=>{if(!settled){settled=true;socket.close();reject(new Error('LIVE_SETUP_TIMEOUT'));}},12000);
+        const timeout=setTimeout(()=>{if(!settled){settled=true;socket.close();reject(new Error('LIVE_SETUP_TIMEOUT'));}},15000);
         const fail=message=>{
           if (!settled) {settled=true;clearTimeout(timeout);reject(new Error(message));}
           else {this.ready=false;this.callbacks.onError?.(new Error(message));}
@@ -55,12 +59,19 @@
         socket.onopen=()=>socket.send(JSON.stringify({setup:{
           model:`models/${MODEL}`,
           inputAudioTranscription:{},outputAudioTranscription:{},
-          generationConfig:{responseModalities:['AUDIO'],
-            translationConfig:{targetLanguageCode:target,echoTargetLanguage:false}}
+          generationConfig:{
+            responseModalities:['AUDIO'],
+            translationConfig:{targetLanguageCode:target,echoTargetLanguage:false}
+          }
         }}));
-        socket.onmessage=event=>{
+        socket.onmessage=async event=>{
           let message;
-          try {message=JSON.parse(event.data);} catch {return;}
+          try {
+            const payload=event.data instanceof Blob ? await event.data.text()
+              : event.data instanceof ArrayBuffer ? new TextDecoder().decode(event.data)
+              : event.data;
+            message=JSON.parse(payload);
+          } catch(error) {this.callbacks.onError?.(error);return;}
           if (message.setupComplete) {
             if(this.closed){socket.close();fail('LIVE_CANCELLED');return;}
             settled=true;clearTimeout(timeout);this.sessions.set(target,socket);resolve();return;

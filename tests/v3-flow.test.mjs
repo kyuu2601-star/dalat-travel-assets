@@ -1037,7 +1037,7 @@ test('App keeps onboarding visible until native voice, places and bot readiness 
   assert.doesNotMatch(app,/GPS ERROR: PLEASE ENABLE LOCATION/);
   assert.match(chat,/\/api\/health/);
   assert.match(index,/Đang khởi động Let's Go Pipi/);
-  assert.match(index,/app\.js\?v=20261028-3/);
+  assert.match(index,/app\.js\?v=20261103-2/);
   assert.match(chat,/const lat = hasAnchor \? anchorLat : rawLat/);
   assert.match(app,/travelos:location-updated/);
   assert.match(index,/id="loading-voice-track"/);

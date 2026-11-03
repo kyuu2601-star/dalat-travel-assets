@@ -64,7 +64,7 @@
   let recognition = null, holding = false, transcript = '', confidence = null, recognitionError = '', sending = false, activeRequest = null, activeTyping = null, generation = 0;
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
-  let translateMode = false, translateBusy = false, translator = null;
+  let translateMode = false, translateBusy = false, translator = null, translatorPromise = null;
   const syncToggle = () => { translateSwitch.disabled = sending || holding || translateBusy || Boolean(panel.classList.contains?.('speaking')); };
   const syncMic = () => { mic.disabled = !microphoneReady || sending || translateBusy || (translateMode ? !translator?.ready : !Recognition || !voiceReady); };
   const fixedClips = {
@@ -190,7 +190,7 @@
     activeRequest?.abort(); activeRequest = null;
     recognition?.abort(); recognition = null;
     stopSpeaking();
-    translator?.close(); translator = null; translateMode = false; translateBusy = false; translateSwitch.checked = false;
+    translator?.cancel(); translateMode = false; translateBusy = false; translateSwitch.checked = false;
     activeTyping?.remove(); activeTyping = null;
     mic.classList.remove('active');
     syncMic();syncToggle();
@@ -252,7 +252,30 @@
       console.warn('Pipi local voice setup:', error);
     });
   }
-  window.PipiVoiceMode = { open, close };
+  function prewarmTranslate() {
+    if (translator?.ready) return Promise.resolve(translator);
+    if (translatorPromise) return translatorPromise;
+    if (!window.PipiLiveTranslate) return Promise.reject(new Error('LIVE_TRANSLATE_UNAVAILABLE'));
+    const instance = new window.PipiLiveTranslate(CONFIG.WORKER_URL,{
+      onState:text=>{if(translateMode&&!panel.hidden)setState(text,'busy');},
+      onError:error=>{
+        if (translator !== instance) return;
+        console.warn('Pipi Live Translate:',error);
+        instance.close();translator=null;translatorPromise=null;
+        if (translateMode&&!panel.hidden) {
+          holding=false;translateBusy=false;mic.classList.remove('active');
+          setState('Kết nối dịch bị ngắt. Tắt rồi bật lại Dịch để thử lại.','error');syncMic();syncToggle();
+        }
+      }
+    });
+    translator=instance;
+    translatorPromise=instance.prepare().then(()=>instance).catch(error=>{
+      if (translator===instance) {instance.close();translator=null;}
+      throw error;
+    }).finally(()=>{translatorPromise=null;});
+    return translatorPromise;
+  }
+  window.PipiVoiceMode = { open, close, prewarmTranslate };
   el('pvm-close').addEventListener('click', close);
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
 
@@ -262,7 +285,6 @@
     }
     translateMode = translateSwitch.checked;
     if (!translateMode) {
-      translator?.close();translator=null;
       const chatTitle=el('pvm-chat').parentElement?.querySelector?.('.pvm-chat-title');
       if(chatTitle)chatTitle.textContent='Trò chuyện với Pipi';
       updateVoiceControls();return;
@@ -271,23 +293,14 @@
     setState('Đang kết nối phiên dịch…','busy');
     caption.textContent='Đang chuẩn bị dịch Trung ↔ Việt';
     try {
-      if (!window.PipiLiveTranslate) throw new Error('LIVE_TRANSLATE_UNAVAILABLE');
-      translator = new window.PipiLiveTranslate(CONFIG.WORKER_URL,{
-        onState:text=>{if(translateMode&&!panel.hidden)setState(text,'busy');},
-        onError:error=>{if(translateMode&&!panel.hidden){
-          console.warn('Pipi Live Translate:',error);
-          translator?.close();translator=null;holding=false;translateBusy=false;mic.classList.remove('active');
-          setState('Kết nối dịch bị ngắt. Tắt rồi bật lại Dịch để thử lại.','error');syncMic();syncToggle();
-        }}
-      });
-      await translator.prepare();
-      if (!translateMode || panel.hidden) {translator.close();translator=null;return;}
+      await prewarmTranslate();
+      if (!translateMode || panel.hidden) return;
       setState('Giữ mic để nói','ready');caption.textContent='Nói tiếng Trung hoặc tiếng Việt';
       const chatTitle=el('pvm-chat').parentElement?.querySelector?.('.pvm-chat-title');
       if(chatTitle)chatTitle.textContent='Bản dịch';
     } catch(error) {
       console.warn('Pipi Live Translate setup:',error);
-      translator?.close();translator=null;translateMode=false;translateSwitch.checked=false;
+      translateMode=false;translateSwitch.checked=false;
       setState('Chưa kết nối được phiên dịch. Bạn thử lại sau nhé.','error');
       caption.textContent=error?.message || 'Live Translate chưa sẵn sàng';
     } finally {translateBusy=false;syncMic();syncToggle();}
