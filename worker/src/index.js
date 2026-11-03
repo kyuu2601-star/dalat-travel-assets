@@ -2051,7 +2051,24 @@ function namedPlaceSearchIntent(userMessage, remoteIntent = null) {
   if(remoteIntent&&!brand&&genericPlaceQuery(remoteIntent.query))return null;
   if(isNearbyIntent(raw)&&category&&!brand&&!remoteIntent&&genericPlaceQuery(placeQueryFromMessage(raw)))return null;
   const looksNamed=Boolean(brand||quoted||remoteIntent||explicitCue||/[\u3400-\u9fff]/u.test(candidate)||/\d/.test(candidate));
-  return looksNamed?{name:candidate,area:clean(remoteIntent?.area,300),radius:50000,limit:5}:null;
+  const namedChinaArea=candidate.match(/(?:^|\s|[（(])((?:Trùng\s*Khánh|Chongqing|重庆(?:市)?|Bắc\s*Kinh|Beijing|北京(?:市)?|Thượng\s*Hải|Shanghai|上海(?:市)?|Quảng\s*Châu|Guangzhou|广州(?:市)?|Thâm\s*Quyến|Shenzhen|深圳(?:市)?|Thành\s*Đô|Chengdu|成都(?:市)?))\s*[）)]?$/iu)?.[1]||'';
+  return looksNamed?{name:candidate,area:clean(remoteIntent?.area||namedChinaArea,300),radius:50000,limit:5}:null;
+}
+
+function sameChinaCity(left,right) {
+  const cityKey=value=>{
+    const raw=clean(value,120),key=fold(raw);
+    for(const [canonical,pattern] of [
+      ['chongqing',/重庆|trung khanh|chongqing/u],
+      ['beijing',/北京|bac kinh|beijing/u],
+      ['shanghai',/上海|thuong hai|shanghai/u],
+      ['guangzhou',/广州|quang chau|guangzhou/u],
+      ['shenzhen',/深圳|tham quyen|shenzhen/u],
+      ['chengdu',/成都|thanh do|chengdu/u]
+    ])if(pattern.test(raw)||pattern.test(key))return canonical;
+    return key;
+  };
+  return Boolean(left&&right&&cityKey(left)===cityKey(right));
 }
 
 function expandedNearbyRadius(nearby) {
@@ -2109,8 +2126,8 @@ async function planV3(userMessage, history, location, previousContext, env, food
   }
   if(namedPlace){
     const china=isChinaTravelContext(location,namedPlace.name,namedPlace.area),tools=[];
-    if(namedPlace.area)tools.push(v3Tool('resolve_place',{query:namedPlace.area,limit:5,language:china?'zh':'vi'}));
-    if(hasGps(location)||namedPlace.area)tools.push(v3Tool('search_places',{query:namedPlace.name,placeName:namedPlace.name,radius:namedPlace.radius,limit:namedPlace.limit,language:china?'zh':'vi'}));
+    if(namedPlace.area&&(!hasGps(location)||!sameChinaCity(location.city,namedPlace.area)))tools.push(v3Tool('resolve_place',{query:namedPlace.area,limit:5,language:china?'zh':'vi'}));
+    if(hasGps(location)||namedPlace.area)tools.push(v3Tool('search_places',{query:namedPlace.name,placeName:namedPlace.name,address:namedPlace.area,radius:namedPlace.radius,limit:namedPlace.limit,language:china?'zh':'vi'}));
     else tools.push(v3Tool('resolve_place',{query:namedPlace.name,placeName:namedPlace.name,radius:namedPlace.radius,limit:namedPlace.limit,language:china?'zh':'vi'}));
     tools.push(v3Tool('place_details',{placeName:namedPlace.name,radius:namedPlace.radius,language:china?'zh':'vi'}));
     tools.push(v3Tool('place_busyness',{placeName:namedPlace.name}));
@@ -2228,7 +2245,11 @@ async function planRequestV3(userMessage,history,location,previousContext,env,fo
   try{
     if(semantic.overallConfidence<.55||(!semantic.needs.length&&!semantic.shouldUseLiveData))return deterministicPlannerFallback(basePlan,userMessage,'deterministic-fallback',semantic);
     const compiled=compileSemanticNeeds(semantic,{language:isChinaTravelContext(location,userMessage)?'zh':'vi',hasGps:hasGps(location)});
-    const tools=mergeSemanticTools(basePlan.tools,compiled.tools,semantic.overallConfidence),travelIntent=semantic.overallConfidence>=.65?semantic.primaryIntent:basePlan.travelIntent;
+    const explicitNamedArea=basePlan.tools.some(item=>item.name==='search_places'&&item.placeName&&item.address);
+    const tools=explicitNamedArea
+      ?mergePlannedTools(basePlan.tools,compiled.tools.filter(item=>!['resolve_place','search_places','place_details','place_busyness'].includes(item.name)))
+      :mergeSemanticTools(basePlan.tools,compiled.tools,semantic.overallConfidence);
+    const travelIntent=explicitNamedArea?basePlan.travelIntent:semantic.overallConfidence>=.65?semantic.primaryIntent:basePlan.travelIntent;
     const clarify=Boolean(semantic.clarificationQuestion)&&!tools.length&&basePlan.responseMode==='DIRECT';
     return {
       ...basePlan,goal:`Hiểu và xử lý: ${semantic.answerContract.join('; ')||basePlan.goal}`,travelIntent,
@@ -3012,7 +3033,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
           const attempts=[];let selected=null;
           const collectedCandidates=[];
           for(const radius of radii){
-            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,preferTextSearch:qualitySearch,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy:qualitySearch?'distance':sortBy,language:china?'zh':qualitySearch?'en':nearbyLanguage({country:searchCountry})},env);
+            const attempt=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...searchCenter,country:searchCountry},country:searchCountry,searchArea:china&&args.placeName?(state.remoteSearch?.resolvedArea?.city||state.remoteSearch?.resolvedArea?.province||args.address||state.remoteSearch?.requestedArea||''):'',query:searchPlan.providerQuery,name:args.placeName,keyword:searchPlan.providerQuery,queryVariants:args.placeName?[searchPlan.providerQuery,...searchPlan.queryVariants]:searchPlan.queryVariants,translationSource:searchPlan.translationSource,category:args.category,preferTextSearch:qualitySearch,radius,limit:resultLimit,candidateLimit:Math.max(30,resultLimit*5),sortBy:qualitySearch?'distance':sortBy,language:china?'zh':qualitySearch?'en':nearbyLanguage({country:searchCountry})},env);
             if(!attempt.ok&&collectedCandidates.length){
               attempts.push({radius,ok:false,count:selected?.pois?.length||0,error:clean(attempt.error,300)});
               break;
@@ -3056,7 +3077,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
         }
       } else if(args.name==='resolve_place') {
         const query=args.query||args.placeName||args.address,center=coordFrom(args),china=isChinaTravelContext({...location,latitude:center?.lat,longitude:center?.lng},userMessage,query);
-        result=await mapTool('/place/resolve',{...chinaProviderFields(china),query,center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit,resolveMode:plan.travelIntent==='WEATHER_OUTDOOR'?'geocode':''},env);
+        result=await mapTool('/place/resolve',{...chinaProviderFields(china),query,center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit,resolveMode:plan.travelIntent==='WEATHER_OUTDOOR'||(china&&plan.tools[index+1]?.name==='search_places')?'geocode':''},env);
         if(result.ok) {
           const rawPlaces=(result.data?.places||[]).map(compactPoi);
           const places=china?await localizeChinaPlaces(rawPlaces,'Trung Quốc',env,{query}):rawPlaces;

@@ -30,6 +30,74 @@ test('Geoapify fallback keeps only verified convenience stores and fills nearest
   assert.deepEqual(data.travelos.nearby.pois.map(place=>place.id),['gs25','circle']);
 });
 
+test('AMap named search confines Yitel Chongqing to the requested city and 50 km', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,requests=[];
+  globalThis.fetch=async url=>{
+    const parsed=new URL(String(url));requests.push(parsed);
+    return new Response(JSON.stringify({status:'1',info:'OK',pois:[
+      {id:'guangzhou',name:'和颐酒店广州店',address:'广州市',cityname:'广州市',location:'113.2644,23.1291',type:'住宿服务;宾馆酒店',business:{rating:'4.9',alias:'Yitel'}},
+      {id:'chongqing',name:'和颐至尚酒店重庆店',address:'重庆市',cityname:'重庆市',location:'106.5791,29.5599',type:'住宿服务;宾馆酒店',business:{rating:'4.5',alias:'Yitel'}}
+    ]}),{headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const response=await worker.fetch(new Request('https://travelos-map.test/poi/nearby',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({center:{lat:29.563,lng:106.551},country:'Trung Quốc',query:'khách sạn Yitel Trùng Khánh',name:'khách sạn Yitel Trùng Khánh',searchArea:'Chongqing',radius:50000,limit:5})}),{AMAP_WEB_KEY:'test'});
+    const data=await response.json();
+    assert.deepEqual(data.pois.map(place=>place.id),['chongqing']);
+    assert.ok(requests.every(url=>url.searchParams.get('region')==='重庆市'&&url.searchParams.get('city_limit')==='true'));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Named Chongqing hotel search uses the city named in the message before ranking', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,provider:'amap',places:[{id:'chongqing-city',name:'重庆市',lat:29.563,lng:106.551,city:'重庆市',province:'重庆市',provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'}]}),{headers:{'Content-Type':'application/json'}});
+    const hotel={id:'cq-yitel',name:'和颐至尚酒店重庆店',address:'重庆市',lat:29.5599,lng:106.5791,city:'重庆市',provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'};
+    if(path==='/poi/nearby')return new Response(JSON.stringify({ok:true,provider:'amap',source:'amap-place-v5',pois:[hotel]}),{headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({ok:true,provider:'amap',place:hotel}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm Khách Sạn Yitel Trùng Khánh',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.8,longitude:106.68}})}),env);
+  const data=await response.json();
+  assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby','/poi/details']);
+  assert.equal(calls[0].body.resolveMode,'geocode');
+  assert.equal(calls[1].body.searchArea,'重庆市');
+  assert.equal(calls[1].body.center.lat,29.563);
+  assert.equal(data.travelos.nearby.pois[0].id,'cq-yitel');
+});
+
+test('Semantic planner cannot replace an explicit Chongqing hotel region with a nationwide search', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,calls=[];
+  globalThis.fetch=async (_url,init={})=>{
+    const payload=JSON.parse(String(init.body||'{}'));
+    const system=payload?.systemInstruction?.parts?.[0]?.text||'';
+    if(/semantic planner/i.test(system)){
+      const plan={englishMeaning:'Find Yitel Hotel in Chongqing',primaryIntent:'VENUE_INTELLIGENCE',needs:[
+        {kind:'PLACE_SEARCH',query:'Yitel Hotel',queryEn:'Yitel Hotel',target:'',area:'',time:'',travelMode:'',sourceText:'Khách Sạn Yitel Trùng Khánh',required:true,confidence:.98}
+      ],answerContract:['Find the hotel'],clarificationQuestion:'',overallConfidence:.99,shouldUseLiveData:true};
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(plan)}]}}]}),{headers:{'Content-Type':'application/json'}});
+    }
+    return new Response('{}',{status:503});
+  };
+  const hotel={id:'cq-yitel',name:'和颐酒店重庆店',address:'重庆市',lat:29.56,lng:106.58,city:'重庆市',provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'};
+  const env={GEMINI_API_KEY:'test',SEMANTIC_PLANNER_ENABLED:'true',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,provider:'amap',places:[{id:'cq',name:'重庆市',lat:29.563,lng:106.551,city:'重庆市',province:'重庆市',provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'}]}),{headers:{'Content-Type':'application/json'}});
+    if(path==='/poi/nearby')return new Response(JSON.stringify({ok:true,provider:'amap',pois:[hotel]}),{headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({ok:true,provider:'amap',place:hotel}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm Khách Sạn Yitel Trùng Khánh',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.8,longitude:106.68}})}),env);
+    const data=await response.json();
+    assert.equal(data.travelos.plan.planner,'gemini-structured');
+    assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby','/poi/details']);
+    assert.equal(calls[1].body.searchArea,'重庆市');
+    assert.equal(calls[1].body.center.lat,29.563);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 async function importWorker(path) {
   return import(`${new URL(path,import.meta.url).href}?test=${Date.now()}-${Math.random()}`);
 }
