@@ -236,7 +236,7 @@
     setState('Đang chuẩn bị giọng Pipi…', 'busy');
     caption.textContent = 'Gói giọng khoảng 400 MB, chỉ tải lần đầu rồi dùng trên máy.';
     window.PipiLocalVoice.prepare(progress => {
-      if (panel.hidden) return;
+      if (panel.hidden || translateMode) return;
       if (progress.phase === 'download') {
         const percent = Math.min(100, Math.round(progress.loaded / progress.total * 100));
         setState(`Đang tải giọng Pipi… ${percent}%`, 'busy');
