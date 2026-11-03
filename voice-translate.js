@@ -86,7 +86,7 @@
         };
       });
     }
-    async start() {
+    async start({deviceId = ''} = {}) {
       if (!this.ready || this.turn) throw new Error('LIVE_NOT_READY');
       const epoch=++this.generation;
       this.turn={epoch,released:false,source:'',chosen:'',data:{vi:emptyTurn(),'zh-Hans':emptyTurn()},
@@ -96,7 +96,9 @@
       try {
         this.audioContext=this.audioContext || new Context();
         await this.audioContext.resume();
-        const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}});
+        const audio={echoCancellation:true,noiseSuppression:true,channelCount:1};
+        if (deviceId && deviceId !== 'default') audio.deviceId={exact:deviceId};
+        const stream=await navigator.mediaDevices.getUserMedia({audio});
         if (this.generation!==epoch || !this.turn || this.turn.released) {stream.getTracks().forEach(track=>track.stop());return;}
         const source=this.audioContext.createMediaStreamSource(stream);
         const processor=this.audioContext.createScriptProcessor(4096,1,1);

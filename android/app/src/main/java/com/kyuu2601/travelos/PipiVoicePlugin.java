@@ -2,7 +2,11 @@ package com.kyuu2601.travelos;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.Context;
 import android.Manifest;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -32,6 +36,10 @@ public class PipiVoicePlugin extends Plugin {
     private PluginCall pending;
     private String pendingId;
     private boolean ready;
+    private AudioManager audioManager;
+    private int previousAudioMode = AudioManager.MODE_NORMAL;
+    private boolean audioRouteSelected;
+    private String selectedAudioInput = "default";
     private static final String VOICE_PREFS = "pipi_voice_settings";
     private static final String VOICE_KEY = "vietnamese_voice";
 
@@ -53,6 +61,83 @@ public class PipiVoicePlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("microphone", getPermissionState("microphone").toString());
         call.resolve(result);
+    }
+
+    private String inputLabel(AudioDeviceInfo device) {
+        switch (device.getType()) {
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: return "Điện thoại";
+            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE: return "Điện thoại";
+            case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
+            case AudioDeviceInfo.TYPE_BLE_HEADSET: return "Tai nghe Bluetooth";
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET: return "Tai nghe có dây";
+            case AudioDeviceInfo.TYPE_USB_HEADSET:
+            case AudioDeviceInfo.TYPE_USB_DEVICE: return "Tai nghe USB";
+            default: return "Thiết bị âm thanh";
+        }
+    }
+
+    @PluginMethod
+    public void getAudioInputs(PluginCall call) {
+        JSArray devices = new JSArray();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && audioManager != null) {
+            boolean hasPhone = false;
+            for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
+                int type = device.getType();
+                boolean phone = type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE;
+                if (phone && hasPhone) continue;
+                if (phone) hasPhone = true;
+                JSObject row = new JSObject();
+                row.put("id", String.valueOf(device.getId()));
+                String label = inputLabel(device);
+                if (!phone) {
+                    CharSequence product = device.getProductName();
+                    if (product != null && !product.toString().trim().isEmpty()) label += " · " + product;
+                }
+                row.put("label", label);
+                devices.put(row);
+            }
+        }
+        JSObject result = new JSObject();
+        result.put("devices", devices);
+        result.put("selected", selectedAudioInput);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void selectAudioInput(PluginCall call) {
+        String requested = call.getString("id", "default");
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || audioManager == null) {
+            if ("default".equals(requested)) call.resolve();
+            else call.reject("AUDIO_INPUT_SELECTION_UNAVAILABLE");
+            return;
+        }
+        if ("default".equals(requested)) {
+            clearAudioRoute();call.resolve();return;
+        }
+        for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
+            if (!String.valueOf(device.getId()).equals(requested)) continue;
+            if (!audioRouteSelected) previousAudioMode = audioManager.getMode();
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            if (audioManager.setCommunicationDevice(device)) {
+                audioRouteSelected = true;selectedAudioInput = requested;call.resolve();return;
+            }
+            if (!audioRouteSelected) audioManager.setMode(previousAudioMode);
+            call.reject("AUDIO_INPUT_SELECTION_FAILED");return;
+        }
+        call.reject("AUDIO_INPUT_DISCONNECTED");
+    }
+
+    @PluginMethod
+    public void clearAudioInput(PluginCall call) {
+        clearAudioRoute();call.resolve();
+    }
+
+    private void clearAudioRoute() {
+        if (audioManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && audioRouteSelected) {
+            audioManager.clearCommunicationDevice();
+            audioManager.setMode(previousAudioMode);
+        }
+        audioRouteSelected = false;selectedAudioInput = "default";
     }
 
     @PluginMethod
@@ -142,6 +227,7 @@ public class PipiVoicePlugin extends Plugin {
 
     @Override
     public void load() {
+        audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         tts = new TextToSpeech(getContext(), status -> {
             ready = status == TextToSpeech.SUCCESS;
             if (ready) tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
@@ -253,6 +339,7 @@ public class PipiVoicePlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         clearRecognizer();
+        clearAudioRoute();
         if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
         finish("VOICE_INTERRUPTED");
         super.handleOnDestroy();

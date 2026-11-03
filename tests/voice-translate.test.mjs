@@ -38,7 +38,7 @@ test('Live translation token stays restricted to its model and target language',
 test('Interpreter streams speech while held and plays only after release', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[];
-  let packets=0,playbacks=0,stopped=0;
+  let packets=0,playbacks=0,stopped=0,captureOptions;
   class FakeSocket {
     static OPEN=1;
     constructor(url){this.url=url;this.readyState=1;sockets.push(this);setTimeout(()=>this.onopen?.(),0);}
@@ -73,7 +73,7 @@ test('Interpreter streams speech while held and plays only after release', async
   }
   const context=vm.createContext({
     window:{AudioContext:FakeAudioContext},
-    navigator:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){stopped++;}}]})}},
+    navigator:{mediaDevices:{getUserMedia:async options=>{captureOptions=options;return {getTracks:()=>[{stop(){stopped++;}}]};}}},
     fetch:async(_url,options)=>new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode})),
     WebSocket:FakeSocket,Response,Uint8Array,Float32Array,DataView,Buffer,
     atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
@@ -81,7 +81,8 @@ test('Interpreter streams speech while held and plays only after release', async
   vm.runInContext(source,context);
   const translator=new context.window.PipiLiveTranslate('https://pipi.test');
   await translator.prepare();
-  await translator.start();
+  await translator.start({deviceId:'headset-mic'});
+  assert.equal(captureOptions.audio.deviceId.exact,'headset-mic');
   processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
   assert.equal(packets,2,'one audio frame reaches both language sessions');
   assert.equal(playbacks,0,'translated audio is held until the user releases the mic');
