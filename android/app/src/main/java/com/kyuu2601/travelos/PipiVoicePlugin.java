@@ -65,13 +65,13 @@ public class PipiVoicePlugin extends Plugin {
 
     private String inputLabel(AudioDeviceInfo device) {
         switch (device.getType()) {
-            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: return "Điện thoại";
-            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE: return "Điện thoại";
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: return "Mic điện thoại · loa ngoài";
+            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE: return "Mic điện thoại · loa thoại";
             case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
-            case AudioDeviceInfo.TYPE_BLE_HEADSET: return "Tai nghe Bluetooth";
-            case AudioDeviceInfo.TYPE_WIRED_HEADSET: return "Tai nghe có dây";
+            case AudioDeviceInfo.TYPE_BLE_HEADSET: return "Mic tai nghe Bluetooth";
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET: return "Mic tai nghe có dây";
             case AudioDeviceInfo.TYPE_USB_HEADSET:
-            case AudioDeviceInfo.TYPE_USB_DEVICE: return "Tai nghe USB";
+            case AudioDeviceInfo.TYPE_USB_DEVICE: return "Mic tai nghe USB";
             default: return "Thiết bị âm thanh";
         }
     }
@@ -81,9 +81,12 @@ public class PipiVoicePlugin extends Plugin {
         JSArray devices = new JSArray();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && audioManager != null) {
             boolean hasPhone = false;
+            boolean hasSpeaker = audioManager.getAvailableCommunicationDevices().stream()
+                .anyMatch(device -> device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
             for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
                 int type = device.getType();
                 boolean phone = type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE;
+                if (type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE && hasSpeaker) continue;
                 if (phone && hasPhone) continue;
                 if (phone) hasPhone = true;
                 JSObject row = new JSObject();

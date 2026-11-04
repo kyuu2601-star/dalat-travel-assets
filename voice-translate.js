@@ -87,7 +87,7 @@
       if (!this.ready || this.turn) throw new Error('LIVE_NOT_READY');
       const epoch=++this.generation;
       this.turn={epoch,released:false,source:'',chosen:'',pcm:[],data:{vi:emptyTurn(),'zh-Hans':emptyTurn()},
-        resolve:null,reject:null,timer:null,tailTimer:null,playback:null};
+        resolve:null,reject:null,timer:null,tailTimer:null,livePlayed:false,lastAudioAt:0};
       const Context=window.AudioContext || window.webkitAudioContext;
       if (!Context || !navigator.mediaDevices?.getUserMedia) {this.turn=null;throw new Error('MICROPHONE_CAPTURE_UNAVAILABLE');}
       try {
@@ -125,15 +125,15 @@
       const frame=JSON.stringify({realtimeInput:{audio:{data:base64(bytes),mimeType:'audio/pcm;rate=16000'}}});
       for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN) socket.send(frame);
     }
-    finishStream(turn, remaining=8) {
+    finishStream(turn, remaining=20) {
       if(this.turn!==turn)return;
       if(remaining>0) {
         this.sendAudio(SILENCE_FRAME);
         turn.tailTimer=setTimeout(()=>this.finishStream(turn,remaining-1),100);
         return;
       }
-      for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN)
-        socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
+      // Live Translate is continuous. Closing the audio stream here can cut
+      // the last words off the translated speech; silence lets VAD finish it.
       turn.tailTimer=null;
     }
     stopCapture() {
@@ -152,10 +152,9 @@
       const turn=this.turn;
       const result=new Promise((resolve,reject)=>{turn.resolve=resolve;turn.reject=reject;});
       this.finishStream(turn);
-      this.choose(turn);
       // Live Translate is a continuous stream and can return only a fragment.
-      // Run the complete audio translation in parallel; use Live only if it
-      // explicitly marks the response complete before the backend returns.
+      // Run the complete audio translation in parallel, while the Live audio
+      // chunks can already be heard as they arrive.
       this.fallbackTranslate(turn);
       return result;
     }
@@ -174,19 +173,25 @@
       if(output?.text)data.output+=output.text;
       for(const part of content.modelTurn?.parts || []) if(part.inlineData?.data) data.audio.push(audioBytes(part.inlineData.data));
       if(content.generationComplete || content.turnComplete)data.complete=true;
-      if(turn.released)this.choose(turn);
+      this.choose(turn);
     }
     choose(turn) {
-      if(this.turn!==turn || !turn.released)return;
+      if(this.turn!==turn)return;
       const preferred=turn.source==='vi'?'zh-Hans':turn.source==='zh-Hans'?'vi':'';
-      const candidate=preferred ? (turn.data[preferred].complete && turn.data[preferred].audio.length ? preferred : '')
-        : targets.find(target=>turn.data[target].complete && turn.data[target].audio.length);
+      const candidate=preferred ? (turn.data[preferred].audio.length ? preferred : '')
+        : targets.find(target=>turn.data[target].audio.length);
       if (!candidate)return;
       if (!turn.chosen)turn.chosen=candidate;
-      if (!turn.playback)turn.playback=this.playTurn(turn);
+      if(turn.chosen!==candidate)return;
+      if(!turn.livePlayed)this.callbacks.onState?.('Đang phát bản dịch…');
+      for(const bytes of turn.data[candidate].audio.splice(0)){
+        this.playPcm(bytes);
+        turn.livePlayed=true;
+        turn.lastAudioAt=Date.now();
+      }
     }
     async fallbackTranslate(turn) {
-      if(this.turn!==turn || turn.playback || turn.fallbackPending)return;
+      if(this.turn!==turn || turn.fallbackPending)return;
       turn.fallbackPending=true;
       this.callbacks.onState?.('Đang hoàn tất bản dịch…');
       try {
@@ -205,33 +210,18 @@
         });
         const result=await response.json().catch(()=>({}));
         if(!response.ok || !result.translatedText)throw new Error(result.error||'LIVE_TRANSLATION_TIMEOUT');
-        if(this.turn!==turn || turn.playback)return;
-        clearTimeout(turn.timer);clearTimeout(turn.tailTimer);this.turn=null;
-        turn.resolve?.({...result,fallback:true});
-      }catch(error){if(this.turn===turn)this.failTurn(error);}
-    }
-    async playTurn(turn) {
-      const target=turn.chosen;
-      this.callbacks.onState?.('Đang phát bản dịch…');
-      try {
-        let idle=0;
-        while(this.turn===turn && idle<30) {
-          const data=turn.data[target];
-          const bytes=data.audio.shift();
-          if(bytes){this.playPcm(bytes);idle=0;}
-          else if(data.complete)break;
-          else {await new Promise(resolve=>setTimeout(resolve,100));idle++;}
-        }
-        const remaining=Math.max(0,(this.playAt-this.audioContext.currentTime)*1000);
-        if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
         if(this.turn!==turn)return;
-        clearTimeout(turn.timer);clearTimeout(turn.tailTimer);
-        const source=turn.source || (target==='vi'?'zh-Hans':'vi');
-        const result={sourceLanguage:source,targetLanguage:target,
-          sourceText:turn.data[target].input.trim(),translatedText:turn.data[target].output.trim()};
-        this.turn=null;
-        turn.resolve?.(result);
-      } catch(error){this.failTurn(error);}
+        if(turn.livePlayed){
+          const deadline=Date.now()+3000;
+          while(this.turn===turn && Date.now()<deadline && Date.now()-turn.lastAudioAt<550)
+            await new Promise(resolve=>setTimeout(resolve,100));
+          const remaining=Math.max(0,(this.playAt-this.audioContext.currentTime)*1000);
+          if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
+        }
+        if(this.turn!==turn)return;
+        clearTimeout(turn.timer);clearTimeout(turn.tailTimer);this.turn=null;
+        turn.resolve?.({...result,fallback:!turn.livePlayed});
+      }catch(error){if(this.turn===turn)this.failTurn(error);}
     }
     playPcm(bytes) {
       const count=Math.floor(bytes.byteLength/2);

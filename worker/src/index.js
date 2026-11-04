@@ -3413,6 +3413,29 @@ async function handleVoiceTranslateFallback(request, env) {
   return json({error:'Voice translation unavailable',providerStatuses},502,request,env);
 }
 
+async function handleVoiceTranslateSpeech(request,env){
+  if(!(await rateLimit(request,env)))return json({error:'Too many voice sessions'},429,request,env);
+  if(!env.AI)return json({error:'Voice playback unavailable'},503,request,env);
+  let body;try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
+  const spoken=clean(body?.text,500);
+  if(!spoken || body?.language!=='zh-Hans')return json({error:'Invalid speech request'},400,request,env);
+  try{
+    const result=await env.AI.run('@cf/myshell-ai/melotts',{prompt:spoken,lang:'zh'});
+    const raw=result?.audio||result?.data||result;
+    let audio;
+    if(raw instanceof ReadableStream)audio=raw;
+    else if(raw instanceof ArrayBuffer || ArrayBuffer.isView(raw))audio=raw;
+    else if(typeof raw==='string'){
+      const value=raw.replace(/^data:audio\/[^;]+;base64,/, '');
+      audio=Uint8Array.from(atob(value),character=>character.charCodeAt(0));
+    }
+    if(!audio)return json({error:'Voice playback unavailable'},502,request,env);
+    const header=audio instanceof Uint8Array?audio:audio instanceof ArrayBuffer?new Uint8Array(audio):null;
+    const wav=header?.length>=4 && String.fromCharCode(...header.slice(0,4))==='RIFF';
+    return new Response(audio,{status:200,headers:{'Content-Type':wav?'audio/wav':'audio/mpeg','Cache-Control':'no-store',...cors(request,env)}});
+  }catch(error){console.warn('VOICE_TRANSLATE_SPEECH',errorText(error,'Unknown error',150));return json({error:'Voice playback unavailable'},502,request,env);}
+}
+
 // Pipi speech stays on the Worker so the Gemini key never reaches the browser.
 async function handleVoiceTts(request, env) {
   if(!(await rateLimit(request,env))) return json({error:'Rate limit exceeded'},429,request,env);
@@ -3495,6 +3518,7 @@ export default {
     if (path === '/voice-v1' && request.method === 'POST') return handleVoiceV1(request, env);
     if (path === '/voice-live-token' && request.method === 'POST') return handleLiveTranslateToken(request, env);
     if (path === '/voice-translate-fallback' && request.method === 'POST') return handleVoiceTranslateFallback(request, env);
+    if (path === '/voice-translate-speech' && request.method === 'POST') return handleVoiceTranslateSpeech(request, env);
     if (path === '/voice-tts' && request.method === 'POST') return handleVoiceTts(request, env);
     if (path === '/destination-summary' && request.method === 'POST') return handleDestinationSummary(request, env);
     if ((path === '/' || path === '/ai') && request.method === 'POST') return handleAiV3(request, env);

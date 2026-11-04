@@ -95,7 +95,17 @@ test('Voice translation uses Workers AI when Gemini is blocked by location', asy
   }finally{globalThis.fetch=originalFetch;}
 });
 
-test('Interpreter streams speech while held and plays only after release', async () => {
+test('Chinese speech fallback returns playable audio without exposing AI details', async () => {
+  const response=await worker.fetch(new Request('https://pipi.test/voice-translate-speech',{
+    method:'POST',headers:{Origin:'https://localhost','Content-Type':'application/json'},
+    body:JSON.stringify({text:'你好',language:'zh-Hans'})
+  }),{ALLOWED_ORIGINS:'https://localhost',AI:{run:async()=>({audio:Buffer.from('RIFFtest').toString('base64')})}});
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('content-type'),'audio/wav');
+  assert.equal(await response.text(),'RIFFtest');
+});
+
+test('Interpreter plays Live audio chunks while held and still waits for complete text', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[];
   let packets=0,playbacks=0,stopped=0,captureOptions;
@@ -110,14 +120,6 @@ test('Interpreter streams speech while held and plays only after release', async
         setTimeout(()=>this.onmessage?.({data:new Blob([JSON.stringify({setupComplete:{}})])}),0);
       }
       if(message.realtimeInput?.audio)packets++;
-      if(message.realtimeInput?.audioStreamEnd && this.url.includes('access_token=vi')) {
-        const pcm=Buffer.alloc(480);
-        setTimeout(()=>this.onmessage?.({data:JSON.stringify({serverContent:{
-          inputTranscription:{text:'你好',languageCode:'zh-Hans'},
-          outputTranscription:{text:'Xin chào',languageCode:'vi'},
-          modelTurn:{parts:[{inlineData:{data:pcm.toString('base64')}}]},generationComplete:true
-        }})}),0);
-      }
     }
     close(){this.readyState=3;}
   }
@@ -150,12 +152,17 @@ test('Interpreter streams speech while held and plays only after release', async
   processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
   processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
   assert.equal(packets,10,'silence prefix and recorded audio reach both language sessions');
-  assert.equal(playbacks,0,'translated audio is held until the user releases the mic');
+  sockets.find(socket=>socket.url.includes('access_token=vi')).onmessage({data:JSON.stringify({serverContent:{
+    inputTranscription:{text:'你好',languageCode:'zh-Hans'},
+    outputTranscription:{text:'Xin chào',languageCode:'vi'},
+    modelTurn:{parts:[{inlineData:{data:Buffer.alloc(480).toString('base64')}}]}
+  }})});
+  assert.equal(playbacks,1,'Live speech plays immediately, without a turn-complete event');
   const result=await translator.finishInput();
   assert.equal(result.sourceLanguage,'zh-Hans');
   assert.equal(result.targetLanguage,'vi');
   assert.equal(result.translatedText,'Xin chào');
-  assert.equal(result.fallback,undefined,'completed Live audio wins over the slower backend');
+  assert.equal(result.fallback,false,'backend supplies complete text without repeating Live audio');
   assert.equal(playbacks,1);
   assert.equal(stopped,1);
   translator.close();

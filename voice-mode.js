@@ -10,7 +10,7 @@
   panel.setAttribute('aria-label', 'Trò chuyện giọng nói với Pipi');
   panel.hidden = true;
   panel.innerHTML = `
-    <header class="pvm-header"><div class="pvm-header-main"><span>LET'S GO <strong>PIPI</strong></span><label class="pvm-translate-switch"><span>Translate</span><input id="pvm-translate" type="checkbox" role="switch" aria-label="Bật chế độ dịch Trung Việt"><span class="pvm-switch-track" aria-hidden="true"></span></label></div><div class="pvm-header-actions"><label class="pvm-input-picker" id="pvm-input-picker"><span>Mic</span><select id="pvm-audio-input" aria-label="Chọn micro đầu vào"><option value="default">Mặc định</option></select></label><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></div></header>
+    <header class="pvm-header"><div class="pvm-header-main"><span>LET'S GO <strong>PIPI</strong></span><label class="pvm-translate-switch"><span>Translate</span><input id="pvm-translate" type="checkbox" role="switch" aria-label="Bật chế độ dịch Trung Việt"><span class="pvm-switch-track" aria-hidden="true"></span></label></div><div class="pvm-header-actions"><label class="pvm-input-picker" id="pvm-input-picker"><span>Mic</span><select id="pvm-audio-input" aria-label="Chọn micro đầu vào"><option value="default">Tự động (Android chọn mic)</option></select></label><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></div></header>
     <div class="pvm-top"><div class="pvm-mic-halo"><button type="button" id="pvm-mic" aria-label="Giữ mic để nói"><svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button></div><p id="pvm-status" aria-live="polite">Giữ mic để nói</p><p id="pvm-caption" aria-live="polite">Pipi đang chờ câu hỏi của bạn</p></div>
     <div class="pvm-bottom"><div class="pvm-chat-title">Trò chuyện với Pipi</div><div id="pvm-chat" role="log" aria-live="polite"></div></div>`;
   document.body.appendChild(panel);
@@ -138,6 +138,22 @@
   }
   async function playTranslatedFallback(result) {
     const language=result.targetLanguage==='zh-Hans'?'zh-CN':'vi-VN';
+    if(result.targetLanguage==='vi' && window.PipiLocalVoice?.synthesize){
+      try{await playNatural(result.translatedText,generation,speechEpoch);return;}
+      catch(error){console.warn('Pipi local translated speech:',error);}
+    }
+    if(result.targetLanguage==='zh-Hans'){
+      try{
+        const response=await fetch(`${CONFIG.WORKER_URL}/voice-translate-speech`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({text:result.translatedText,language:result.targetLanguage})
+        });
+        if(!response.ok)throw new Error('TRANSLATE_SPEECH_UNAVAILABLE');
+        const url=URL.createObjectURL(await response.blob());
+        try{await playAudioUrl(url);}finally{URL.revokeObjectURL(url);}
+        return;
+      }catch(error){console.warn('Pipi Chinese translated speech:',error);}
+    }
     if(nativeVoice?.speak) {
       try {
         await nativeVoice.speak({text:result.translatedText,language});
@@ -272,7 +288,7 @@
         option.value = id;option.textContent = label;
         audioInputSelect.appendChild(option);
       };
-      add('default','Mặc định');
+      add('default',nativeVoice?.getAudioInputs?'Tự động · Android chọn mic':'Tự động · trình duyệt chọn mic');
       for (const device of devices) if (device?.id && device.id !== 'default') add(String(device.id),device.label || 'Micro');
       if (selectedMicId !== 'default' && !devices.some(device => String(device.id) === selectedMicId)) selectedMicId = 'default';
       audioInputSelect.value = selectedMicId;
@@ -556,7 +572,16 @@
         if (!translateMode || panel.hidden)return;
         if (result.sourceText)append('user',result.sourceText);
         append('ai',result.translatedText || 'Đã phát bản dịch.');
-        if(result.fallback && result.translatedText)await playTranslatedFallback(result);
+        if(result.fallback && result.translatedText){
+          setState('Đang phát bản dịch…','busy');
+          try{await playTranslatedFallback(result);}
+          catch(error){
+            console.warn('Pipi translated playback unavailable:',error);
+            setState('Đã dịch, nhưng chưa phát được tiếng','error');
+            caption.textContent='Bạn có thể đọc bản dịch ở bên dưới';
+            return;
+          }
+        }
         setState('Giữ mic để nói','ready');caption.textContent='Nói tiếng Trung hoặc tiếng Việt';
       }).catch(error=>{
         if (!translateMode || panel.hidden)return;
