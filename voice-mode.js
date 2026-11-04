@@ -10,7 +10,7 @@
   panel.setAttribute('aria-label', 'Trò chuyện giọng nói với Pipi');
   panel.hidden = true;
   panel.innerHTML = `
-    <header class="pvm-header"><div class="pvm-header-main"><span>LET'S GO <strong>PIPI</strong></span><label class="pvm-translate-switch"><span>Translate</span><input id="pvm-translate" type="checkbox" role="switch" aria-label="Bật chế độ dịch Trung Việt"><span class="pvm-switch-track" aria-hidden="true"></span></label></div><div class="pvm-header-actions"><label class="pvm-input-picker" id="pvm-input-picker"><span>Mic</span><select id="pvm-audio-input" aria-label="Chọn micro đầu vào"><option value="default">Tự động (Android chọn mic)</option></select></label><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></div></header>
+    <header class="pvm-header"><div class="pvm-header-main"><span>LET'S GO <strong>PIPI</strong></span><label class="pvm-translate-switch"><span>Translate</span><input id="pvm-translate" type="checkbox" role="switch" aria-label="Bật chế độ dịch Trung Việt"><span class="pvm-switch-track" aria-hidden="true"></span></label></div><div class="pvm-header-actions"><div class="pvm-input-picker" id="pvm-input-picker"><span>Mic</span><select id="pvm-audio-input" aria-label="Chọn micro đầu vào"><option value="default">Tự động (Android chọn mic)</option></select><button type="button" id="pvm-audio-short" class="pvm-input-short" aria-label="Chọn micro đầu vào" aria-controls="pvm-audio-menu" aria-expanded="false">Tự động</button><div id="pvm-audio-menu" class="pvm-input-menu" role="group" aria-label="Thiết bị âm thanh" hidden></div></div><button type="button" id="pvm-close" aria-label="Đóng trò chuyện giọng nói">×</button></div></header>
     <div class="pvm-top"><div class="pvm-mic-halo"><button type="button" id="pvm-mic" aria-label="Giữ mic để nói"><svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button></div><p id="pvm-status" aria-live="polite">Giữ mic để nói</p><p id="pvm-caption" aria-live="polite">Pipi đang chờ câu hỏi của bạn</p></div>
     <div class="pvm-bottom"><div class="pvm-chat-title">Trò chuyện với Pipi</div><div id="pvm-chat" role="log" aria-live="polite"></div></div>`;
   document.body.appendChild(panel);
@@ -23,6 +23,8 @@
   const translateSwitch = el('pvm-translate');
   const audioInputSelect = el('pvm-audio-input');
   const audioInputPicker = el('pvm-input-picker');
+  const audioInputShort = el('pvm-audio-short');
+  const audioInputMenu = el('pvm-audio-menu');
   const nativeVoice = window.TRAVELOS_NATIVE ? window.Capacitor?.Plugins?.PipiVoice : null;
   class NativeRecognition {
     constructor() { this.lang = 'vi-VN'; this.ended = false; this.subscription = null; this.starting = null; }
@@ -68,10 +70,17 @@
   let speechEpoch = 0;
   let translateMode = false, translateBusy = false, translator = null, translatorPromise = null;
   let selectedMicId = 'default', audioInputBusy = false;
+  const shortInputName = label => /loa ngoài/i.test(label)?'Loa ngoài'
+    : /tai nghe/i.test(label)?'Tai nghe'
+    : /điện thoại|loa thoại/i.test(label)?'Điện thoại'
+    : /tự động/i.test(label)?'Tự động':'Micro';
+  const closeAudioMenu = () => {audioInputMenu.hidden=true;audioInputShort.setAttribute('aria-expanded','false');};
   const syncToggle = () => {
     const busy = sending || holding || translateBusy || audioInputBusy || Boolean(panel.classList.contains?.('speaking'));
     translateSwitch.disabled = busy;
     audioInputSelect.disabled = busy;
+    audioInputShort.disabled = busy;
+    if(busy)closeAudioMenu();
     audioInputPicker.hidden = !nativeVoice?.getAudioInputs && !translateMode;
   };
   const syncMic = () => { mic.disabled = !microphoneReady || sending || translateBusy || audioInputBusy || (translateMode ? !translator?.ready : !Recognition || !voiceReady); };
@@ -235,6 +244,7 @@
     translator?.cancel(); translateMode = false; translateBusy = false; translateSwitch.checked = false;
     nativeVoice?.clearAudioInput?.().catch(() => {});
     selectedMicId = 'default';audioInputSelect.value = 'default';
+    audioInputShort.textContent='Tự động';closeAudioMenu();
     activeTyping?.remove(); activeTyping = null;
     mic.classList.remove('active');
     syncMic();syncToggle();
@@ -283,15 +293,21 @@
       }
       if (panel.hidden) return;
       audioInputSelect.innerHTML = '';
+      audioInputMenu.innerHTML = '';
       const add = (id, label) => {
         const option = document.createElement('option');
         option.value = id;option.textContent = label;
         audioInputSelect.appendChild(option);
+        const detail = document.createElement('button');
+        detail.type='button';detail.textContent=label;
+        detail.addEventListener('click',()=>selectAudioInput(id));
+        audioInputMenu.appendChild(detail);
       };
       add('default',nativeVoice?.getAudioInputs?'Tự động · Android chọn mic':'Tự động · trình duyệt chọn mic');
       for (const device of devices) if (device?.id && device.id !== 'default') add(String(device.id),device.label || 'Micro');
       if (selectedMicId !== 'default' && !devices.some(device => String(device.id) === selectedMicId)) selectedMicId = 'default';
       audioInputSelect.value = selectedMicId;
+      audioInputShort.textContent=shortInputName(audioInputSelect.selectedOptions?.[0]?.textContent||'Tự động');
     } catch(error) { console.warn('Pipi microphone list:',error); }
   }
   function open() {
@@ -354,8 +370,16 @@
   el('pvm-close').addEventListener('click', close);
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
   audioInputSelect.addEventListener('focus', refreshAudioInputs);
-  audioInputSelect.addEventListener('change', async () => {
-    const requested = audioInputSelect.value;
+  audioInputShort.addEventListener('click',()=>{
+    if(audioInputShort.disabled)return;
+    audioInputMenu.hidden=!audioInputMenu.hidden;
+    audioInputShort.setAttribute('aria-expanded',String(!audioInputMenu.hidden));
+  });
+  panel.addEventListener('click',event=>{
+    if(event.target && !audioInputPicker.contains?.(event.target))closeAudioMenu();
+  });
+  async function selectAudioInput(requested) {
+    closeAudioMenu();
     if (sending || holding || translateBusy || panel.classList.contains?.('speaking')) {
       audioInputSelect.value = selectedMicId;return;
     }
@@ -363,12 +387,15 @@
     try {
       if (nativeVoice?.selectAudioInput) await nativeVoice.selectAudioInput({id:requested});
       selectedMicId = requested;
+      audioInputSelect.value = requested;
+      audioInputShort.textContent=shortInputName(audioInputSelect.selectedOptions?.[0]?.textContent||'Tự động');
     } catch(error) {
       audioInputSelect.value = selectedMicId;
       caption.textContent = 'Chưa chọn được micro này. Bạn thử lại nhé.';
       console.warn('Pipi microphone selection:',error);
     } finally {audioInputBusy = false;syncMic();syncToggle();}
-  });
+  }
+  audioInputSelect.addEventListener('change',()=>selectAudioInput(audioInputSelect.value));
   if (typeof navigator !== 'undefined') navigator.mediaDevices?.addEventListener?.('devicechange', () => {if(!panel.hidden)refreshAudioInputs();});
 
   translateSwitch.addEventListener('change', async () => {
