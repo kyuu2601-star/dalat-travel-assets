@@ -34,11 +34,7 @@
     }
     async prepare() {
       if (this.ready) return;
-      try { await Promise.all(targets.map(target=>this.connect(target))); }
-      catch(error) {
-        this.close();
-        throw error;
-      }
+      await Promise.allSettled(targets.map(target=>this.connect(target)));
       this.ready=true;
     }
     async connect(target) {
@@ -51,10 +47,10 @@
       return new Promise((resolve,reject)=>{
         const socket=new WebSocket(`${WS_BASE}?access_token=${encodeURIComponent(data.token)}`);
         let settled=false;
-        const timeout=setTimeout(()=>{if(!settled){settled=true;socket.close();reject(new Error('LIVE_SETUP_TIMEOUT'));}},15000);
+        const timeout=setTimeout(()=>{if(!settled){settled=true;socket.close();reject(new Error('LIVE_SETUP_TIMEOUT'));}},5000);
         const fail=message=>{
           if (!settled) {settled=true;clearTimeout(timeout);reject(new Error(message));}
-          else {this.ready=false;this.callbacks.onError?.(new Error(message));}
+          else this.callbacks.onError?.(new Error(message));
         };
         socket.onopen=()=>socket.send(JSON.stringify({setup:{
           model:`models/${MODEL}`,
@@ -89,7 +85,7 @@
     async start({deviceId = ''} = {}) {
       if (!this.ready || this.turn) throw new Error('LIVE_NOT_READY');
       const epoch=++this.generation;
-      this.turn={epoch,released:false,source:'',chosen:'',data:{vi:emptyTurn(),'zh-Hans':emptyTurn()},
+      this.turn={epoch,released:false,source:'',chosen:'',pcm:[],data:{vi:emptyTurn(),'zh-Hans':emptyTurn()},
         resolve:null,reject:null,timer:null,playback:null};
       const Context=window.AudioContext || window.webkitAudioContext;
       if (!Context || !navigator.mediaDevices?.getUserMedia) {this.turn=null;throw new Error('MICROPHONE_CAPTURE_UNAVAILABLE');}
@@ -115,6 +111,7 @@
             view.setInt16(i*2,sample<0?sample*32768:sample*32767,true);
           }
           const frame=JSON.stringify({realtimeInput:{audio:{data:base64(output),mimeType:'audio/pcm;rate=16000'}}});
+          if (this.turn.pcm.length < 1200) this.turn.pcm.push(output);
           for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN) socket.send(frame);
         };
         this.capture={stream,source,processor};
@@ -141,8 +138,8 @@
       turn.timer=setTimeout(()=>{
         if(this.turn!==turn)return;
         if (!turn.chosen) this.choose(turn);
-        if (!turn.chosen) this.failTurn(new Error('LIVE_TRANSLATION_TIMEOUT'));
-      },7000);
+        if (!turn.chosen) this.fallbackTranslate(turn);
+      },500);
       this.choose(turn);
       return result;
     }
@@ -154,7 +151,7 @@
       const input=content.inputTranscription;
       if(input?.text) {
         data.input+=input.text;
-        const detected=language(input.languageCode) || (/[\u3400-\u9fff]/u.test(input.text)?'zh-Hans':'');
+        const detected=language(input.languageCode) || (/[\u3400-\u9fff]/u.test(input.text)?'zh-Hans':/[ăâđêôơưáàảãạéèẻẽẹíìỉĩịóòỏõọúùủũụýỳỷỹỵ]/iu.test(input.text)?'vi':'');
         if(detected)turn.source=detected;
       }
       const output=content.outputTranscription;
@@ -166,11 +163,36 @@
     choose(turn) {
       if(this.turn!==turn || !turn.released)return;
       const preferred=turn.source==='vi'?'zh-Hans':turn.source==='zh-Hans'?'vi':'';
-      const candidate=preferred && turn.data[preferred].audio.length?preferred
+      const candidate=preferred ? (turn.data[preferred].audio.length ? preferred : '')
         : targets.find(target=>turn.data[target].audio.length);
       if (!candidate)return;
       if (!turn.chosen)turn.chosen=candidate;
       if (!turn.playback)turn.playback=this.playTurn(turn);
+    }
+    async fallbackTranslate(turn) {
+      if(this.turn!==turn || turn.playback || turn.fallbackPending)return;
+      turn.fallbackPending=true;
+      this.callbacks.onState?.('Đang hoàn tất bản dịch…');
+      try {
+        const size=turn.pcm.reduce((sum,frame)=>sum+frame.length,0);
+        if(size<3200)throw new Error('VOICE_TOO_SHORT');
+        const wav=new Uint8Array(size+44),header=new DataView(wav.buffer);
+        wav.set([82,73,70,70],0);header.setUint32(4,size+36,true);
+        wav.set([87,65,86,69,102,109,116,32],8);header.setUint32(16,16,true);
+        header.setUint16(20,1,true);header.setUint16(22,1,true);header.setUint32(24,16000,true);
+        header.setUint32(28,32000,true);header.setUint16(32,2,true);header.setUint16(34,16,true);
+        wav.set([100,97,116,97],36);header.setUint32(40,size,true);
+        let offset=44;for(const frame of turn.pcm){wav.set(frame,offset);offset+=frame.length;}
+        const response=await fetch(`${this.workerUrl}/voice-translate-fallback`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({audio:base64(wav)})
+        });
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok || !result.translatedText)throw new Error(result.error||'LIVE_TRANSLATION_TIMEOUT');
+        if(this.turn!==turn || turn.playback)return;
+        clearTimeout(turn.timer);this.turn=null;
+        turn.resolve?.({...result,fallback:true});
+      }catch(error){if(this.turn===turn)this.failTurn(error);}
     }
     async playTurn(turn) {
       const target=turn.chosen;

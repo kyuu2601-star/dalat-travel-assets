@@ -3354,6 +3354,34 @@ async function handleLiveTranslateToken(request, env) {
   }
 }
 
+// If the preview Live model stalls, classify the recorded utterance and
+// translate it in one bounded request. The original audio never reaches chat.
+async function handleVoiceTranslateFallback(request, env) {
+  if (!(await rateLimit(request, env))) return json({error:'Too many voice sessions'},429,request,env);
+  if (!env.GEMINI_API_KEY) return json({error:'Gemini voice is not configured'},503,request,env);
+  let body;
+  try {body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
+  const audio=clean(body?.audio,2_000_000);
+  if (!audio || audio.length<5000 || audio.length>1_950_000 || !/^[A-Za-z0-9+/=]+$/.test(audio))
+    return json({error:'Invalid voice recording'},400,request,env);
+  const prompt='Listen to this short recording. It contains Vietnamese or Mandarin Chinese. Transcribe the speech faithfully, identify the spoken language, then translate the entire utterance into the other language. For Vietnamese input translate into Simplified Chinese; for Chinese input translate into Vietnamese. Return only JSON with sourceLanguage (vi or zh-Hans), targetLanguage (zh-Hans or vi), sourceText, translatedText. Do not invent speech if the recording is unclear.';
+  try {
+    const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',{
+      method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
+      body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:'audio/wav',data:audio}}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}})
+    });
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok)return json({error:'Voice translation unavailable',providerStatus:response.status},502,request,env);
+    const raw=payload?.candidates?.[0]?.content?.parts?.map(part=>part.text||'').join('')||'';
+    const result=JSON.parse(raw);
+    const source=clean(result?.sourceLanguage,20).startsWith('zh')?'zh-Hans':clean(result?.sourceLanguage,20).startsWith('vi')?'vi':'';
+    const target=source==='vi'?'zh-Hans':source==='zh-Hans'?'vi':'';
+    const sourceText=clean(result?.sourceText,1000),translatedText=clean(result?.translatedText,1000);
+    if(!source || !sourceText || !translatedText)return json({error:'Speech was not clear enough'},422,request,env);
+    return json({sourceLanguage:source,targetLanguage:target,sourceText,translatedText},200,request,env);
+  }catch(error){return json({error:'Voice translation failed',detail:errorText(error,'Unknown error',200)},502,request,env);}
+}
+
 // Pipi speech stays on the Worker so the Gemini key never reaches the browser.
 async function handleVoiceTts(request, env) {
   if(!(await rateLimit(request,env))) return json({error:'Rate limit exceeded'},429,request,env);
@@ -3435,6 +3463,7 @@ export default {
     if (path === '/ai-v3' && request.method === 'POST') return handleAiV3(request, env);
     if (path === '/voice-v1' && request.method === 'POST') return handleVoiceV1(request, env);
     if (path === '/voice-live-token' && request.method === 'POST') return handleLiveTranslateToken(request, env);
+    if (path === '/voice-translate-fallback' && request.method === 'POST') return handleVoiceTranslateFallback(request, env);
     if (path === '/voice-tts' && request.method === 'POST') return handleVoiceTts(request, env);
     if (path === '/destination-summary' && request.method === 'POST') return handleDestinationSummary(request, env);
     if ((path === '/' || path === '/ai') && request.method === 'POST') return handleAiV3(request, env);

@@ -136,6 +136,22 @@
     });
     return token === generation && epoch === speechEpoch;
   }
+  async function playTranslatedFallback(result) {
+    const language=result.targetLanguage==='zh-Hans'?'zh-CN':'vi-VN';
+    if(nativeVoice?.speak) {
+      await nativeVoice.speak({text:result.translatedText,language});
+      return;
+    }
+    const synth=window.speechSynthesis;
+    if(!synth || typeof SpeechSynthesisUtterance!=='function')throw new Error('VOICE_PLAYBACK_UNAVAILABLE');
+    await new Promise((resolve,reject)=>{
+      const utterance=new SpeechSynthesisUtterance(result.translatedText);
+      utterance.lang=language;utterance.rate=1.05;
+      utterance.onend=resolve;
+      utterance.onerror=()=>reject(new Error('VOICE_PLAYBACK_UNAVAILABLE'));
+      synth.speak(utterance);
+    });
+  }
   async function playAudioUrl(url, onStart) {
     const audio = new Audio(url); activeAudio = audio;
     let done;
@@ -298,10 +314,8 @@
       onError:error=>{
         if (translator !== instance) return;
         console.warn('Pipi Live Translate:',error);
-        instance.close();translator=null;translatorPromise=null;
         if (translateMode&&!panel.hidden) {
-          holding=false;translateBusy=false;mic.classList.remove('active');
-          setState('Kết nối dịch bị ngắt. Tắt rồi bật lại Dịch để thử lại.','error');syncMic();syncToggle();
+          caption.textContent='Pipi sẽ tiếp tục dịch qua kết nối dự phòng';
         }
       }
     });
@@ -536,10 +550,11 @@
     event.preventDefault(); holding = false;
     if (translateMode) {
       mic.classList.remove('active');mic.disabled=true;
-      translator.finishInput().then(result=>{
+      translator.finishInput().then(async result=>{
         if (!translateMode || panel.hidden)return;
         if (result.sourceText)append('user',result.sourceText);
         append('ai',result.translatedText || 'Đã phát bản dịch.');
+        if(result.fallback && result.translatedText)await playTranslatedFallback(result);
         setState('Giữ mic để nói','ready');caption.textContent='Nói tiếng Trung hoặc tiếng Việt';
       }).catch(error=>{
         if (!translateMode || panel.hidden)return;

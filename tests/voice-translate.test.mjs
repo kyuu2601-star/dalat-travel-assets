@@ -35,6 +35,25 @@ test('Live translation token stays restricted to its model and target language',
   } finally {globalThis.fetch=originalFetch;}
 });
 
+test('Fallback detects Vietnamese speech and asks Gemini for Chinese translation', async () => {
+  const originalFetch=globalThis.fetch;
+  let upstream;
+  globalThis.fetch=async (_url,options)=>{
+    upstream=JSON.parse(options.body);
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({sourceLanguage:'vi',sourceText:'Xin chào',targetLanguage:'zh-Hans',translatedText:'你好'})}]}}]}),{status:200});
+  };
+  try {
+    const request=new Request('https://pipi.test/voice-translate-fallback',{
+      method:'POST',headers:{Origin:'https://localhost','Content-Type':'application/json'},
+      body:JSON.stringify({audio:Buffer.alloc(5000).toString('base64')})
+    });
+    const response=await worker.fetch(request,{GEMINI_API_KEY:'server-only-secret',ALLOWED_ORIGINS:'https://localhost'});
+    assert.equal(response.status,200);
+    assert.deepEqual(await response.json(),{sourceLanguage:'vi',targetLanguage:'zh-Hans',sourceText:'Xin chào',translatedText:'你好'});
+    assert.equal(upstream.contents[0].parts[1].inlineData.mimeType,'audio/wav');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Interpreter streams speech while held and plays only after release', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[];
@@ -92,5 +111,47 @@ test('Interpreter streams speech while held and plays only after release', async
   assert.equal(result.translatedText,'Xin chào');
   assert.equal(playbacks,1);
   assert.equal(stopped,1);
+  translator.close();
+});
+
+test('Interpreter returns backend translation when Live produces no audio', async () => {
+  const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
+  let fallbackCalls=0;
+  class SilentSocket {
+    static OPEN=1;
+    readyState=1;
+    constructor(){setTimeout(()=>this.onopen?.(),0);}
+    send(raw){if(JSON.parse(raw).setup)setTimeout(()=>this.onmessage?.({data:JSON.stringify({setupComplete:{}})}),0);}
+    close(){this.readyState=3;}
+  }
+  const processor={connect(){},disconnect(){},onaudioprocess:null};
+  class FakeAudioContext {
+    sampleRate=16000;currentTime=0;destination={};
+    resume(){return Promise.resolve();}
+    createMediaStreamSource(){return {connect(){},disconnect(){}};}
+    createScriptProcessor(){return processor;}
+    close(){return Promise.resolve();}
+  }
+  const context=vm.createContext({
+    window:{AudioContext:FakeAudioContext},
+    navigator:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})}},
+    fetch:async(url,options)=>{
+      if(url.endsWith('/voice-live-token'))return new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode}));
+      fallbackCalls++;
+      assert.ok(JSON.parse(options.body).audio.startsWith('UklGR'));
+      return new Response(JSON.stringify({sourceLanguage:'vi',targetLanguage:'zh-Hans',sourceText:'Xin chào',translatedText:'你好'}));
+    },
+    WebSocket:SilentSocket,Response,Uint8Array,Float32Array,DataView,Buffer,
+    atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
+  });
+  vm.runInContext(source,context);
+  const translator=new context.window.PipiLiveTranslate('https://pipi.test');
+  await translator.prepare();await translator.start();
+  processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
+  const result=await translator.finishInput();
+  assert.equal(result.fallback,true);
+  assert.equal(result.targetLanguage,'zh-Hans');
+  assert.equal(result.translatedText,'你好');
+  assert.equal(fallbackCalls,1);
   translator.close();
 });
