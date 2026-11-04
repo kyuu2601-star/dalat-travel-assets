@@ -211,6 +211,11 @@
         const result=await response.json().catch(()=>({}));
         if(!response.ok || !result.translatedText)throw new Error(result.error||'LIVE_TRANSLATION_TIMEOUT');
         if(this.turn!==turn)return;
+        let textEmitted=false;
+        if(turn.livePlayed && this.callbacks.onTranscript){
+          try{textEmitted=this.callbacks.onTranscript(result)===true;}
+          catch(error){this.callbacks.onError?.(error);}
+        }
         if(turn.livePlayed){
           const deadline=Date.now()+3000;
           while(this.turn===turn && Date.now()<deadline && Date.now()-turn.lastAudioAt<550)
@@ -220,7 +225,7 @@
         }
         if(this.turn!==turn)return;
         clearTimeout(turn.timer);clearTimeout(turn.tailTimer);this.turn=null;
-        turn.resolve?.({...result,fallback:!turn.livePlayed});
+        turn.resolve?.({...result,fallback:!turn.livePlayed,textEmitted});
       }catch(error){if(this.turn===turn)this.failTurn(error);}
     }
     playPcm(bytes) {

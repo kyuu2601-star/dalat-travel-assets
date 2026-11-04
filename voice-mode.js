@@ -329,6 +329,12 @@
     if (!window.PipiLiveTranslate) return Promise.reject(new Error('LIVE_TRANSLATE_UNAVAILABLE'));
     const instance = new window.PipiLiveTranslate(CONFIG.WORKER_URL,{
       onState:text=>{if(translateMode&&!panel.hidden)setState(text,'busy');},
+      onTranscript:result=>{
+        if(!translateMode || panel.hidden)return false;
+        if(result.sourceText)append('user',result.sourceText);
+        append('ai',result.translatedText);
+        return true;
+      },
       onError:error=>{
         if (translator !== instance) return;
         console.warn('Pipi Live Translate:',error);
@@ -570,8 +576,10 @@
       mic.classList.remove('active');mic.disabled=true;
       translator.finishInput().then(async result=>{
         if (!translateMode || panel.hidden)return;
-        if (result.sourceText)append('user',result.sourceText);
-        append('ai',result.translatedText || 'Đã phát bản dịch.');
+        if(!result.textEmitted){
+          if (result.sourceText)append('user',result.sourceText);
+          append('ai',result.translatedText || 'Đã phát bản dịch.');
+        }
         if(result.fallback && result.translatedText){
           setState('Đang phát bản dịch…','busy');
           try{await playTranslatedFallback(result);}

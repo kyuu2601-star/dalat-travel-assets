@@ -108,7 +108,7 @@ test('Chinese speech fallback returns playable audio without exposing AI details
 test('Interpreter plays Live audio chunks while held and still waits for complete text', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[];
-  let packets=0,playbacks=0,stopped=0,captureOptions;
+  let packets=0,playbacks=0,stopped=0,captureOptions,earlyText='';
   class FakeSocket {
     static OPEN=1;
     constructor(url){this.url=url;this.readyState=1;sockets.push(this);setTimeout(()=>this.onopen?.(),0);}
@@ -145,7 +145,9 @@ test('Interpreter plays Live audio chunks while held and still waits for complet
     atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
   });
   vm.runInContext(source,context);
-  const translator=new context.window.PipiLiveTranslate('https://pipi.test');
+  const translator=new context.window.PipiLiveTranslate('https://pipi.test',{
+    onTranscript:result=>{earlyText=result.translatedText;return true;}
+  });
   await translator.prepare();
   await translator.start({deviceId:'headset-mic'});
   assert.equal(captureOptions.audio.deviceId.exact,'headset-mic');
@@ -163,6 +165,8 @@ test('Interpreter plays Live audio chunks while held and still waits for complet
   assert.equal(result.targetLanguage,'vi');
   assert.equal(result.translatedText,'Xin chào');
   assert.equal(result.fallback,false,'backend supplies complete text without repeating Live audio');
+  assert.equal(earlyText,'Xin chào');
+  assert.equal(result.textEmitted,true,'complete text is sent to the UI before Live playback finishes');
   assert.equal(playbacks,1);
   assert.equal(stopped,1);
   translator.close();
