@@ -139,8 +139,10 @@
   async function playTranslatedFallback(result) {
     const language=result.targetLanguage==='zh-Hans'?'zh-CN':'vi-VN';
     if(nativeVoice?.speak) {
-      await nativeVoice.speak({text:result.translatedText,language});
-      return;
+      try {
+        await nativeVoice.speak({text:result.translatedText,language});
+        return;
+      } catch(error) { console.warn('Pipi translated speech:',error); }
     }
     const synth=window.speechSynthesis;
     if(!synth || typeof SpeechSynthesisUtterance!=='function')throw new Error('VOICE_PLAYBACK_UNAVAILABLE');

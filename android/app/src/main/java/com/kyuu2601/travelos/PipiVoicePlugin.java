@@ -316,13 +316,22 @@ public class PipiVoicePlugin extends Plugin {
         pending = call;
         pendingId = UUID.randomUUID().toString();
         tts.stop();
-        String requested = call.getString("voiceId", "");
-        String saved = getContext().getSharedPreferences(VOICE_PREFS, 0).getString(VOICE_KEY, "auto");
-        String selected = requested.isEmpty() ? saved : requested;
-        List<Voice> voices = vietnameseVoices();
-        Voice chosen = voices.stream().filter(voice -> voice.getName().equals(selected)).findFirst().orElse(voices.isEmpty() ? null : voices.get(0));
-        if (chosen == null || tts.setVoice(chosen) == TextToSpeech.ERROR)
-            tts.setLanguage(Locale.forLanguageTag(call.getString("language", "vi-VN")));
+        String language = call.getString("language", "vi-VN");
+        if (!language.toLowerCase(Locale.ROOT).startsWith("vi")) {
+            int available = tts.setLanguage(Locale.forLanguageTag(language));
+            if (available == TextToSpeech.LANG_MISSING_DATA || available == TextToSpeech.LANG_NOT_SUPPORTED) {
+                finish("VOICE_LANGUAGE_UNAVAILABLE");
+                return;
+            }
+        } else {
+            String requested = call.getString("voiceId", "");
+            String saved = getContext().getSharedPreferences(VOICE_PREFS, 0).getString(VOICE_KEY, "auto");
+            String selected = requested.isEmpty() ? saved : requested;
+            List<Voice> voices = vietnameseVoices();
+            Voice chosen = voices.stream().filter(voice -> voice.getName().equals(selected)).findFirst().orElse(voices.isEmpty() ? null : voices.get(0));
+            if (chosen == null || tts.setVoice(chosen) == TextToSpeech.ERROR)
+                tts.setLanguage(Locale.forLanguageTag(language));
+        }
         tts.setSpeechRate(0.96f);
         tts.setPitch(1.0f);
         int result = tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, pendingId);

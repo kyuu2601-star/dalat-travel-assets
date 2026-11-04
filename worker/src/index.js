@@ -3356,30 +3356,61 @@ async function handleLiveTranslateToken(request, env) {
 
 // If the preview Live model stalls, classify the recorded utterance and
 // translate it in one bounded request. The original audio never reaches chat.
+async function workersAiVoiceTranslation(audio,env){
+  const transcription=await env.AI.run('@cf/openai/whisper-large-v3-turbo',{
+    audio,task:'transcribe',vad_filter:true,condition_on_previous_text:false
+  });
+  const sourceText=clean(transcription?.text,1000);
+  const language=String(transcription?.transcription_info?.language||transcription?.language||'').toLowerCase();
+  const source=/^(zh|chinese|mandarin)/.test(language)||(!language && /[\u3400-\u9fff]/.test(sourceText))?'zh-Hans':'vi';
+  if(!sourceText || sourceText.length<2) throw new Error('EMPTY_TRANSCRIPT');
+  const target=source==='vi'?'zh-Hans':'vi';
+  const translated=await env.AI.run('@cf/meta/m2m100-1.2b',{
+    text:sourceText,source_lang:source==='vi'?'vi':'zh',target_lang:target==='vi'?'vi':'zh'
+  });
+  const translatedText=clean(translated?.translated_text||translated?.translation||translated?.text,1000);
+  if(!translatedText) throw new Error('EMPTY_TRANSLATION');
+  return {sourceLanguage:source,targetLanguage:target,sourceText,translatedText};
+}
 async function handleVoiceTranslateFallback(request, env) {
   if (!(await rateLimit(request, env))) return json({error:'Too many voice sessions'},429,request,env);
-  if (!env.GEMINI_API_KEY) return json({error:'Gemini voice is not configured'},503,request,env);
+  if (!env.GEMINI_API_KEY && !env.AI) return json({error:'Voice translation is not configured'},503,request,env);
   let body;
   try {body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
   const audio=clean(body?.audio,2_000_000);
   if (!audio || audio.length<5000 || audio.length>1_950_000 || !/^[A-Za-z0-9+/=]+$/.test(audio))
     return json({error:'Invalid voice recording'},400,request,env);
+  const providerStatuses=[];
+  if(env.AI){
+    try{return json(await workersAiVoiceTranslation(audio,env),200,request,env);}
+    catch(error){providerStatuses.push('workers-ai:failed');console.warn('VOICE_TRANSLATE_WORKERS_AI',errorText(error,'Unknown error',150));}
+  }
   const prompt='Listen to this short recording. It contains Vietnamese or Mandarin Chinese. Transcribe the speech faithfully, identify the spoken language, then translate the entire utterance into the other language. For Vietnamese input translate into Simplified Chinese; for Chinese input translate into Vietnamese. Return only JSON with sourceLanguage (vi or zh-Hans), targetLanguage (zh-Hans or vi), sourceText, translatedText. Do not invent speech if the recording is unclear.';
-  try {
-    const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',{
-      method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
-      body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:'audio/wav',data:audio}}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}})
-    });
-    const payload=await response.json().catch(()=>({}));
-    if(!response.ok)return json({error:'Voice translation unavailable',providerStatus:response.status},502,request,env);
-    const raw=payload?.candidates?.[0]?.content?.parts?.map(part=>part.text||'').join('')||'';
-    const result=JSON.parse(raw);
-    const source=clean(result?.sourceLanguage,20).startsWith('zh')?'zh-Hans':clean(result?.sourceLanguage,20).startsWith('vi')?'vi':'';
-    const target=source==='vi'?'zh-Hans':source==='zh-Hans'?'vi':'';
-    const sourceText=clean(result?.sourceText,1000),translatedText=clean(result?.translatedText,1000);
-    if(!source || !sourceText || !translatedText)return json({error:'Speech was not clear enough'},422,request,env);
-    return json({sourceLanguage:source,targetLanguage:target,sourceText,translatedText},200,request,env);
-  }catch(error){return json({error:'Voice translation failed',detail:errorText(error,'Unknown error',200)},502,request,env);}
+  const payload=JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:'audio/wav',data:audio}}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}});
+  for(const model of env.GEMINI_API_KEY?['gemini-3.5-flash-lite','gemini-3.8-flash']:[]) {
+    try {
+      const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{
+        method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
+        body:payload,signal:AbortSignal.timeout(12_000)
+      });
+      if(!response.ok){
+        const failure=await response.json().catch(()=>({}));
+        const message=clean(failure?.error?.message,180);
+        providerStatuses.push(`${model}:${response.status}`);
+        if(response.status===400 && /location is not supported/i.test(message)) break;
+        continue;
+      }
+      const answer=await response.json();
+      const raw=answer?.candidates?.[0]?.content?.parts?.map(part=>part.text||'').join('')||'';
+      const result=JSON.parse(raw);
+      const source=clean(result?.sourceLanguage,20).startsWith('zh')?'zh-Hans':clean(result?.sourceLanguage,20).startsWith('vi')?'vi':'';
+      const target=source==='vi'?'zh-Hans':source==='zh-Hans'?'vi':'';
+      const sourceText=clean(result?.sourceText,1000),translatedText=clean(result?.translatedText,1000);
+      if(!source || !sourceText || !translatedText){providerStatuses.push(`${model}:empty`);continue;}
+      return json({sourceLanguage:source,targetLanguage:target,sourceText,translatedText},200,request,env);
+    } catch(error) {providerStatuses.push(`${model}:exception`);console.warn('VOICE_TRANSLATE_MODEL',model,errorText(error,'Unknown error',100));}
+  }
+  return json({error:'Voice translation unavailable',providerStatuses},502,request,env);
 }
 
 // Pipi speech stays on the Worker so the Gemini key never reaches the browser.

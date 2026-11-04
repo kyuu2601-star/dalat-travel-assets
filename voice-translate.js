@@ -3,6 +3,7 @@
   const MODEL = 'gemini-3.5-live-translate-preview';
   const WS_BASE = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
   const targets = ['vi', 'zh-Hans'];
+  const SILENCE_FRAME = new Uint8Array(3200); // 100 ms, mono PCM16 at 16 kHz
   const emptyTurn = () => ({input:'',output:'',audio:[],complete:false});
   const language = value => String(value || '').toLowerCase().startsWith('zh') ? 'zh-Hans'
     : String(value || '').toLowerCase().startsWith('vi') ? 'vi' : '';
@@ -86,7 +87,7 @@
       if (!this.ready || this.turn) throw new Error('LIVE_NOT_READY');
       const epoch=++this.generation;
       this.turn={epoch,released:false,source:'',chosen:'',pcm:[],data:{vi:emptyTurn(),'zh-Hans':emptyTurn()},
-        resolve:null,reject:null,timer:null,playback:null};
+        resolve:null,reject:null,timer:null,tailTimer:null,playback:null};
       const Context=window.AudioContext || window.webkitAudioContext;
       if (!Context || !navigator.mediaDevices?.getUserMedia) {this.turn=null;throw new Error('MICROPHONE_CAPTURE_UNAVAILABLE');}
       try {
@@ -96,6 +97,9 @@
         if (deviceId && deviceId !== 'default') audio.deviceId={exact:deviceId};
         const stream=await navigator.mediaDevices.getUserMedia({audio});
         if (this.generation!==epoch || !this.turn || this.turn.released) {stream.getTracks().forEach(track=>track.stop());return;}
+        // Live Translate uses continuous speech detection. Give it a short
+        // silence prefix before the speaker's first captured frame.
+        for(let i=0;i<3;i++)this.sendAudio(SILENCE_FRAME);
         const source=this.audioContext.createMediaStreamSource(stream);
         const processor=this.audioContext.createScriptProcessor(4096,1,1);
         source.connect(processor);
@@ -110,13 +114,27 @@
             const sample=Math.max(-1,Math.min(1,samples[Math.floor(i*ratio)]));
             view.setInt16(i*2,sample<0?sample*32768:sample*32767,true);
           }
-          const frame=JSON.stringify({realtimeInput:{audio:{data:base64(output),mimeType:'audio/pcm;rate=16000'}}});
           if (this.turn.pcm.length < 1200) this.turn.pcm.push(output);
-          for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN) socket.send(frame);
+          this.sendAudio(output);
         };
         this.capture={stream,source,processor};
         this.callbacks.onState?.('Đang nghe và dịch…');
       } catch(error) {this.cancel();throw error;}
+    }
+    sendAudio(bytes) {
+      const frame=JSON.stringify({realtimeInput:{audio:{data:base64(bytes),mimeType:'audio/pcm;rate=16000'}}});
+      for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN) socket.send(frame);
+    }
+    finishStream(turn, remaining=8) {
+      if(this.turn!==turn)return;
+      if(remaining>0) {
+        this.sendAudio(SILENCE_FRAME);
+        turn.tailTimer=setTimeout(()=>this.finishStream(turn,remaining-1),100);
+        return;
+      }
+      for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN)
+        socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
+      turn.tailTimer=null;
     }
     stopCapture() {
       if (!this.capture) return;
@@ -130,17 +148,15 @@
       this.stopCapture();
       if (!this.turn) return Promise.reject(new Error('LIVE_NOT_RECORDING'));
       this.turn.released=true;
-      for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN)
-        socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
       this.callbacks.onState?.('Đang hoàn tất bản dịch…');
       const turn=this.turn;
       const result=new Promise((resolve,reject)=>{turn.resolve=resolve;turn.reject=reject;});
-      turn.timer=setTimeout(()=>{
-        if(this.turn!==turn)return;
-        if (!turn.chosen) this.choose(turn);
-        if (!turn.chosen) this.fallbackTranslate(turn);
-      },500);
+      this.finishStream(turn);
       this.choose(turn);
+      // Live Translate is a continuous stream and can return only a fragment.
+      // Run the complete audio translation in parallel; use Live only if it
+      // explicitly marks the response complete before the backend returns.
+      this.fallbackTranslate(turn);
       return result;
     }
     receive(target,message) {
@@ -163,8 +179,8 @@
     choose(turn) {
       if(this.turn!==turn || !turn.released)return;
       const preferred=turn.source==='vi'?'zh-Hans':turn.source==='zh-Hans'?'vi':'';
-      const candidate=preferred ? (turn.data[preferred].audio.length ? preferred : '')
-        : targets.find(target=>turn.data[target].audio.length);
+      const candidate=preferred ? (turn.data[preferred].complete && turn.data[preferred].audio.length ? preferred : '')
+        : targets.find(target=>turn.data[target].complete && turn.data[target].audio.length);
       if (!candidate)return;
       if (!turn.chosen)turn.chosen=candidate;
       if (!turn.playback)turn.playback=this.playTurn(turn);
@@ -190,7 +206,7 @@
         const result=await response.json().catch(()=>({}));
         if(!response.ok || !result.translatedText)throw new Error(result.error||'LIVE_TRANSLATION_TIMEOUT');
         if(this.turn!==turn || turn.playback)return;
-        clearTimeout(turn.timer);this.turn=null;
+        clearTimeout(turn.timer);clearTimeout(turn.tailTimer);this.turn=null;
         turn.resolve?.({...result,fallback:true});
       }catch(error){if(this.turn===turn)this.failTurn(error);}
     }
@@ -209,7 +225,7 @@
         const remaining=Math.max(0,(this.playAt-this.audioContext.currentTime)*1000);
         if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
         if(this.turn!==turn)return;
-        clearTimeout(turn.timer);
+        clearTimeout(turn.timer);clearTimeout(turn.tailTimer);
         const source=turn.source || (target==='vi'?'zh-Hans':'vi');
         const result={sourceLanguage:source,targetLanguage:target,
           sourceText:turn.data[target].input.trim(),translatedText:turn.data[target].output.trim()};
@@ -234,6 +250,7 @@
       const turn=this.turn;
       if(!turn)return;
       clearTimeout(turn.timer);this.turn=null;
+      clearTimeout(turn.tailTimer);
       turn.reject?.(error);
     }
     cancel() {

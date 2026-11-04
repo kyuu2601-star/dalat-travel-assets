@@ -54,6 +54,47 @@ test('Fallback detects Vietnamese speech and asks Gemini for Chinese translation
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Fallback retries another Gemini model when the first is unavailable', async () => {
+  const originalFetch=globalThis.fetch;
+  const models=[];
+  globalThis.fetch=async url=>{
+    models.push(String(url));
+    if(models.length===1)return new Response('{}',{status:503});
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({sourceLanguage:'zh-Hans',sourceText:'你好',translatedText:'Xin chào'})}]}}]}),{status:200});
+  };
+  try {
+    const response=await worker.fetch(new Request('https://pipi.test/voice-translate-fallback',{
+      method:'POST',headers:{Origin:'https://localhost','Content-Type':'application/json'},
+      body:JSON.stringify({audio:Buffer.alloc(5000).toString('base64')})
+    }),{GEMINI_API_KEY:'server-only-secret',ALLOWED_ORIGINS:'https://localhost'});
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).translatedText,'Xin chào');
+    assert.match(models[0],/gemini-3\.5-flash-lite/);
+    assert.match(models[1],/gemini-3\.8-flash/);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Voice translation uses Workers AI when Gemini is blocked by location', async () => {
+  const originalFetch=globalThis.fetch;
+  const calls=[];
+  globalThis.fetch=async ()=>new Response(JSON.stringify({error:{message:'User location is not supported for the API use.'}}),{status:400});
+  try {
+    const response=await worker.fetch(new Request('https://pipi.test/voice-translate-fallback',{
+      method:'POST',headers:{Origin:'https://localhost','Content-Type':'application/json'},
+      body:JSON.stringify({audio:Buffer.alloc(5000).toString('base64')})
+    }),{
+      GEMINI_API_KEY:'server-only-secret',ALLOWED_ORIGINS:'https://localhost',
+      AI:{async run(model,payload){calls.push({model,payload});return model.includes('whisper')?{text:'你好'}:{translated_text:'Xin chào'};}}
+    });
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).translatedText,'Xin chào');
+    assert.equal(calls.length,2);
+    assert.equal(calls[0].payload.task,'transcribe');
+    assert.equal(calls[1].payload.source_lang,'zh');
+    assert.equal(calls[1].payload.target_lang,'vi');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Interpreter streams speech while held and plays only after release', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[];
@@ -93,7 +134,11 @@ test('Interpreter streams speech while held and plays only after release', async
   const context=vm.createContext({
     window:{AudioContext:FakeAudioContext},
     navigator:{mediaDevices:{getUserMedia:async options=>{captureOptions=options;return {getTracks:()=>[{stop(){stopped++;}}]};}}},
-    fetch:async(_url,options)=>new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode})),
+    fetch:async(url,options)=>{
+      if(url.endsWith('/voice-live-token'))return new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode}));
+      await new Promise(resolve=>setTimeout(resolve,1100));
+      return new Response(JSON.stringify({sourceLanguage:'zh-Hans',targetLanguage:'vi',sourceText:'你好',translatedText:'Xin chào'}));
+    },
     WebSocket:FakeSocket,Response,Uint8Array,Float32Array,DataView,Buffer,
     atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
   });
@@ -103,12 +148,14 @@ test('Interpreter streams speech while held and plays only after release', async
   await translator.start({deviceId:'headset-mic'});
   assert.equal(captureOptions.audio.deviceId.exact,'headset-mic');
   processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
-  assert.equal(packets,2,'one audio frame reaches both language sessions');
+  processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
+  assert.equal(packets,10,'silence prefix and recorded audio reach both language sessions');
   assert.equal(playbacks,0,'translated audio is held until the user releases the mic');
   const result=await translator.finishInput();
   assert.equal(result.sourceLanguage,'zh-Hans');
   assert.equal(result.targetLanguage,'vi');
   assert.equal(result.translatedText,'Xin chào');
+  assert.equal(result.fallback,undefined,'completed Live audio wins over the slower backend');
   assert.equal(playbacks,1);
   assert.equal(stopped,1);
   translator.close();
