@@ -6,6 +6,7 @@ import { buildVoiceBrief } from './bot/voice-brief.js';
 import { foodDiscoveryRequest, foodSearchVariants, rankFoodByReviews } from './bot/food-discovery.js';
 import { loadFoodKnowledge, starterKnowledge } from './bot/food-knowledge.js';
 import foodQueryPrompt from './bot/prompts/food-query.js';
+import { HOTEL_AREA_PROMPT, HOTEL_AREA_CHOICE_SCHEMA, parseHotelAreaRequest, hotelConfirmation } from './bot/hotel-area-discovery.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_FALLBACK_MODELS = ['gemini-3.8-flash','gemini-3.1-flash-lite'];
@@ -2337,14 +2338,19 @@ function compactWeatherContext(raw) {
 function compactConversationContext(raw) {
   if(!raw||typeof raw!=='object')return null;
   const nearby=compactNearbyContext(raw.nearby),placeDetails=raw.placeDetails&&typeof raw.placeDetails==='object'?compactPoi(raw.placeDetails):null;
+  const hotelArea=raw.hotelArea&&['awaiting_confirmation','awaiting_description'].includes(raw.hotelArea.status)?{
+    status:raw.hotelArea.status,hotelName:clean(raw.hotelArea.hotelName,200),city:clean(raw.hotelArea.city,120),
+    landmark:clean(raw.hotelArea.landmark,200),request:clean(raw.hotelArea.request,600),
+    candidates:(Array.isArray(raw.hotelArea.candidates)?raw.hotelArea.candidates:[]).slice(0,5).map(compactPoi).filter(place=>place.name&&coordFrom(place))
+  }:null;
   const weather=compactWeatherContext(raw.weather),busyness=raw.busyness&&typeof raw.busyness==='object'?{
     available:raw.busyness.available===true,basis:clean(raw.busyness.basis,30),score:num(raw.busyness.score),label:clean(raw.busyness.label,100),
     hourStart:int(raw.busyness.hourStart),hourEnd:int(raw.busyness.hourEnd),venue:raw.busyness.venue?{name:clean(raw.busyness.venue.name,300),address:clean(raw.busyness.venue.address,800)}:null
   }:null;
   const routes=Array.isArray(raw.routes)?compactRoutes({routes:raw.routes}):null;
   const curated=raw.curated&&typeof raw.curated==='object'?{places:Array.isArray(raw.curated.places)?raw.curated.places.slice(0,18):[],searchLocation:raw.curated.searchLocation||null}:null;
-  if(!nearby&&!placeDetails&&!weather&&!busyness&&!routes&&!curated)return null;
-  return {nearby,placeDetails:placeDetails?.name?placeDetails:null,weather,busyness,routes,curated,travelIntent:TRAVEL_INTENT_IDS.includes(raw.travelIntent)?raw.travelIntent:''};
+  if(!nearby&&!placeDetails&&!weather&&!busyness&&!routes&&!curated&&!hotelArea)return null;
+  return {nearby,placeDetails:placeDetails?.name?placeDetails:null,weather,busyness,routes,curated,hotelArea,travelIntent:TRAVEL_INTENT_IDS.includes(raw.travelIntent)?raw.travelIntent:''};
 }
 
 function listFollowupResponse(userMessage,previousContext) {
@@ -3162,6 +3168,152 @@ function validFoodQualityAnswer(text,nearby) {
   });
 }
 
+function hotelAreaReply(request, env, text, extra={}) {
+  return json({text,travelos:{version:3,travelIntent:'PLACE_DISCOVERY',...extra}},200,request,env);
+}
+
+function hotelAreaCoordinatesFromLink(value) {
+  const raw=clean(value,2000);
+  const at=raw.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+  const google=raw.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+  const match=google||at;
+  if(!match)return null;
+  const lat=Number(match[1]),lng=Number(match[2]);
+  return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?{lat,lng}:null;
+}
+
+async function resolveHotelCandidates(intent, location, env, overrideCenter=null) {
+  const china=isChinaTravelContext(location,intent.city,intent.hotelName,intent.landmark);
+  const country=china?'Trung Quốc':location.country;
+  const city=intent.city||location.city;
+  let center=overrideCenter;
+  if(!center&&city){
+    const resolved=await mapTool('/place/resolve',{...chinaProviderFields(china),query:city,center:null,country,language:china?'zh':'vi',limit:3,resolveMode:'geocode'},env);
+    center=coordFrom(resolved.data?.places?.[0]);
+  }
+  if(!center&&hasGps(location)&&(!city||sameChinaCity(city,location.city)))center={lat:location.latitude,lng:location.longitude};
+  if(!center)return [];
+  const search=china?await chinaNamedPlaceSearch(intent.hotelName,{city},env):{providerQuery:intent.hotelName,queryVariants:[],translationSource:'original'};
+  const found=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...center,country},country,searchArea:city,
+    query:search.providerQuery,keyword:search.providerQuery,name:intent.hotelName,queryVariants:[search.providerQuery,...search.queryVariants],
+    translationSource:search.translationSource,category:'hotel',radius:50000,limit:8,candidateLimit:40,sortBy:'name_similarity',language:china?'zh':'vi'},env);
+  if(!found.ok)return [];
+  let candidates=(found.data?.pois||[]).map(compactPoi).filter(place=>place.name&&coordFrom(place));
+  candidates=candidates.filter(place=>{
+    if(city&&place.city&&china&&!sameChinaCity(city,place.city))return false;
+    return coordDistanceMeters(place,center)<=50000;
+  });
+  let landmarkCenter=null;
+  if(intent.landmark){
+    const hint=china?await chinaNamedPlaceSearch(intent.landmark,{city},env):{providerQuery:intent.landmark};
+    const near=await mapTool('/place/resolve',{...chinaProviderFields(china),query:hint.providerQuery,center:{...center,country},country,language:china?'zh':'vi',limit:3,resolveMode:'geocode'},env);
+    landmarkCenter=coordFrom(near.data?.places?.[0]);
+  }
+  const hint=fold(intent.landmark),aliases=/(hong nhai dong|hongyadong)/.test(hint)?['洪崖洞','hongyadong','hong nhai dong']:hint?[hint]:[];
+  candidates.sort((a,b)=>{
+    const score=place=>{
+      const label=`${place.name} ${place.address} ${place.localizedName}`.toLowerCase(),landmarkMatch=aliases.some(alias=>label.includes(alias));
+      const nearMeters=landmarkCenter?coordDistanceMeters(place,landmarkCenter):null;
+      return (landmarkMatch?100:0)+(nearMeters!=null?Math.max(0,60-nearMeters/70):0);
+    };
+    return score(b)-score(a)||coordDistanceMeters(a,center)-coordDistanceMeters(b,center);
+  });
+  return china?await localizeChinaPlaces(candidates.slice(0,5),country,env,{query:intent.hotelName,useAi:false}):candidates.slice(0,5);
+}
+
+async function confirmedHotelAreaResults(hotel, originalRequest, location, request, env) {
+  const intent=parseHotelAreaRequest(originalRequest,location);
+  if(!intent)return hotelAreaReply(request,env,'Pipi chưa rõ bạn muốn tìm loại địa điểm nào quanh khách sạn. Bạn nói thêm quán ăn, chỗ chơi hoặc tiện ích nhé.',{placeDetails:hotel});
+  const center=coordFrom(hotel),china=isChinaTravelContext({...location,country:hotel.country||location.country,latitude:center.lat,longitude:center.lng},intent.city);
+  const country=china?'Trung Quốc':hotel.country||location.country,results=[];
+  for(const interest of intent.interests){
+    const terms=semanticPlaceSearch(interest.query,country,interest.category);
+    const found=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...center,country},country,query:terms.providerQuery,keyword:terms.providerQuery,
+      queryVariants:terms.queryVariants,category:interest.category,radius:3000,limit:10,candidateLimit:35,sortBy:'distance',language:china?'zh':'vi'},env);
+    if(found.ok)for(const place of found.data?.pois||[]){
+      const poi=compactPoi(place),meters=coordFrom(poi)?Math.round(coordDistanceMeters(poi,center)):Infinity;
+      if(meters<=3000&&poi.id!==hotel.id)results.push({...poi,distance:meters,searchCategory:interest.category});
+    }
+  }
+  const deduped=new Map();
+  for(const place of results){
+    const key=place.id||`${fold(place.name)}:${Number(place.lat).toFixed(4)},${Number(place.lng).toFixed(4)}`;
+    if(!deduped.has(key)||place.distance<deduped.get(key).distance)deduped.set(key,place);
+  }
+  const ranked=[...deduped.values()].sort((a,b)=>a.distance-b.distance);
+  const categories=[...new Set(intent.interests.map(item=>item.category))],perCategory=Math.max(1,Math.floor(10/categories.length));
+  const selected=[],used=new Set();
+  for(const category of categories)for(const place of ranked.filter(item=>item.searchCategory===category).slice(0,perCategory)){
+    const key=place.id||`${place.lat},${place.lng}`;if(!used.has(key)){used.add(key);selected.push(place);}
+  }
+  for(const place of ranked){
+    if(selected.length>=10)break;
+    const key=place.id||`${place.lat},${place.lng}`;if(!used.has(key)){used.add(key);selected.push(place);}
+  }
+  const categoryById=new Map(selected.map(place=>[place.id,place.searchCategory]));
+  let pois=selected.sort((a,b)=>a.distance-b.distance).slice(0,10);
+  if(china&&pois.length)pois=await localizeChinaPlaces(pois,country,env);
+  pois=pois.map(place=>({...place,localizedName:clean(place.localizedName,300).replace(/^Quán lẩu lẩu\b/i,'Quán lẩu')||place.name}));
+  const nearby={provider:china?'amap':pois[0]?.provider||'google_places',source:china?'amap-place-v5':'map-worker',
+    center:{...center,country,coordSystem:hotel.coordSystem},query:{keyword:intent.interests.map(item=>item.query).join(' + '),radius:3000,sortBy:'distance'},count:pois.length,pois};
+  if(!pois.length)return hotelAreaReply(request,env,`Pipi đã xác nhận ${hotel.localizedName||hotel.name}, nhưng bản đồ chưa trả điểm phù hợp trong 3 km quanh khách sạn. Bạn thử hỏi một loại cụ thể hơn nhé.`,{placeDetails:hotel,nearby});
+  let recommendations=[];
+  if(intent.period&&hasTextModel(env)){
+    try{
+      const choices=await callJsonModel(HOTEL_AREA_PROMPT,buildContents([],JSON.stringify({request:originalRequest,period:intent.period,
+        hotel:{name:hotel.localizedName||hotel.name,address:hotel.localizedAddress||hotel.address},
+        candidates:pois.map(place=>({id:place.id,name:place.localizedName||place.name,type:place.type,openNow:place.openNow,openTime:place.openTime,distance:place.distance}))})),HOTEL_AREA_CHOICE_SCHEMA,env,'planner');
+      const validIds=new Set(pois.map(place=>place.id));
+      recommendations=(Array.isArray(choices?.recommendedIds)?choices.recommendedIds:[]).filter(id=>validIds.has(id)).slice(0,3);
+    }catch(error){console.warn('[Hotel area recommendation fallback]',errorText(error,'Planner unavailable',200));}
+  }
+  const names=pois.slice(0,10).map((place,index)=>`- ${index+1}. ${place.localizedName||place.name} — ${formatNearbyDistance(place.distance)}${place.openNow===true?' · đang mở':place.openNow===false?' · hiện đóng':''}.`).join('\n');
+  let suggested=recommendations.length?recommendations.map(id=>pois.find(place=>place.id===id)).filter(Boolean):[];
+  if(!suggested.length||categories.length>1&&new Set(suggested.map(place=>categoryById.get(place.id))).size<Math.min(2,categories.length))
+    suggested=categories.map(category=>pois.find(place=>categoryById.get(place.id)===category)).filter(Boolean);
+  const picks=intent.period?` Nếu đi ${intent.period}, Pipi gợi ý xem trước ${suggested.map(place=>place.localizedName||place.name).join(', ')}. Bạn kiểm tra giờ hoạt động trước khi đi.`:'';
+  const text=`Pipi đã lấy ${hotel.localizedName||hotel.name} (${hotel.localizedAddress||hotel.address}) làm điểm tìm. Đây là ${pois.length} nơi gần khách sạn nhất:\n${names}${picks}\n\nBạn bấm bản đồ để xem danh sách và đường đi.`;
+  return hotelAreaReply(request,env,text,{placeDetails:hotel,nearby});
+}
+
+async function handleHotelAreaDiscovery(userMessage,previousContext,location,request,env) {
+  const fresh=parseHotelAreaRequest(userMessage,location),pending=previousContext?.hotelArea;
+  if(fresh){
+    const candidates=await resolveHotelCandidates(fresh,location,env);
+    if(!candidates.length)return hotelAreaReply(request,env,`Pipi chưa xác định chắc khách sạn “${fresh.hotelName}” ở ${fresh.city||'khu vực này'}. Bạn gửi link bản đồ hoặc mô tả địa chỉ, mốc gần đó giúp Pipi nhé.`,{hotelArea:{status:'awaiting_description',hotelName:fresh.hotelName,city:fresh.city,landmark:fresh.landmark,request:userMessage,candidates:[]}});
+    const first=candidates[0],name=first.localizedName||first.name,address=first.localizedAddress||first.address;
+    const alternatives=candidates.slice(1,3).map((place,index)=>`${index+2}. ${place.localizedName||place.name} — ${place.localizedAddress||place.address}`).join('\n');
+    const text=`Pipi tìm thấy khách sạn này: **${name}** — ${address}. Đây có đúng chỗ bạn nói không?${alternatives?`\n\nCác chi nhánh khác:\n${alternatives}\nBạn có thể trả lời “đúng số 2” nếu là chi nhánh khác.`:''}\n\nNếu chưa đúng, bạn gửi link bản đồ hoặc mô tả nó gần đâu nhé. Pipi sẽ tìm chỗ ăn chơi sau khi xác nhận.`;
+    return hotelAreaReply(request,env,text,{hotelArea:{status:'awaiting_confirmation',hotelName:fresh.hotelName,city:fresh.city,landmark:fresh.landmark,request:userMessage,candidates}});
+  }
+  if(!pending)return null;
+  const answer=hotelConfirmation(userMessage);
+  if(answer.kind==='yes'||answer.kind==='select'){
+    const hotel=pending.candidates[answer.index];
+    if(!hotel)return hotelAreaReply(request,env,'Pipi chỉ tìm được các chi nhánh đã liệt kê. Bạn chọn số trong danh sách hoặc gửi link khách sạn nhé.',{hotelArea:pending});
+    return confirmedHotelAreaResults(hotel,pending.request,location,request,env);
+  }
+  if(answer.kind==='no')return hotelAreaReply(request,env,'Bạn gửi link bản đồ của khách sạn, địa chỉ hoặc mô tả nó gần địa điểm nào nhé. Pipi sẽ kiểm tra lại trước khi tìm xung quanh.',{hotelArea:{...pending,status:'awaiting_description'}});
+  if(pending.status!=='awaiting_description')return null;
+  if(/\b(?:thoi tiet|du bao|di bo|chi duong|gia ve|may gio)\b/.test(fold(userMessage)))return null;
+  const point=hotelAreaCoordinatesFromLink(userMessage);
+  const hint=clean(userMessage.match(/(?:sau|gần|cạnh|đối\s*diện)\s+([^,?.]+)/i)?.[1]||userMessage,200);
+  let anchor=point;
+  if(!anchor&&!/https?:\/\//i.test(hint)){
+    const china=isChinaTravelContext(location,pending.city,pending.hotelName);
+    const translated=china?await chinaNamedPlaceSearch(hint,{city:pending.city},env):{providerQuery:hint};
+    const found=await mapTool('/place/resolve',{...chinaProviderFields(china),query:translated.providerQuery,center:null,country:china?'Trung Quốc':location.country,language:china?'zh':'vi',limit:3,resolveMode:'geocode'},env);
+    anchor=coordFrom(found.data?.places?.[0]);
+  }
+  if(!anchor)return hotelAreaReply(request,env,'Pipi chưa đọc được vị trí từ mô tả hoặc link đó. Bạn gửi địa chỉ đầy đủ hay link bản đồ có tọa độ giúp Pipi nhé.',{hotelArea:pending});
+  let options=pending.candidates||[];
+  if(!options.length||Math.min(...options.map(place=>coordDistanceMeters(place,anchor)))>2500)
+    options=await resolveHotelCandidates({...pending,landmark:hint},location,env,anchor);
+  const nearest=[...options].sort((a,b)=>coordDistanceMeters(a,anchor)-coordDistanceMeters(b,anchor))[0];
+  if(!nearest||coordDistanceMeters(nearest,anchor)>2500)return hotelAreaReply(request,env,'Chưa có chi nhánh nào Pipi tìm được nằm sát vị trí bạn gửi. Bạn cho Pipi tên đầy đủ hoặc địa chỉ khách sạn nhé.',{hotelArea:pending});
+  return hotelAreaReply(request,env,`Theo vị trí bạn bổ sung, Pipi thấy **${nearest.localizedName||nearest.name}** — ${nearest.localizedAddress||nearest.address}. Đúng khách sạn này chưa?`,{hotelArea:{...pending,status:'awaiting_confirmation',candidates:[nearest,...options.filter(place=>place.id!==nearest.id)]}});
+}
+
 async function handleAiV3(request, env) {
   if(!(await rateLimit(request,env))) return json({text:"⚠️ Let's Go Pipi đang nhận quá nhiều yêu cầu. Bạn thử lại sau khoảng 1 phút nhé.",error:{message:'Rate limit exceeded'}},200,request,env);
   let body; try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
@@ -3174,6 +3326,11 @@ async function handleAiV3(request, env) {
   const listFollowup=listFollowupResponse(userMessage,previousContext);
   if(listFollowup)return json(listFollowup,200,request,env);
   const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
+  let hotelAreaResponse=null;
+  try{hotelAreaResponse=await handleHotelAreaDiscovery(userMessage,previousContext,location,request,env);}
+  catch(error){console.warn('[Hotel area lookup]',errorText(error,'Lookup unavailable',200));
+    return hotelAreaReply(request,env,'Pipi chưa kiểm tra được vị trí khách sạn lúc này. Bạn thử lại sau nhé.');}
+  if(hotelAreaResponse)return hotelAreaResponse;
   const currentNearbyIntent=liveNearbyIntent(userMessage);
   const explicitRemoteIntent=remoteAreaSearchIntent(userMessage);
   if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent&&location.locationMismatch){

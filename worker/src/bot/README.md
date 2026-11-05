@@ -4,7 +4,7 @@ Mỗi request đi qua ba lớp độc lập:
 
 1. `planner/semantic-planner.js` chỉ bóc tách nhu cầu thành JSON có cấu trúc. Planner không gọi API và không viết câu trả lời cho user.
 2. `library/api-registry.js` là thư viện năng lực API. Backend dùng danh sách này để biên dịch nhu cầu thành tool đã cho phép, chọn Google ngoài Trung Quốc và AMap tại Trung Quốc qua Map Worker.
-3. `prompts/` chứa tám prompt trả lời tách biệt. Mỗi lượt chỉ `answerPromptFor(primaryIntent)` được gửi cho model viết câu trả lời; các prompt khác không đi kèm.
+3. `prompts/` chứa tám prompt trả lời tách biệt. Mỗi lượt chỉ `answerPromptFor(primaryIntent)` được gửi cho model viết câu trả lời; các prompt khác không đi kèm. Luồng tìm quanh khách sạn có prompt riêng trong `hotel-area-discovery.js`: backend xác minh khách sạn và hỏi người dùng xác nhận trước, rồi mới tìm điểm gần tọa độ đã chọn.
 
 Parser deterministic vẫn xử lý các câu rõ ràng để giảm độ trễ và chi phí. Semantic planner chỉ chạy cho câu mơ hồ, câu đa nhu cầu hoặc khi parser cần hỏi lại. Nếu planner lỗi, backend quay về parser deterministic.
 

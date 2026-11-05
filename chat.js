@@ -378,6 +378,12 @@ function compactTravelContext(payload) {
     const text = (value, max = 500) => String(value ?? '').trim().slice(0, max);
     const list = (value, max, mapper) => Array.isArray(value) ? value.slice(0, max).map(mapper) : [];
     const nearby = compactNearbySnapshot(payload.nearby);
+    const rawHotelArea = payload.hotelArea;
+    const hotelArea = rawHotelArea && ['awaiting_confirmation','awaiting_description'].includes(rawHotelArea.status) ? {
+        status:text(rawHotelArea.status,40), hotelName:text(rawHotelArea.hotelName,200), city:text(rawHotelArea.city,120),
+        landmark:text(rawHotelArea.landmark,200), request:text(rawHotelArea.request,600),
+        candidates:list(rawHotelArea.candidates,5,place=>({id:text(place?.id,250),name:text(place?.name,300),localizedName:text(place?.localizedName,300),address:text(place?.address,700),localizedAddress:text(place?.localizedAddress,700),lat:numberOrNull(place?.lat),lng:numberOrNull(place?.lng),country:text(place?.country,120),city:text(place?.city,120),provider:text(place?.provider,80),coordSystem:text(place?.coordSystem,20)}))
+    } : null;
     const rawPlace = payload.placeDetails;
     const placeDetails = rawPlace && typeof rawPlace === 'object' ? {
         id:text(rawPlace.id || rawPlace.poiId, 250), poiId:text(rawPlace.poiId || rawPlace.id, 250), name:text(rawPlace.name, 300),
@@ -422,8 +428,8 @@ function compactTravelContext(payload) {
         places:list(rawCurated.places, 18, place => ({ id:text(place?.id, 200), name:text(place?.name, 300), address:text(place?.address, 700), category:text(place?.category, 120), description:text(place?.description, 700), lat:numberOrNull(place?.lat), lng:numberOrNull(place?.lng), distanceKm:numberOrNull(place?._distance_km) })),
         searchLocation:rawCurated.searchLocation || null
     } : null;
-    if (!nearby && !placeDetails && !weather && !busyness && !routes.length && !curated) return null;
-    return { version:1, travelIntent:text(payload.travelIntent || payload.plan?.travelIntent, 40), nearby, placeDetails, weather, busyness, routes:routes.length ? routes : null, curated };
+    if (!nearby && !placeDetails && !weather && !busyness && !routes.length && !curated && !hotelArea) return null;
+    return { version:1, travelIntent:text(payload.travelIntent || payload.plan?.travelIntent, 40), nearby, placeDetails, weather, busyness, routes:routes.length ? routes : null, curated, hotelArea };
 }
 
 function readHistory() {
