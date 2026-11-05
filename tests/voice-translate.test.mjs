@@ -105,10 +105,11 @@ test('Chinese speech fallback returns playable audio without exposing AI details
   assert.equal(await response.text(),'RIFFtest');
 });
 
-test('Interpreter plays Live audio chunks while held and still waits for complete text', async () => {
+test('Interpreter speaks after release and renews Live sessions for the next turn', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[];
   let packets=0,playbacks=0,stopped=0,captureOptions,earlyText='';
+  const states=[];
   class FakeSocket {
     static OPEN=1;
     constructor(url){this.url=url;this.readyState=1;sockets.push(this);setTimeout(()=>this.onopen?.(),0);}
@@ -141,12 +142,13 @@ test('Interpreter plays Live audio chunks while held and still waits for complet
       await new Promise(resolve=>setTimeout(resolve,1100));
       return new Response(JSON.stringify({sourceLanguage:'zh-Hans',targetLanguage:'vi',sourceText:'你好',translatedText:'Xin chào'}));
     },
-    WebSocket:FakeSocket,Response,Uint8Array,Float32Array,DataView,Buffer,
+    WebSocket:FakeSocket,Response,Uint8Array,Float32Array,DataView,Buffer,AbortController,
     atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
   });
   vm.runInContext(source,context);
   const translator=new context.window.PipiLiveTranslate('https://pipi.test',{
-    onTranscript:result=>{earlyText=result.translatedText;return true;}
+    onTranscript:result=>{earlyText=result.translatedText;return true;},
+    onState:state=>states.push(state)
   });
   await translator.prepare();
   await translator.start({deviceId:'headset-mic'});
@@ -159,8 +161,12 @@ test('Interpreter plays Live audio chunks while held and still waits for complet
     outputTranscription:{text:'Xin chào',languageCode:'vi'},
     modelTurn:{parts:[{inlineData:{data:Buffer.alloc(480).toString('base64')}}]}
   }})});
-  assert.equal(playbacks,1,'Live speech plays immediately, without a turn-complete event');
-  const result=await translator.finishInput();
+  assert.equal(playbacks,0,'voice waits until the user releases the mic');
+  const first=translator.finishInput();
+  assert.equal(states.at(-2),'Pipi đang suy nghĩ…');
+  assert.equal(states.at(-1),'Pipi đang trả lời…');
+  assert.equal(playbacks,1,'Live speech starts on release');
+  const result=await first;
   assert.equal(result.sourceLanguage,'zh-Hans');
   assert.equal(result.targetLanguage,'vi');
   assert.equal(result.translatedText,'Xin chào');
@@ -169,6 +175,36 @@ test('Interpreter plays Live audio chunks while held and still waits for complet
   assert.equal(result.textEmitted,true,'complete text is sent to the UI before Live playback finishes');
   assert.equal(playbacks,1);
   assert.equal(stopped,1);
+  for(let i=0;i<30 && !translator.ready;i++)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(translator.ready,true,'the next turn has a fresh Live session');
+  assert.equal(sockets.length,4,'both language sessions were renewed');
+  await translator.start();
+  processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
+  processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
+  sockets.findLast(socket=>socket.url.includes('access_token=vi')).onmessage({data:JSON.stringify({serverContent:{
+    inputTranscription:{text:'你好',languageCode:'zh-Hans'},
+    outputTranscription:{text:'Xin chào',languageCode:'vi'},
+    modelTurn:{parts:[{inlineData:{data:Buffer.alloc(480).toString('base64')}}]}
+  }})});
+  assert.equal(playbacks,1);
+  const second=translator.finishInput();
+  assert.equal(playbacks,2,'the second turn also has Live voice');
+  assert.equal((await second).fallback,false);
+  for(let i=0;i<30 && !translator.ready;i++)await new Promise(resolve=>setTimeout(resolve,10));
+  await translator.start();
+  processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
+  processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
+  const third=translator.finishInput();
+  const current=sockets.findLast(socket=>socket.url.includes('access_token=vi'));
+  current.onmessage({data:JSON.stringify({serverContent:{
+    inputTranscription:{text:'你好',languageCode:'zh-Hans'},
+    outputTranscription:{text:'Xin chào',languageCode:'vi'},
+    modelTurn:{parts:[{inlineData:{data:Buffer.alloc(480).toString('base64')}}]}
+  }})});
+  current.onmessage({data:JSON.stringify({serverContent:{generationComplete:true}})});
+  const start=Date.now();
+  assert.equal((await third).translatedText,'Xin chào');
+  assert.ok(Date.now()-start<500,'completed Live transcript bypasses the slower backend text request');
   translator.close();
 });
 
@@ -199,7 +235,7 @@ test('Interpreter returns backend translation when Live produces no audio', asyn
       assert.ok(JSON.parse(options.body).audio.startsWith('UklGR'));
       return new Response(JSON.stringify({sourceLanguage:'vi',targetLanguage:'zh-Hans',sourceText:'Xin chào',translatedText:'你好'}));
     },
-    WebSocket:SilentSocket,Response,Uint8Array,Float32Array,DataView,Buffer,
+    WebSocket:SilentSocket,Response,Uint8Array,Float32Array,DataView,Buffer,AbortController,
     atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
   });
   vm.runInContext(source,context);

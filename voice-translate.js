@@ -32,11 +32,18 @@
       this.playing=[];
       this.generation=0;
       this.closed=false;
+      this.preparing=null;
     }
     async prepare() {
       if (this.ready) return;
-      await Promise.allSettled(targets.map(target=>this.connect(target)));
-      this.ready=true;
+      if (this.preparing) return this.preparing;
+      this.preparing=Promise.allSettled(targets.map(target=>this.connect(target))).then(results=>{
+        if(this.closed)return;
+        this.ready=this.sessions.size>0;
+        if(!this.ready)throw results.find(result=>result.status==='rejected')?.reason || new Error('LIVE_SETUP_UNAVAILABLE');
+        this.callbacks.onReady?.();
+      }).finally(()=>{this.preparing=null;});
+      return this.preparing;
     }
     async connect(target) {
       const response=await fetch(`${this.workerUrl}/voice-live-token`,{
@@ -62,6 +69,7 @@
           }
         }}));
         socket.onmessage=async event=>{
+          if(socket.retired || this.closed)return;
           let message;
           try {
             const payload=event.data instanceof Blob ? await event.data.text()
@@ -78,7 +86,8 @@
         socket.onerror=()=>fail('LIVE_SOCKET_ERROR');
         socket.onclose=event=>{
           if (this.sessions.get(target)===socket) this.sessions.delete(target);
-          if(this.closed)return;
+          if(this.closed || socket.retired)return;
+          if(!this.sessions.size)this.ready=false;
           fail(`LIVE_SOCKET_CLOSED_${event.code}`);
         };
       });
@@ -87,7 +96,7 @@
       if (!this.ready || this.turn) throw new Error('LIVE_NOT_READY');
       const epoch=++this.generation;
       this.turn={epoch,released:false,source:'',chosen:'',pcm:[],data:{vi:emptyTurn(),'zh-Hans':emptyTurn()},
-        resolve:null,reject:null,timer:null,tailTimer:null,livePlayed:false,lastAudioAt:0};
+        resolve:null,reject:null,timer:null,tailTimer:null,livePlayed:false,lastAudioAt:0,finalizing:false,fallbackAbort:null};
       const Context=window.AudioContext || window.webkitAudioContext;
       if (!Context || !navigator.mediaDevices?.getUserMedia) {this.turn=null;throw new Error('MICROPHONE_CAPTURE_UNAVAILABLE');}
       try {
@@ -125,15 +134,16 @@
       const frame=JSON.stringify({realtimeInput:{audio:{data:base64(bytes),mimeType:'audio/pcm;rate=16000'}}});
       for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN) socket.send(frame);
     }
-    finishStream(turn, remaining=20) {
+    finishStream(turn, remaining=5) {
       if(this.turn!==turn)return;
       if(remaining>0) {
         this.sendAudio(SILENCE_FRAME);
         turn.tailTimer=setTimeout(()=>this.finishStream(turn,remaining-1),100);
         return;
       }
-      // Live Translate is continuous. Closing the audio stream here can cut
-      // the last words off the translated speech; silence lets VAD finish it.
+      // Let the final syllable reach the model before ending this push-to-talk turn.
+      for(const socket of this.sessions.values())if(socket.readyState===WebSocket.OPEN)
+        socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
       turn.tailTimer=null;
     }
     stopCapture() {
@@ -148,10 +158,12 @@
       this.stopCapture();
       if (!this.turn) return Promise.reject(new Error('LIVE_NOT_RECORDING'));
       this.turn.released=true;
-      this.callbacks.onState?.('Đang hoàn tất bản dịch…');
+      this.callbacks.onState?.('Pipi đang suy nghĩ…');
       const turn=this.turn;
       const result=new Promise((resolve,reject)=>{turn.resolve=resolve;turn.reject=reject;});
       this.finishStream(turn);
+      this.choose(turn);
+      this.completeLive(turn);
       // Live Translate is a continuous stream and can return only a fragment.
       // Run the complete audio translation in parallel, while the Live audio
       // chunks can already be heard as they arrive.
@@ -174,26 +186,42 @@
       for(const part of content.modelTurn?.parts || []) if(part.inlineData?.data) data.audio.push(audioBytes(part.inlineData.data));
       if(content.generationComplete || content.turnComplete)data.complete=true;
       this.choose(turn);
+      this.completeLive(turn);
     }
     choose(turn) {
-      if(this.turn!==turn)return;
+      if(this.turn!==turn || !turn.released)return;
       const preferred=turn.source==='vi'?'zh-Hans':turn.source==='zh-Hans'?'vi':'';
-      const candidate=preferred ? (turn.data[preferred].audio.length ? preferred : '')
-        : targets.find(target=>turn.data[target].audio.length);
+      const candidate=preferred && turn.data[preferred].audio.length ? preferred : '';
       if (!candidate)return;
       if (!turn.chosen)turn.chosen=candidate;
       if(turn.chosen!==candidate)return;
-      if(!turn.livePlayed)this.callbacks.onState?.('Đang phát bản dịch…');
+      if(!turn.livePlayed)this.callbacks.onState?.('Pipi đang trả lời…');
       for(const bytes of turn.data[candidate].audio.splice(0)){
         this.playPcm(bytes);
         turn.livePlayed=true;
         turn.lastAudioAt=Date.now();
       }
     }
+    async completeLive(turn) {
+      const data=turn.data[turn.chosen];
+      if(this.turn!==turn || !turn.released || turn.finalizing || !turn.livePlayed || !data?.complete || !data.output.trim() || !data.input.trim())return;
+      turn.finalizing=true;
+      turn.fallbackAbort?.abort();
+      const result={sourceLanguage:turn.source,targetLanguage:turn.chosen,
+        sourceText:data.input.trim(),translatedText:data.output.trim(),fallback:false};
+      let textEmitted=false;
+      try{textEmitted=this.callbacks.onTranscript?.(result)===true;}
+      catch(error){this.callbacks.onError?.(error);}
+      const remaining=Math.max(0,(this.playAt-this.audioContext.currentTime)*1000);
+      if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
+      if(this.turn!==turn)return;
+      clearTimeout(turn.timer);clearTimeout(turn.tailTimer);this.turn=null;
+      turn.resolve?.({...result,textEmitted});
+      this.refreshSessions();
+    }
     async fallbackTranslate(turn) {
       if(this.turn!==turn || turn.fallbackPending)return;
       turn.fallbackPending=true;
-      this.callbacks.onState?.('Đang hoàn tất bản dịch…');
       try {
         const size=turn.pcm.reduce((sum,frame)=>sum+frame.length,0);
         if(size<3200)throw new Error('VOICE_TOO_SHORT');
@@ -204,17 +232,23 @@
         header.setUint32(28,32000,true);header.setUint16(32,2,true);header.setUint16(34,16,true);
         wav.set([100,97,116,97],36);header.setUint32(40,size,true);
         let offset=44;for(const frame of turn.pcm){wav.set(frame,offset);offset+=frame.length;}
+        turn.fallbackAbort=new AbortController();
         const response=await fetch(`${this.workerUrl}/voice-translate-fallback`,{
           method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({audio:base64(wav)})
+          body:JSON.stringify({audio:base64(wav)}),signal:turn.fallbackAbort.signal
         });
         const result=await response.json().catch(()=>({}));
         if(!response.ok || !result.translatedText)throw new Error(result.error||'LIVE_TRANSLATION_TIMEOUT');
-        if(this.turn!==turn)return;
+        if(this.turn!==turn || turn.finalizing)return;
         let textEmitted=false;
-        if(turn.livePlayed && this.callbacks.onTranscript){
+        if(this.callbacks.onTranscript){
           try{textEmitted=this.callbacks.onTranscript(result)===true;}
           catch(error){this.callbacks.onError?.(error);}
+        }
+        if(!turn.livePlayed){
+          const deadline=Date.now()+900;
+          while(this.turn===turn && !turn.livePlayed && Date.now()<deadline)
+            await new Promise(resolve=>setTimeout(resolve,50));
         }
         if(turn.livePlayed){
           const deadline=Date.now()+3000;
@@ -223,10 +257,17 @@
           const remaining=Math.max(0,(this.playAt-this.audioContext.currentTime)*1000);
           if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
         }
-        if(this.turn!==turn)return;
+        if(this.turn!==turn || turn.finalizing)return;
         clearTimeout(turn.timer);clearTimeout(turn.tailTimer);this.turn=null;
         turn.resolve?.({...result,fallback:!turn.livePlayed,textEmitted});
-      }catch(error){if(this.turn===turn)this.failTurn(error);}
+        this.refreshSessions();
+      }catch(error){if(this.turn===turn && !turn.finalizing)this.failTurn(error);}
+    }
+    refreshSessions() {
+      this.ready=false;
+      for(const socket of this.sessions.values()){socket.retired=true;socket.close();}
+      this.sessions.clear();
+      if(!this.closed)this.prepare().catch(error=>this.callbacks.onError?.(error));
     }
     playPcm(bytes) {
       const count=Math.floor(bytes.byteLength/2);
@@ -244,9 +285,11 @@
     failTurn(error) {
       const turn=this.turn;
       if(!turn)return;
+      turn.fallbackAbort?.abort();
       clearTimeout(turn.timer);this.turn=null;
       clearTimeout(turn.tailTimer);
       turn.reject?.(error);
+      this.refreshSessions();
     }
     cancel() {
       ++this.generation;
