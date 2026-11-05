@@ -2724,12 +2724,14 @@ async function localizeChinaPlaces(pois, country, env, options={}) {
   if(nearbyLanguage({country})!=='zh'||!source.length)return source;
   const fallback=source.map(place=>({...place,localizedName:place.localizedName||chinaFallbackName(place,options.query),localizedAddress:place.localizedAddress||chinaFallbackAddress(place)}));
   if(options.useAi===false)return fallback;
-  if(env.AI?.run)return localizeChinaNamesWithWorkersAi(fallback,env,options.query);
+  if(env.AI?.run&&!(options.preferTextModel&&hasTextModel(env)))return localizeChinaNamesWithWorkersAi(fallback,env,options.query);
   if(!hasTextModel(env))return fallback;
   const prompt=`Bạn dịch tên và địa chỉ địa điểm Trung Quốc sang tiếng Việt cho khách du lịch. Chỉ trả JSON theo schema.
 - localizedName bắt đầu bằng tên tiếng Việt hoặc tên thương hiệu Latin, sau đó mới đặt tên gốc tiếng Trung trong ngoặc. Không để chữ Hán nằm ngoài ngoặc; không dịch sai tên thương hiệu.
 - localizedAddress dịch các cấp hành chính/đường khi chắc chắn; nếu giữ địa chỉ gốc tiếng Trung thì đặt trong ngoặc ở cuối.
 - Nếu câu hỏi có tên thương hiệu Latin, dùng đúng tên đó khi địa điểm AMap tương ứng.
+- Với khách sạn, mỗi localizedName phải bắt đầu bằng "Khách sạn" hoặc tên thương hiệu Latin kèm "Hotel"; giữ phần phân biệt chi nhánh bằng tiếng Việt. Không dùng riêng tên thành phố làm tên khách sạn, không gán tên khách sạn được hỏi cho các khách sạn khác.
+- Dịch tên đường, ga tàu, mốc gần đó và số nhà trong localizedAddress sang tiếng Việt. Chỉ giữ nguyên tên gốc tiếng Trung trong ngoặc ở cuối để người dùng đối chiếu.
 - note là một câu trung tính ngắn dựa đúng vào type, tag, rating, giá; không bịa.
 - confidence dùng limited nếu dữ liệu ít.`;
   try{
@@ -3218,7 +3220,12 @@ async function resolveHotelCandidates(intent, location, env, overrideCenter=null
     };
     return score(b)-score(a)||coordDistanceMeters(a,center)-coordDistanceMeters(b,center);
   });
-  return china?await localizeChinaPlaces(candidates.slice(0,5),country,env,{query:intent.hotelName,useAi:false}):candidates.slice(0,5);
+  if(!china)return candidates.slice(0,5);
+  const localized=await localizeChinaPlaces(candidates.slice(0,5),country,env,{preferTextModel:true});
+  return localized.map(place=>{
+    const display=clean(place.localizedName,300);
+    return /(?:khách\s*sạn|hotel)/i.test(display)?place:{...place,localizedName:chinaFallbackName(place)};
+  });
 }
 
 async function confirmedHotelAreaResults(hotel, originalRequest, location, request, env) {

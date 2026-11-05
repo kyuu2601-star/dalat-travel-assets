@@ -53,6 +53,17 @@ test('Hotel parser keeps the branch name separate from the requested activity',(
   assert.equal(parsed.interests[0].category,'tourist_attraction');
 });
 
+test('Hotel confirmation does not label unrelated Chinese hotels only as Chongqing',async()=>{
+  const env={ALLOWED_ORIGINS:origin,MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname;
+    if(path==='/place/resolve')return Response.json({ok:true,places:[{name:'重庆市',lat:29.563,lng:106.551}]});
+    return Response.json({ok:true,pois:[{id:'guest-hotel',name:'重庆观邸轻奢酒店',address:'人民路238-1号',city:'重庆市',lat:29.568,lng:106.554,provider:'amap',country:'Trung Quốc'}]});
+  }}};
+  const result=await (await worker.fetch(post('Quanh khách sạn Trùng Khánh có gì chơi?',null),env)).json();
+  assert.match(result.text,/Khách sạn \(重庆观邸轻奢酒店\)/);
+  assert.doesNotMatch(result.text,/khách sạn này: \*\*Trùng Khánh \(/i);
+});
+
 test('Chat keeps pending hotel confirmation even before a nearby map exists',async()=>{
   const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
   const store=new Map(),context={console,Date,AbortController,setTimeout,clearTimeout,
