@@ -68,8 +68,7 @@
   let recognition = null, holding = false, transcript = '', confidence = null, recognitionError = '', sending = false, activeRequest = null, activeTyping = null, generation = 0;
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
-  let translateMode = false, translateBusy = false, translator = null, translatorPromise = null;
-  let pendingTranslation = null;
+  let translateMode = false, translateBusy = false, translateListening = false, translator = null, translatorPromise = null, translationSpeechTimer = null;
   let selectedMicId = 'default', audioInputBusy = false;
   const shortInputName = label => /loa ngoài/i.test(label)?'Loa ngoài'
     : /tai nghe/i.test(label)?'Tai nghe'
@@ -77,14 +76,14 @@
     : /tự động/i.test(label)?'Tự động':'Micro';
   const closeAudioMenu = () => {audioInputMenu.hidden=true;audioInputShort.setAttribute('aria-expanded','false');};
   const syncToggle = () => {
-    const busy = sending || holding || translateBusy || audioInputBusy || Boolean(panel.classList.contains?.('speaking'));
+    const busy = sending || holding || translateBusy || translateListening || audioInputBusy || Boolean(panel.classList.contains?.('speaking'));
     translateSwitch.disabled = busy;
     audioInputSelect.disabled = busy;
     audioInputShort.disabled = busy;
     if(busy)closeAudioMenu();
     audioInputPicker.hidden = !nativeVoice?.getAudioInputs && !translateMode;
   };
-  const syncMic = () => { mic.disabled = !microphoneReady || sending || translateBusy || audioInputBusy || (translateMode ? !translator?.ready : !Recognition || !voiceReady); };
+  const syncMic = () => { mic.disabled = !microphoneReady || sending || translateBusy || audioInputBusy || (translateMode ? (!translateListening && !translator?.ready) : !Recognition || !voiceReady); };
   const fixedClips = {
     'Pipi đang phân tích câu hỏi.': 'assets/voice/planning.wav?v=local-2',
     'Pipi đang tìm kiếm thông tin.': 'assets/voice/searching.wav?v=local-2',
@@ -145,42 +144,6 @@
       synth.speak(utterance);
     });
     return token === generation && epoch === speechEpoch;
-  }
-  async function playTranslatedFallback(result, onStart) {
-    const language=result.targetLanguage==='zh-Hans'?'zh-CN':'vi-VN';
-    if(result.targetLanguage==='vi' && window.PipiLocalVoice?.synthesize){
-      try{await playNatural(result.translatedText,generation,speechEpoch,onStart);return;}
-      catch(error){console.warn('Pipi local translated speech:',error);}
-    }
-    if(result.targetLanguage==='zh-Hans'){
-      try{
-        const response=await fetch(`${CONFIG.WORKER_URL}/voice-translate-speech`,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({text:result.translatedText,language:result.targetLanguage})
-        });
-        if(!response.ok)throw new Error('TRANSLATE_SPEECH_UNAVAILABLE');
-        const url=URL.createObjectURL(await response.blob());
-        try{await playAudioUrl(url,onStart);}finally{URL.revokeObjectURL(url);}
-        return;
-      }catch(error){console.warn('Pipi Chinese translated speech:',error);}
-    }
-    if(nativeVoice?.speak) {
-      try {
-        const playback=nativeVoice.speak({text:result.translatedText,language});
-        onStart?.();await playback;
-        return;
-      } catch(error) { console.warn('Pipi translated speech:',error); }
-    }
-    const synth=window.speechSynthesis;
-    if(!synth || typeof SpeechSynthesisUtterance!=='function')throw new Error('VOICE_PLAYBACK_UNAVAILABLE');
-    await new Promise((resolve,reject)=>{
-      const utterance=new SpeechSynthesisUtterance(result.translatedText);
-      utterance.lang=language;utterance.rate=1.05;
-      utterance.onstart=()=>onStart?.();
-      utterance.onend=resolve;
-      utterance.onerror=()=>reject(new Error('VOICE_PLAYBACK_UNAVAILABLE'));
-      synth.speak(utterance);
-    });
   }
   async function playAudioUrl(url, onStart) {
     const audio = new Audio(url); activeAudio = audio;
@@ -244,7 +207,7 @@
     activeRequest?.abort(); activeRequest = null;
     recognition?.abort(); recognition = null;
     stopSpeaking();
-    translator?.close();translator=null;translatorPromise=null;translateMode = false; translateBusy = false; pendingTranslation=null; translateSwitch.checked = false;
+    clearTimeout(translationSpeechTimer);translator?.close();translator=null;translatorPromise=null;translateMode = false; translateBusy = false;translateListening=false;translateSwitch.checked = false;
     nativeVoice?.clearAudioInput?.().catch(() => {});
     selectedMicId = 'default';audioInputSelect.value = 'default';
     audioInputShort.textContent='Tự động';closeAudioMenu();
@@ -321,6 +284,7 @@
     if (window.TRAVELOS_NATIVE) requestMicrophone();
     if (voiceReady) {
       updateVoiceControls();
+      if(window.PipiContinuousTranslate)prewarmTranslate().catch(error=>console.warn('Pipi interpreter warmup:',error));
       return;
     }
     setState('Đang chuẩn bị giọng Pipi…', 'busy');
@@ -345,20 +309,26 @@
   function prewarmTranslate() {
     if (translator?.ready) return Promise.resolve(translator);
     if (translatorPromise) return translatorPromise;
-    if (!window.PipiLiveTranslate) return Promise.reject(new Error('LIVE_TRANSLATE_UNAVAILABLE'));
-    const instance = new window.PipiLiveTranslate(CONFIG.WORKER_URL,{
-      onState:text=>{if(translateMode&&!panel.hidden){setState(text,text.includes('trả lời')?'speaking':'busy');if(text.includes('trả lời'))showPendingTranslation();}},
-      onTranscript:result=>{
-        if(!translateMode || panel.hidden)return false;
-        pendingTranslation=result;
-        return panel.dataset.state==='speaking' ? showPendingTranslation() : false;
+    translator?.close();translator=null;
+    if (!window.PipiContinuousTranslate) return Promise.reject(new Error('LIVE_TRANSLATE_UNAVAILABLE'));
+    const instance = new window.PipiContinuousTranslate(CONFIG.WORKER_URL,{
+      onState:text=>{if(translateMode&&!panel.hidden && translateListening)setState(text,'listening');},
+      onSpeech:()=>{
+        if(!translateMode || panel.hidden || !translateListening)return;
+        setState('Pipi đang trả lời…','speaking');
+        clearTimeout(translationSpeechTimer);
+        const remaining=Math.max(0,(instance.playAt-instance.audioContext.currentTime)*1000);
+        translationSpeechTimer=setTimeout(()=>{
+          if(translateMode && translateListening && !panel.hidden)setState('Đang dịch liên tục · bấm mic để dừng','listening');
+        },remaining+250);
       },
-      onReady:()=>{if(translateMode&&!panel.hidden){if(!translateBusy){setState('Giữ mic để nói','ready');caption.textContent='Nói tiếng Trung hoặc tiếng Việt';}syncMic();syncToggle();}},
+      onSegment:result=>{if(translateMode&&!panel.hidden)appendTranslation(result);},
+      onReady:()=>{if(translateMode&&!panel.hidden){if(!translateBusy && !translateListening){setState('Bấm mic để bắt đầu dịch','ready');caption.textContent='Pipi sẽ tự nghe tiếng Trung và tiếng Việt';mic.setAttribute('aria-label','Bấm mic để bắt đầu phiên dịch');}syncMic();syncToggle();}},
       onError:error=>{
         if (translator !== instance) return;
         console.warn('Pipi Live Translate:',error);
         if (translateMode&&!panel.hidden) {
-          caption.textContent='Pipi sẽ tiếp tục dịch qua kết nối dự phòng';
+          caption.textContent='Kết nối phiên dịch bị gián đoạn. Bạn dừng rồi bật lại nhé.';
         }
       }
     });
@@ -369,12 +339,19 @@
     }).finally(()=>{translatorPromise=null;});
     return translatorPromise;
   }
-  function showPendingTranslation() {
-    if(!pendingTranslation)return false;
-    const result=pendingTranslation;pendingTranslation=null;
-    if(result.sourceText)append('user',result.sourceText);
-    append('ai',result.translatedText);
-    return true;
+  function appendTranslation(result) {
+    if(!result?.sourceText || !result?.translatedText)return;
+    const card=document.createElement('div');
+    card.className=`pvm-translation-card ${result.sourceLanguage==='vi'?'source-vi':'source-zh'}`;
+    const source=document.createElement('div'),translated=document.createElement('div');
+    source.className='pvm-translation-original';
+    translated.className='pvm-translation-result';
+    const sourceLabel=document.createElement('small'),targetLabel=document.createElement('small');
+    sourceLabel.textContent=result.sourceLanguage==='vi'?'Tiếng Việt':'Tiếng Trung';
+    targetLabel.textContent=result.targetLanguage==='vi'?'Tiếng Việt':'Tiếng Trung';
+    source.append(sourceLabel,document.createTextNode(result.sourceText));
+    translated.append(targetLabel,document.createTextNode(result.translatedText));
+    card.append(source,translated);log.appendChild(card);log.scrollTop=log.scrollHeight;
   }
   window.PipiVoiceMode = { open, close, prewarmTranslate };
   el('pvm-close').addEventListener('click', close);
@@ -390,7 +367,7 @@
   });
   async function selectAudioInput(requested) {
     closeAudioMenu();
-    if (sending || holding || translateBusy || panel.classList.contains?.('speaking')) {
+    if (sending || holding || translateBusy || translateListening || panel.classList.contains?.('speaking')) {
       audioInputSelect.value = selectedMicId;return;
     }
     audioInputBusy = true;syncMic();syncToggle();
@@ -409,22 +386,24 @@
   if (typeof navigator !== 'undefined') navigator.mediaDevices?.addEventListener?.('devicechange', () => {if(!panel.hidden)refreshAudioInputs();});
 
   translateSwitch.addEventListener('change', async () => {
-    if (sending || holding || translateBusy || panel.classList.contains?.('speaking')) {
+    if (sending || holding || translateBusy || translateListening || panel.classList.contains?.('speaking')) {
       translateSwitch.checked = translateMode;return;
     }
     translateMode = translateSwitch.checked;
     if (!translateMode) {
+      mic.setAttribute('aria-label','Giữ mic để nói');mic.setAttribute('aria-pressed','false');
       const chatTitle=el('pvm-chat').parentElement?.querySelector?.('.pvm-chat-title');
       if(chatTitle)chatTitle.textContent='Trò chuyện với Pipi';
       updateVoiceControls();return;
     }
     translateBusy=true;syncMic();syncToggle();
+    mic.setAttribute('aria-label','Bấm mic để bắt đầu phiên dịch');
     setState('Đang kết nối phiên dịch…','busy');
     caption.textContent='Đang chuẩn bị dịch Trung ↔ Việt';
     try {
       await prewarmTranslate();
       if (!translateMode || panel.hidden) return;
-      setState('Giữ mic để nói','ready');caption.textContent='Nói tiếng Trung hoặc tiếng Việt';
+      setState('Bấm mic để bắt đầu dịch','ready');caption.textContent='Pipi sẽ tự nghe tiếng Trung và tiếng Việt';
       const chatTitle=el('pvm-chat').parentElement?.querySelector?.('.pvm-chat-title');
       if(chatTitle)chatTitle.textContent='Bản dịch';
       refreshAudioInputs();
@@ -553,13 +532,37 @@
 
   function begin(event) {
     if (translateMode) {
-      if (!translator?.ready || !microphoneReady || translateBusy || holding || panel.hidden) return;
-      event.preventDefault();mic.setPointerCapture?.(event.pointerId);
-      stopSpeaking();pendingTranslation=null;holding=true;translateBusy=true;syncToggle();mic.classList.add('active');
-      setState('Đang nghe và dịch…','listening');caption.textContent='Pipi đang nghe bạn…';
-      translator.start({deviceId:nativeVoice?.selectAudioInput ? '' : selectedMicId}).catch(error=>{
-        if (!translateMode || panel.hidden) return;
-        holding=false;translateBusy=false;mic.classList.remove('active');
+      if(!microphoneReady || translateBusy || panel.hidden)return;
+      event.preventDefault();
+      if(translateListening){
+        translateListening=false;translateBusy=true;mic.classList.remove('active');
+        mic.setAttribute('aria-pressed','false');
+        clearTimeout(translationSpeechTimer);
+        setState('Pipi đang hoàn tất bản dịch cuối…','busy');caption.textContent='Đợi Pipi nói xong rồi sẽ dừng';
+        syncMic();syncToggle();
+        translator.stopContinuous().then(()=>{
+          if(!translateMode || panel.hidden)return;
+          if(translator?.ready){setState('Bấm mic để bắt đầu dịch','ready');caption.textContent='Pipi sẽ tự nghe tiếng Trung và tiếng Việt';mic.setAttribute('aria-label','Bấm mic để bắt đầu phiên dịch');}
+          else {setState('Đang chuẩn bị phiên dịch…','busy');caption.textContent='Sắp có thể dịch tiếp';}
+        }).catch(error=>{
+          if(!translateMode || panel.hidden)return;
+          console.warn('Pipi continuous translation stop:',error);
+          setState('Chưa dừng được phiên dịch','error');caption.textContent='Bạn thử bấm mic lại nhé';
+        }).finally(()=>{translateBusy=false;if(translateMode&&!panel.hidden&&translator?.ready){setState('Bấm mic để bắt đầu dịch','ready');caption.textContent='Pipi sẽ tự nghe tiếng Trung và tiếng Việt';mic.setAttribute('aria-label','Bấm mic để bắt đầu phiên dịch');}syncMic();syncToggle();});
+        return;
+      }
+      if(!translator?.ready)return;
+      stopSpeaking();translateBusy=true;syncMic();syncToggle();
+      setState('Đang mở micro…','busy');caption.textContent='Pipi đang kết nối phiên dịch';
+      translator.startContinuous({deviceId:nativeVoice?.selectAudioInput?'':selectedMicId}).then(()=>{
+        if(!translateMode || panel.hidden)return;
+        translateListening=true;translateBusy=false;mic.classList.add('active');
+        mic.setAttribute('aria-label','Bấm mic để dừng phiên dịch');mic.setAttribute('aria-pressed','true');
+        setState('Đang dịch liên tục · bấm mic để dừng','listening');caption.textContent='Pipi tự nghe tiếng Trung và tiếng Việt';
+        syncMic();syncToggle();
+      }).catch(error=>{
+        if(!translateMode || panel.hidden)return;
+        translateListening=false;translateBusy=false;mic.classList.remove('active');
         setState('Không mở được micro để dịch','error');caption.textContent=error?.message || 'Kiểm tra quyền micro';
         syncMic();syncToggle();
       });
@@ -607,37 +610,9 @@
     }
   }
   function release(event) {
+    if(translateMode)return;
     if (!holding) return;
     event.preventDefault(); holding = false;
-    if (translateMode) {
-      mic.classList.remove('active');mic.disabled=true;
-      setState('Pipi đang suy nghĩ…','busy');caption.textContent='Pipi đang dịch câu của bạn';
-      translator.finishInput().then(async result=>{
-        if (!translateMode || panel.hidden)return;
-        if(result.fallback && result.translatedText){
-          if(!pendingTranslation)pendingTranslation=result;
-          try{await playTranslatedFallback(result,()=>{setState('Pipi đang trả lời…','speaking');showPendingTranslation();});}
-          catch(error){
-            console.warn('Pipi translated playback unavailable:',error);
-            showPendingTranslation();
-            setState('Đã dịch, nhưng chưa phát được tiếng','error');
-            caption.textContent='Bạn có thể đọc bản dịch ở bên dưới';
-            return;
-          }
-        } else if(!result.textEmitted) {
-          if(!pendingTranslation)pendingTranslation=result;
-          showPendingTranslation();
-        }
-        if(translator?.ready){setState('Giữ mic để nói','ready');caption.textContent='Nói tiếng Trung hoặc tiếng Việt';}
-        else {setState('Pipi đang chuẩn bị lượt tiếp…','busy');caption.textContent='Sắp có thể nói tiếp';}
-      }).catch(error=>{
-        if (!translateMode || panel.hidden)return;
-        console.warn('Pipi Live Translate:',error);
-        setState('Chưa dịch được câu này. Bạn thử nói lại nhé.','error');
-        caption.textContent=error?.message || 'Không nhận được bản dịch';
-      }).finally(()=>{translateBusy=false;syncMic();syncToggle();});
-      return;
-    }
     syncToggle();
     setState('Pipi đang nhận câu hỏi…', 'busy');
     if (recognition) recognition.stop(); else finish();

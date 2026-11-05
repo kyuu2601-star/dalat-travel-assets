@@ -52,6 +52,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
       for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set(match[1], new Element(match[1]));
     }
     appendChild(child) { this.children.push(child); child.parent = this; return child; }
+    append(...children) { for(const child of children)this.appendChild(child); }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
     setAttribute(name, value) { this[name] = value; }
     addEventListener(name, handler) { this.listeners[name] = handler; }
@@ -62,7 +63,8 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   const document = {
     body: new Element('body'),
     getElementById: id => elements.get(id) || null,
-    createElement: () => new Element()
+    createElement: () => new Element(),
+    createTextNode: text => ({textContent:text})
   };
   let recognition, recognizedText = 'Pipi ơi';
   class Recognition {
@@ -115,7 +117,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
       synthesize:async()=>{synthesisCalls++;if(failSynthesis)throw new Error('LOCAL_VOICE_FAILED');await audioGate;return {wav:new Uint8Array([82,73,70,70]).buffer};}
     }
   };
-  const context = vm.createContext({window,document,fetch,Audio:FakeAudio,Blob,Response,ReadableStream,TextEncoder,TextDecoder,AbortController,atob,URL,CONFIG:{WORKER_URL:'https://pipi.test'},compactNearbySnapshot:value=>value,console,queueMicrotask});
+  const context = vm.createContext({window,document,fetch,Audio:FakeAudio,Blob,Response,ReadableStream,TextEncoder,TextDecoder,AbortController,atob,URL,setTimeout,clearTimeout,CONFIG:{WORKER_URL:'https://pipi.test'},compactNearbySnapshot:value=>value,console,queueMicrotask});
   vm.runInContext(await readFile(new URL('../voice-mode.js',import.meta.url),'utf8'),context);
   window.PipiVoiceMode.open();
   const mic=elements.get('pvm-mic');
@@ -164,4 +166,39 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   assert.equal(detailsButton?.textContent,'Chi Tiết');
   detailsButton.listeners.click();
   assert.equal(openedMap?.pois?.[0]?.id,'shop','Voice details open the place list map directly');
+  window.PipiVoiceMode.open();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  let finishTranslation;
+  const translationDrain=new Promise(resolve=>{finishTranslation=resolve;});
+  class FakeContinuousTranslate {
+    ready=false;playAt=0;audioContext={currentTime:0};
+    constructor(_url,callbacks){this.callbacks=callbacks;}
+    async prepare(){this.ready=true;this.callbacks.onReady?.();}
+    async startContinuous(){this.listening=true;}
+    async stopContinuous(){await translationDrain;this.listening=false;}
+    close(){}
+  }
+  window.PipiContinuousTranslate=FakeContinuousTranslate;
+  const translateSwitch=elements.get('pvm-translate');
+  translateSwitch.checked=true;await translateSwitch.listeners.change();
+  assert.equal(elements.get('pvm-status').textContent,'Bấm mic để bắt đầu dịch');
+  mic.listeners.pointerdown({preventDefault(){}});
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(elements.get('pvm-status').textContent,'Đang dịch liên tục · bấm mic để dừng');
+  assert.equal(mic.disabled,false,'mic stays tappable while translating');
+  const activeTranslator=window.PipiVoiceMode.prewarmTranslate();
+  assert.equal((await activeTranslator).listening,true);
+  (await activeTranslator).callbacks.onSegment({sourceLanguage:'vi',targetLanguage:'zh-Hans',sourceText:'Xin chào',translatedText:'你好'});
+  (await activeTranslator).callbacks.onSegment({sourceLanguage:'zh-Hans',targetLanguage:'vi',sourceText:'你好',translatedText:'Xin chào'});
+  const cards=log.children.filter(child=>String(child.className).startsWith('pvm-translation-card'));
+  assert.equal(cards.length,2);
+  assert.match(cards[0].className,/source-vi/);
+  assert.match(cards[1].className,/source-zh/);
+  assert.equal(cards[0].children[0].children[1].textContent,'Xin chào');
+  assert.equal(cards[0].children[1].children[1].textContent,'你好');
+  mic.listeners.pointerdown({preventDefault(){}});
+  assert.equal(mic.disabled,true,'mic waits while the final translation drains');
+  assert.equal(elements.get('pvm-status').textContent,'Pipi đang hoàn tất bản dịch cuối…');
+  finishTranslation();await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(elements.get('pvm-status').textContent,'Bấm mic để bắt đầu dịch');
 });

@@ -1,4 +1,4 @@
-// Separate, hold-to-talk interpreter. The regular Pipi voice/chat path is untouched.
+// Separate interpreter. The regular Pipi voice/chat path is untouched.
 (() => {
   const MODEL = 'gemini-3.5-live-translate-preview';
   const WS_BASE = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
@@ -39,8 +39,12 @@
       if (this.preparing) return this.preparing;
       this.preparing=Promise.allSettled(targets.map(target=>this.connect(target))).then(results=>{
         if(this.closed)return;
-        this.ready=this.sessions.size>0;
-        if(!this.ready)throw results.find(result=>result.status==='rejected')?.reason || new Error('LIVE_SETUP_UNAVAILABLE');
+        this.ready=this.sessions.size===targets.length;
+        if(!this.ready){
+          for(const socket of this.sessions.values()){socket.retired=true;socket.close();}
+          this.sessions.clear();
+          throw results.find(result=>result.status==='rejected')?.reason || new Error('LIVE_SETUP_UNAVAILABLE');
+        }
         this.callbacks.onReady?.();
       }).finally(()=>{this.preparing=null;});
       return this.preparing;
@@ -306,5 +310,135 @@
       this.audioContext?.close?.();this.audioContext=null;
     }
   }
+  class ContinuousTranslate extends LiveTranslate {
+    constructor(workerUrl,callbacks={}) {
+      super(workerUrl,callbacks);
+      this.listening=false;
+      this.stopping=false;
+      this.source='';
+      this.lastResponseAt=0;
+      this.lastCompleteAt=new Map(targets.map(target=>[target,0]));
+      this.segments=new Map(targets.map(target=>[target,{source:'',output:'',detected:'',startedAt:0,timer:null}]));
+    }
+    async startContinuous({deviceId=''}={}) {
+      if(!this.ready || this.sessions.size!==targets.length || this.listening || this.stopping)throw new Error('LIVE_NOT_READY');
+      const epoch=++this.generation;
+      const Context=window.AudioContext || window.webkitAudioContext;
+      if(!Context || !navigator.mediaDevices?.getUserMedia)throw new Error('MICROPHONE_CAPTURE_UNAVAILABLE');
+      this.audioContext=this.audioContext || new Context();
+      await this.audioContext.resume();
+      const audio={echoCancellation:true,noiseSuppression:true,channelCount:1};
+      if(deviceId && deviceId!=='default')audio.deviceId={exact:deviceId};
+      const stream=await navigator.mediaDevices.getUserMedia({audio});
+      if(this.closed || epoch!==this.generation){stream.getTracks().forEach(track=>track.stop());return;}
+      try{
+        const source=this.audioContext.createMediaStreamSource(stream);
+        const processor=this.audioContext.createScriptProcessor(4096,1,1);
+        source.connect(processor);processor.connect(this.audioContext.destination);
+        this.capture={stream,source,processor};
+        this.source='';this.listening=true;this.stopping=false;this.lastResponseAt=Date.now();
+        for(let i=0;i<3;i++)this.sendAudio(SILENCE_FRAME);
+        processor.onaudioprocess=event=>{
+          if(!this.listening || this.closed || epoch!==this.generation)return;
+          const samples=event.inputBuffer.getChannelData(0);
+          const ratio=this.audioContext.sampleRate/16000;
+          const output=new Uint8Array(Math.floor(samples.length/ratio)*2);
+          const view=new DataView(output.buffer);
+          const echoGuard=this.playAt>this.audioContext.currentTime;
+          for(let i=0;i<output.length/2;i++){
+            const sample=echoGuard?0:Math.max(-1,Math.min(1,samples[Math.floor(i*ratio)]));
+            view.setInt16(i*2,sample<0?sample*32768:sample*32767,true);
+          }
+          this.sendAudio(output);
+        };
+        this.callbacks.onState?.('Pipi đang phiên dịch…');
+      }catch(error){stream.getTracks().forEach(track=>track.stop());throw error;}
+    }
+    receive(target,message) {
+      if(!this.listening && !this.stopping)return;
+      const content=message.serverContent;
+      if(!content)return;
+      this.lastResponseAt=Date.now();
+      if(content.generationComplete || content.turnComplete)this.lastCompleteAt.set(target,this.lastResponseAt);
+      const segment=this.segments.get(target);
+      const input=content.inputTranscription;
+      const interim=content.interimInputTranscription;
+      const heard=input || interim;
+      const detected=language(heard?.languageCode) || (/[㐀-鿿]/u.test(heard?.text||'')?'zh-Hans':/[ăâđêôơưáàảãạéèẻẽẹíìỉĩịóòỏõọúùủũụýỳỷỹỵ]/iu.test(heard?.text||'')?'vi':'');
+      if(detected && detected!==this.source){
+        this.flushSegments();
+        this.source=detected;
+      }
+      if(detected)segment.detected=detected;
+      if((input?.text || content.outputTranscription?.text) && !segment.startedAt)segment.startedAt=Date.now();
+      if(input?.text)segment.source+=input.text;
+      if(content.outputTranscription?.text)segment.output+=content.outputTranscription.text;
+      for(const part of content.modelTurn?.parts||[]){
+        if(!part.inlineData?.data)continue;
+        const bytes=audioBytes(part.inlineData.data);
+        if(!bytes.length)continue;
+        // Each session suppresses speech already in its target language.
+        // Play Live audio immediately; input transcription may arrive later.
+        this.playPcm(bytes);this.callbacks.onSpeech?.();
+      }
+      if(segment.source || segment.output)this.scheduleSegment(target,content.generationComplete||content.turnComplete?250:1100);
+    }
+    scheduleSegment(target,delay) {
+      const segment=this.segments.get(target);
+      clearTimeout(segment.timer);
+      segment.timer=setTimeout(()=>this.flushSegment(target),delay);
+    }
+    flushSegment(target) {
+      const segment=this.segments.get(target);
+      if(!segment)return;
+      clearTimeout(segment.timer);segment.timer=null;
+      const source=segment.source.trim(),output=segment.output.trim();
+      if(source && output && segment.detected && target!==segment.detected){
+        this.callbacks.onSegment?.({sourceLanguage:segment.detected,targetLanguage:target,sourceText:source,translatedText:output});
+        segment.source='';segment.output='';segment.detected='';segment.startedAt=0;
+      }else if(this.stopping || (segment.detected===target && !output) || Date.now()-segment.startedAt>4000){
+        segment.source='';segment.output='';segment.detected='';segment.startedAt=0;
+      }else if(source || output)this.scheduleSegment(target,700);
+    }
+    flushSegments(){for(const target of targets){
+      const segment=this.segments.get(target);
+      if(segment.source && segment.output)this.flushSegment(target);
+    }}
+    async stopContinuous() {
+      if(this.stopping)return;
+      if(!this.listening)return;
+      this.listening=false;this.stopping=true;this.stopCapture();
+      const stopAt=Date.now();
+      const lastTarget=this.source==='vi'?'zh-Hans':this.source==='zh-Hans'?'vi':'';
+      this.callbacks.onState?.('Pipi đang hoàn tất bản dịch cuối…');
+      for(let i=0;i<5 && !this.closed;i++){
+        this.sendAudio(SILENCE_FRAME);
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      for(const socket of this.sessions.values())if(socket.readyState===WebSocket.OPEN)
+        socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
+      const deadline=Date.now()+12000;
+      while(!this.closed && Date.now()<deadline){
+        const voiceRemaining=Math.max(0,(this.playAt-this.audioContext.currentTime)*1000);
+        const quietFor=Date.now()-this.lastResponseAt;
+        const completed=lastTarget && this.lastCompleteAt.get(lastTarget)>=stopAt-600;
+        if(voiceRemaining<100 && quietFor>=1200 && (completed || Date.now()-stopAt>=3500))break;
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      this.flushSegments();
+      for(const target of targets){
+        const segment=this.segments.get(target);
+        clearTimeout(segment.timer);segment.timer=null;segment.source='';segment.output='';segment.detected='';segment.startedAt=0;
+      }
+      this.source='';this.stopping=false;
+      if(!this.closed)this.refreshSessions();
+    }
+    close() {
+      this.listening=false;this.stopping=false;
+      for(const segment of this.segments.values())clearTimeout(segment.timer);
+      super.close();
+    }
+  }
   window.PipiLiveTranslate=LiveTranslate;
+  window.PipiContinuousTranslate=ContinuousTranslate;
 })();

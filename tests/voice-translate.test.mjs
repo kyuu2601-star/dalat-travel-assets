@@ -249,3 +249,75 @@ test('Interpreter returns backend translation when Live produces no audio', asyn
   assert.equal(fallbackCalls,1);
   translator.close();
 });
+
+test('Continuous interpreter handles repeated and switched languages without waiting for text', async () => {
+  const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
+  const sockets=[],segments=[],states=[];
+  let plays=0,stops=0,recordings=0,fallbackCalls=0,streamEnds=0;
+  class Socket {
+    static OPEN=1;
+    constructor(url){this.url=url;this.readyState=1;sockets.push(this);setTimeout(()=>this.onopen?.(),0);}
+    send(raw){
+      const message=JSON.parse(raw);
+      if(message.setup)setTimeout(()=>this.onmessage?.({data:JSON.stringify({setupComplete:{}})}),0);
+      if(message.realtimeInput?.audioStreamEnd)streamEnds++;
+    }
+    close(){this.readyState=3;}
+  }
+  const processor={connect(){},disconnect(){},onaudioprocess:null};
+  class AudioContext {
+    sampleRate=16000;destination={};started=Date.now();
+    get currentTime(){return (Date.now()-this.started)/1000;}
+    resume(){return Promise.resolve();}
+    createMediaStreamSource(){return {connect(){},disconnect(){}};}
+    createScriptProcessor(){return processor;}
+    createBuffer(_channels,length,rate){return {duration:length/rate,getChannelData(){return new Float32Array(length);}};}
+    createBufferSource(){return {connect(){},start(){plays++;},stop(){},disconnect(){}};}
+    close(){return Promise.resolve();}
+  }
+  const context=vm.createContext({
+    window:{AudioContext},navigator:{mediaDevices:{getUserMedia:async()=>{recordings++;return {getTracks:()=>[{stop(){stops++;}}]};}}},
+    fetch:async(url,options)=>{
+      if(url.endsWith('/voice-live-token'))return new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode}));
+      fallbackCalls++;throw new Error('Continuous voice must not wait for backend text');
+    },
+    WebSocket:Socket,Response,Uint8Array,Float32Array,DataView,Buffer,AbortController,
+    atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
+  });
+  vm.runInContext(source,context);
+  const translator=new context.window.PipiContinuousTranslate('https://pipi.test',{
+    onSegment:segment=>segments.push(segment),onState:state=>states.push(state)
+  });
+  await translator.prepare();await translator.startContinuous();
+  assert.equal(recordings,1);
+  const send=(target,spoken,translated,sourceLanguage,withAudio=true)=>{
+    const socket=sockets.find(item=>item.url.includes(`access_token=${target}`));
+    socket.onmessage({data:JSON.stringify({serverContent:{
+      inputTranscription:{text:spoken,languageCode:sourceLanguage},
+      outputTranscription:{text:translated},
+      modelTurn:{parts:withAudio?[{inlineData:{data:Buffer.alloc(480).toString('base64')}}]:[]},
+      generationComplete:true
+    }})});
+  };
+  sockets.find(item=>item.url.includes('access_token=zh-Hans')).onmessage({data:JSON.stringify({serverContent:{
+    modelTurn:{parts:[{inlineData:{data:Buffer.alloc(480).toString('base64')}}]}
+  }})});
+  assert.equal(plays,1,'Live voice starts before the transcript card is finalized');
+  send('zh-Hans','Xin chào','你好','vi',false);
+  await new Promise(resolve=>setTimeout(resolve,320));
+  send('zh-Hans','Cảm ơn','谢谢','vi');
+  await new Promise(resolve=>setTimeout(resolve,320));
+  send('vi','不客气','Không có gì','zh-Hans');
+  await new Promise(resolve=>setTimeout(resolve,320));
+  assert.deepEqual(segments.map(item=>item.sourceLanguage),['vi','vi','zh-Hans']);
+  assert.deepEqual(segments.map(item=>item.translatedText),['你好','谢谢','Không có gì']);
+  assert.equal(plays,3);
+  const stopping=translator.stopContinuous();
+  setTimeout(()=>send('vi','再见','Tạm biệt','zh-Hans'),250);
+  await stopping;
+  assert.equal(segments.at(-1).translatedText,'Tạm biệt','stopping drains the last translation');
+  assert.equal(streamEnds,2);
+  assert.equal(stops,1);
+  assert.equal(fallbackCalls,0);
+  translator.close();
+});
