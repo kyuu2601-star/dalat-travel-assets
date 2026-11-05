@@ -65,14 +65,27 @@ public class PipiVoicePlugin extends Plugin {
 
     private String inputLabel(AudioDeviceInfo device) {
         switch (device.getType()) {
-            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: return "Mic điện thoại · loa ngoài";
-            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE: return "Mic điện thoại · loa thoại";
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: return "Loa ngoài · thu bằng mic điện thoại";
+            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE: return "Mic điện thoại · phát qua loa thoại";
             case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
-            case AudioDeviceInfo.TYPE_BLE_HEADSET: return "Mic tai nghe Bluetooth";
-            case AudioDeviceInfo.TYPE_WIRED_HEADSET: return "Mic tai nghe có dây";
+            case AudioDeviceInfo.TYPE_BLE_HEADSET: return "Tai nghe Bluetooth · thu và phát qua tai nghe";
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET: return "Tai nghe có dây · thu và phát qua tai nghe";
             case AudioDeviceInfo.TYPE_USB_HEADSET:
-            case AudioDeviceInfo.TYPE_USB_DEVICE: return "Mic tai nghe USB";
+            case AudioDeviceInfo.TYPE_USB_DEVICE: return "Tai nghe USB · thu và phát qua tai nghe";
             default: return "Thiết bị âm thanh";
+        }
+    }
+
+    private String routeKind(AudioDeviceInfo device) {
+        switch (device.getType()) {
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: return "speaker";
+            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE: return "phone";
+            case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
+            case AudioDeviceInfo.TYPE_BLE_HEADSET:
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET:
+            case AudioDeviceInfo.TYPE_USB_HEADSET:
+            case AudioDeviceInfo.TYPE_USB_DEVICE: return "headset";
+            default: return "";
         }
     }
 
@@ -80,19 +93,19 @@ public class PipiVoicePlugin extends Plugin {
     public void getAudioInputs(PluginCall call) {
         JSArray devices = new JSArray();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && audioManager != null) {
-            boolean hasPhone = false;
-            boolean hasSpeaker = audioManager.getAvailableCommunicationDevices().stream()
-                .anyMatch(device -> device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
+            boolean hasSpeaker = false, hasPhone = false, hasHeadset = false;
             for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
-                int type = device.getType();
-                boolean phone = type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE;
-                if (type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE && hasSpeaker) continue;
-                if (phone && hasPhone) continue;
-                if (phone) hasPhone = true;
+                String kind = routeKind(device);
+                if (kind.isEmpty()) continue;
+                if (("speaker".equals(kind) && hasSpeaker) || ("phone".equals(kind) && hasPhone) || ("headset".equals(kind) && hasHeadset)) continue;
+                if ("speaker".equals(kind)) hasSpeaker = true;
+                if ("phone".equals(kind)) hasPhone = true;
+                if ("headset".equals(kind)) hasHeadset = true;
                 JSObject row = new JSObject();
                 row.put("id", String.valueOf(device.getId()));
+                row.put("kind", kind);
                 String label = inputLabel(device);
-                if (!phone) {
+                if ("headset".equals(kind)) {
                     CharSequence product = device.getProductName();
                     if (product != null && !product.toString().trim().isEmpty()) label += " · " + product;
                 }

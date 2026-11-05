@@ -319,6 +319,10 @@
       this.lastResponseAt=0;
       this.lastCompleteAt=new Map(targets.map(target=>[target,0]));
       this.segments=new Map(targets.map(target=>[target,{source:'',output:'',detected:'',startedAt:0,timer:null}]));
+      this.capturePcm=[];this.captureBytes=0;this.queuedAudio=[];
+      this.liveSegments=[];this.sequence=0;this.currentSequence=0;
+      this.textTasks=new Set();this.textControllers=new Set();
+      this.voiceTurns=new Map();
     }
     async startContinuous({deviceId=''}={}) {
       if(!this.ready || this.sessions.size!==targets.length || this.listening || this.stopping)throw new Error('LIVE_NOT_READY');
@@ -337,6 +341,9 @@
         source.connect(processor);processor.connect(this.audioContext.destination);
         this.capture={stream,source,processor};
         this.source='';this.listening=true;this.stopping=false;this.lastResponseAt=Date.now();
+        this.capturePcm=[];this.captureBytes=0;this.queuedAudio=[];
+        this.liveSegments=[];this.currentSequence=++this.sequence;
+        this.voiceTurns.set(this.currentSequence,{played:false,finished:false,result:null,fallbackSent:false});
         for(let i=0;i<3;i++)this.sendAudio(SILENCE_FRAME);
         processor.onaudioprocess=event=>{
           if(!this.listening || this.closed || epoch!==this.generation)return;
@@ -344,11 +351,11 @@
           const ratio=this.audioContext.sampleRate/16000;
           const output=new Uint8Array(Math.floor(samples.length/ratio)*2);
           const view=new DataView(output.buffer);
-          const echoGuard=this.playAt>this.audioContext.currentTime;
           for(let i=0;i<output.length/2;i++){
-            const sample=echoGuard?0:Math.max(-1,Math.min(1,samples[Math.floor(i*ratio)]));
+            const sample=Math.max(-1,Math.min(1,samples[Math.floor(i*ratio)]));
             view.setInt16(i*2,sample<0?sample*32768:sample*32767,true);
           }
+          if(this.captureBytes+output.length<=900_000){this.capturePcm.push(output);this.captureBytes+=output.length;}
           this.sendAudio(output);
         };
         this.callbacks.onState?.('Pipi đang phiên dịch…');
@@ -377,9 +384,9 @@
         if(!part.inlineData?.data)continue;
         const bytes=audioBytes(part.inlineData.data);
         if(!bytes.length)continue;
-        // Each session suppresses speech already in its target language.
-        // Play Live audio immediately; input transcription may arrive later.
-        this.playPcm(bytes);this.callbacks.onSpeech?.();
+        // Hold-to-talk keeps the mic clear of its own translated speaker audio.
+        if(this.listening)this.queuedAudio.push({target,bytes});
+        else if(this.source && target!==this.source){this.playPcm(bytes);const turn=this.voiceTurns.get(this.currentSequence);if(turn)turn.played=true;this.callbacks.onSpeech?.();}
       }
       if(segment.source || segment.output)this.scheduleSegment(target,content.generationComplete||content.turnComplete?250:1100);
     }
@@ -394,7 +401,7 @@
       clearTimeout(segment.timer);segment.timer=null;
       const source=segment.source.trim(),output=segment.output.trim();
       if(source && output && segment.detected && target!==segment.detected){
-        this.callbacks.onSegment?.({sourceLanguage:segment.detected,targetLanguage:target,sourceText:source,translatedText:output});
+        this.liveSegments.push({sourceLanguage:segment.detected,targetLanguage:target,sourceText:source,translatedText:output});
         segment.source='';segment.output='';segment.detected='';segment.startedAt=0;
       }else if(this.stopping || (segment.detected===target && !output) || Date.now()-segment.startedAt>4000){
         segment.source='';segment.output='';segment.detected='';segment.startedAt=0;
@@ -404,10 +411,60 @@
       const segment=this.segments.get(target);
       if(segment.source && segment.output)this.flushSegment(target);
     }}
+    async requestCompleteText(frames,size,controller){
+      if(size<3200)throw new Error('VOICE_TOO_SHORT');
+      const wav=new Uint8Array(size+44),header=new DataView(wav.buffer);
+      wav.set([82,73,70,70],0);header.setUint32(4,size+36,true);
+      wav.set([87,65,86,69,102,109,116,32],8);header.setUint32(16,16,true);
+      header.setUint16(20,1,true);header.setUint16(22,1,true);header.setUint32(24,16000,true);
+      header.setUint32(28,32000,true);header.setUint16(32,2,true);header.setUint16(34,16,true);
+      wav.set([100,97,116,97],36);header.setUint32(40,size,true);
+      let offset=44;for(const frame of frames){wav.set(frame,offset);offset+=frame.length;}
+      const response=await fetch(`${this.workerUrl}/voice-translate-fallback`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({audio:base64(wav)}),signal:controller.signal
+      });
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok || !result.sourceText || !result.translatedText)throw new Error(result.error||'TEXT_TRANSLATION_UNAVAILABLE');
+      return result;
+    }
+    offerVoiceFallback(sequence) {
+      const turn=this.voiceTurns.get(sequence);
+      if(turn?.finished && !turn.played && turn.result && !turn.fallbackSent){
+        turn.fallbackSent=true;
+        this.callbacks.onVoiceFallback?.(turn.result);
+      }
+    }
     async stopContinuous() {
       if(this.stopping)return;
       if(!this.listening)return;
       this.listening=false;this.stopping=true;this.stopCapture();
+      for(const {target,bytes} of this.queuedAudio){
+        if(this.source && target!==this.source){this.playPcm(bytes);const turn=this.voiceTurns.get(this.currentSequence);if(turn)turn.played=true;this.callbacks.onSpeech?.();}
+      }
+      this.queuedAudio=[];
+      const sequence=this.currentSequence,frames=this.capturePcm,size=this.captureBytes,liveSegments=this.liveSegments;
+      let finishVoice;
+      const voiceDone=new Promise(resolve=>{finishVoice=resolve;});
+      const controller=new AbortController();
+      this.textControllers.add(controller);
+      this.callbacks.onTextPending?.({sequence});
+      const textTimeout=setTimeout(()=>controller.abort(),25_000);
+      const textTask=this.requestCompleteText(frames,size,controller).then(result=>{
+        const turn=this.voiceTurns.get(sequence);if(turn){turn.result=result;this.offerVoiceFallback(sequence);}
+        if(!this.closed)this.callbacks.onSegment?.({...result,sequence});
+      }).catch(async error=>{
+        await voiceDone;
+        if(this.closed)return;
+        if(liveSegments.length)liveSegments.forEach((result,index)=>this.callbacks.onSegment?.({...result,sequence:index?`${sequence}.${index}`:sequence}));
+        else this.callbacks.onNoSpeech?.({sequence});
+        if(error?.message!=='VOICE_TOO_SHORT')this.callbacks.onError?.(error);
+      }).finally(()=>{
+        clearTimeout(textTimeout);this.textControllers.delete(controller);this.textTasks.delete(textTask);
+        this.callbacks.onTextDone?.({sequence});
+        const turn=this.voiceTurns.get(sequence);if(turn){turn.textDone=true;if(turn.finished)this.voiceTurns.delete(sequence);}
+      });
+      this.textTasks.add(textTask);
       const stopAt=Date.now();
       const lastTarget=this.source==='vi'?'zh-Hans':this.source==='zh-Hans'?'vi':'';
       this.callbacks.onState?.('Pipi đang hoàn tất bản dịch cuối…');
@@ -431,10 +488,15 @@
         clearTimeout(segment.timer);segment.timer=null;segment.source='';segment.output='';segment.detected='';segment.startedAt=0;
       }
       this.source='';this.stopping=false;
+      const turn=this.voiceTurns.get(sequence);if(turn)turn.finished=true;
+      this.offerVoiceFallback(sequence);
+      if(turn?.textDone)this.voiceTurns.delete(sequence);
       if(!this.closed)this.refreshSessions();
+      finishVoice();
     }
     close() {
       this.listening=false;this.stopping=false;
+      for(const controller of this.textControllers)controller.abort();
       for(const segment of this.segments.values())clearTimeout(segment.timer);
       super.close();
     }

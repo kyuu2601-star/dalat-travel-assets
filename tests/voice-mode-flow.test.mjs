@@ -53,6 +53,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
     }
     appendChild(child) { this.children.push(child); child.parent = this; return child; }
     append(...children) { for(const child of children)this.appendChild(child); }
+    replaceChildren(...children) { this.children=[];for(const child of children)this.appendChild(child); }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
     setAttribute(name, value) { this[name] = value; }
     addEventListener(name, handler) { this.listeners[name] = handler; }
@@ -181,24 +182,40 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   window.PipiContinuousTranslate=FakeContinuousTranslate;
   const translateSwitch=elements.get('pvm-translate');
   translateSwitch.checked=true;await translateSwitch.listeners.change();
-  assert.equal(elements.get('pvm-status').textContent,'Bấm mic để bắt đầu dịch');
-  mic.listeners.pointerdown({preventDefault(){}});
+  assert.equal(elements.get('pvm-status').textContent,'Giữ mic để nói');
+  mic.listeners.pointerdown({pointerId:4,preventDefault(){}});
   await new Promise(resolve=>setTimeout(resolve,0));
-  assert.equal(elements.get('pvm-status').textContent,'Đang dịch liên tục · bấm mic để dừng');
-  assert.equal(mic.disabled,false,'mic stays tappable while translating');
+  assert.equal(elements.get('pvm-status').textContent,'Pipi đang nghe bạn…');
+  assert.equal(mic.disabled,false,'mic keeps pointerup while held');
   const activeTranslator=window.PipiVoiceMode.prewarmTranslate();
   assert.equal((await activeTranslator).listening,true);
-  (await activeTranslator).callbacks.onSegment({sourceLanguage:'vi',targetLanguage:'zh-Hans',sourceText:'Xin chào',translatedText:'你好'});
-  (await activeTranslator).callbacks.onSegment({sourceLanguage:'zh-Hans',targetLanguage:'vi',sourceText:'你好',translatedText:'Xin chào'});
+  mic.listeners.pointerup({preventDefault(){}});
+  assert.equal(mic.disabled,true,'mic waits while Live voice finishes');
+  assert.equal(elements.get('pvm-status').textContent,'Pipi đang suy nghĩ…');
+  const interpreter=await activeTranslator;
+  interpreter.callbacks.onTextPending({sequence:1});
+  interpreter.callbacks.onSegment({sequence:1,sourceLanguage:'vi',targetLanguage:'zh-Hans',sourceText:'Xin chào',translatedText:'你好'});
+  interpreter.callbacks.onTextDone({sequence:1});
+  interpreter.callbacks.onTextPending({sequence:2});
+  interpreter.callbacks.onSegment({sequence:2,sourceLanguage:'zh-Hans',targetLanguage:'vi',sourceText:'你好',translatedText:'Xin chào'});
   const cards=log.children.filter(child=>String(child.className).startsWith('pvm-translation-card'));
   assert.equal(cards.length,2);
   assert.match(cards[0].className,/source-vi/);
   assert.match(cards[1].className,/source-zh/);
   assert.equal(cards[0].children[0].children[1].textContent,'Xin chào');
   assert.equal(cards[0].children[1].children[1].textContent,'你好');
-  mic.listeners.pointerdown({preventDefault(){}});
-  assert.equal(mic.disabled,true,'mic waits while the final translation drains');
-  assert.equal(elements.get('pvm-status').textContent,'Pipi đang hoàn tất bản dịch cuối…');
+  assert.equal(elements.get('pvm-close').disabled,true,'close waits for the final text');
+  window.PipiVoiceMode.close();
+  assert.equal(document.body.children[0].hidden,false);
   finishTranslation();await new Promise(resolve=>setTimeout(resolve,0));
-  assert.equal(elements.get('pvm-status').textContent,'Bấm mic để bắt đầu dịch');
+  assert.equal(elements.get('pvm-status').textContent,'Giữ mic để nói');
+  assert.equal(mic.disabled,false,'next held phrase can start while earlier text remains pending');
+  assert.equal(elements.get('pvm-close').disabled,true);
+  interpreter.callbacks.onTextDone({sequence:2});
+  assert.equal(elements.get('pvm-close').disabled,false);
+  interpreter.callbacks.onVoiceFallback({targetLanguage:'zh-Hans',translatedText:'你好'});
+  assert.equal(nativeSpeakCalls,2,'Android speaks the backend translation if Live returned no voice');
+  assert.equal(elements.get('pvm-close').disabled,true,'popup stays open while fallback voice plays');
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(elements.get('pvm-close').disabled,false);
 });
