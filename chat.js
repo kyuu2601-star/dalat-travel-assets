@@ -91,6 +91,53 @@ function escapeChatHtml(value) {
     return value.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 }
 
+function setHotelChoiceButtonsDisabled(disabled) {
+    document.querySelectorAll('#chat-box .hotel-choice-button').forEach(button => { button.disabled = disabled; });
+}
+
+function renderHotelChoices(messageElement, hotelArea) {
+    if (!messageElement || hotelArea?.status !== 'awaiting_confirmation') return false;
+    const candidates = Array.isArray(hotelArea.candidates) ? hotelArea.candidates.slice(0, 5) : [];
+    if (!candidates.length) return false;
+    messageElement.classList.add('hotel-choice-message');
+    messageElement.replaceChildren();
+    const title = document.createElement('p');
+    title.className = 'hotel-choice-title';
+    title.textContent = candidates.length === 1
+        ? 'Pipi tìm thấy khách sạn này. Đúng chỗ bạn nói không?'
+        : 'Pipi tìm thấy các khách sạn này. Bạn chọn đúng chỗ nhé:';
+    messageElement.appendChild(title);
+    const list = document.createElement('div');
+    list.className = 'hotel-choice-list';
+    candidates.forEach((place, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'hotel-choice-button';
+        button.setAttribute('aria-label', `Chọn khách sạn ${index + 1}: ${place.localizedName || place.name}`);
+        const number = document.createElement('span');
+        number.className = 'hotel-choice-number';
+        number.textContent = String(index + 1);
+        const detail = document.createElement('span');
+        detail.className = 'hotel-choice-detail';
+        const name = document.createElement('strong');
+        name.textContent = place.localizedName || place.name || `Khách sạn ${index + 1}`;
+        const address = document.createElement('small');
+        address.textContent = place.localizedAddress || place.address || '';
+        detail.append(name, address);
+        button.append(number, detail);
+        button.addEventListener('click', () => handleChat(`Đúng số ${index + 1}`));
+        list.appendChild(button);
+    });
+    const none = document.createElement('button');
+    none.type = 'button';
+    none.className = 'hotel-choice-button hotel-choice-none';
+    none.textContent = 'Không đúng khách sạn nào';
+    none.addEventListener('click', () => handleChat('Không đúng'));
+    list.appendChild(none);
+    messageElement.appendChild(list);
+    return true;
+}
+
 function isChinaGpsPoint(value) {
     const lat = Number(value?.lat ?? value?.latitude);
     const lng = Number(value?.lng ?? value?.lon ?? value?.longitude);
@@ -193,22 +240,24 @@ async function initBot() {
     }
 }
 
-async function handleChat() {
+async function handleChat(presetText = '') {
     const input = document.getElementById('userInput');
     const sendBtn = document.getElementById('send-btn');
     const voiceBtn = document.getElementById('mic-btn');
     if (!input) return;
 
-    const text = input.value.trim();
+    if (sendBtn?.disabled || input.disabled) return;
+    const text = String(presetText || input.value).trim();
     if (!text) return;
 
     if (sendBtn) sendBtn.disabled = true;
     if (voiceBtn) voiceBtn.disabled = true;
     input.disabled = true;
+    setHotelChoiceButtonsDisabled(true);
 
     addMessage('user', text);
     saveMessage('user', text);
-    input.value = '';
+    if (!presetText) input.value = '';
 
     const loadingId = 'loading-' + Date.now();
     addMessage('ai', renderChatProgress(loadingId), true);
@@ -217,6 +266,7 @@ async function handleChat() {
     let data = null;
     let retries = 3;
 
+    let completed = false;
     try {
         while (retries > 0) {
             try {
@@ -288,6 +338,8 @@ async function handleChat() {
             if (nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
             const travelContext = compactTravelContext(data?.travelos);
             saveMessage('ai', aiMsg, { ...(nearby ? { nearby } : {}), ...(travelContext ? { travelContext } : {}) });
+            renderHotelChoices(messageElement, travelContext?.hotelArea);
+            completed = true;
         }
     } catch (error) {
         console.error(error);
@@ -295,10 +347,11 @@ async function handleChat() {
         if (loadingElement?.closest('.msg')) loadingElement.closest('.msg').textContent = 'Kết nối đang gặp lỗi. Bạn thử lại nhé.';
     } finally {
         progress.stop();
+        if (!completed) setHotelChoiceButtonsDisabled(false);
         if (sendBtn) sendBtn.disabled = false;
         if (voiceBtn) voiceBtn.disabled = false;
         input.disabled = false;
-        input.focus();
+        if (!presetText) input.focus();
     }
 }
 
@@ -468,9 +521,10 @@ function loadChatHistory() {
         return;
     }
 
-    history.messages.forEach(msg => {
+    history.messages.forEach((msg, index) => {
         const messageElement = addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content);
         const nearby = compactNearbySnapshot(msg.nearby);
         if (messageElement && nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
+        if (index === history.messages.length - 1) renderHotelChoices(messageElement, msg.travelContext?.hotelArea);
     });
 }

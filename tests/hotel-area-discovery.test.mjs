@@ -76,3 +76,19 @@ test('Chat keeps pending hotel confirmation even before a nearby map exists',asy
   assert.equal(saved.messages[0].travelContext.hotelArea.candidates[0].id,hotel.id);
   assert.equal(saved.messages[0].travelContext.nearby,null);
 });
+
+test('Hotel confirmation renders tappable choices and a wrong-hotel option',async()=>{
+  const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
+  const createElement=tag=>({tag,children:[],handlers:{},classList:{add(){}},setAttribute(){},append(...nodes){this.children.push(...nodes);},appendChild(node){this.children.push(node);},replaceChildren(){this.children=[];},addEventListener(event,handler){this.handlers[event]=handler;}});
+  const context={console,Date,AbortController,setTimeout,clearTimeout,document:{createElement},window:{},clicked:[]};
+  vm.createContext(context);vm.runInContext(source,context);
+  vm.runInContext('handleChat = value => clicked.push(value)',context);
+  const message=createElement('div');
+  const pending={status:'awaiting_confirmation',candidates:[hotel,other]};
+  assert.equal(context.renderHotelChoices(message,pending),true);
+  const buttons=message.children[1].children;
+  assert.equal(buttons.length,3);
+  assert.match(buttons[0].children[1].children[0].textContent,/和颐至尚酒店/);
+  buttons.forEach(button=>button.handlers.click());
+  assert.deepEqual(context.clicked,['Đúng số 1','Đúng số 2','Không đúng']);
+});
