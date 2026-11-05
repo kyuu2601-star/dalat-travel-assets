@@ -892,7 +892,7 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
   assert.match(index,/<title>Let's Go Pipi<\/title>/);
   assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
-  assert.match(index,/chat\.js\?v=20261105-2/);
+  assert.match(index,/chat\.js\?v=20261105-3/);
   assert.match(style,/font-family: "Lilita One"/);
   assert.match(style,/font-size: 1\.16em/);
   assert.match(style,/margin-left: 3px/);
@@ -915,7 +915,7 @@ test('AI chat shows staged progress while backend tools are working', async () =
   assert.match(chat,/timers\.forEach\(timer => clearTimeout\(timer\)\)/);
   assert.match(style,/\.chat-progress-step\.is-active/);
   assert.match(style,/prefers-reduced-motion/);
-  assert.match(index,/style\.css\?v=20261105-1/);
+  assert.match(index,/style\.css\?v=20261105-2/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
@@ -1001,24 +1001,23 @@ test('AI v3 hides upstream overload details when every Gemini model is unavailab
 
 test('Chat history restores the nearby map card for 24 hours and exposes only a compact follow-up context', async () => {
   const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
-  const store=new Map(),rendered=[],chatBox={children:[],scrollTop:0,scrollHeight:100,appendChild(node){this.children.push(node);}};
+  const store=new Map(),rendered=[],chatBox={children:[],scrollTop:0,scrollHeight:100,appendChild(node){this.children.push(node);},replaceChildren(){this.children=[];}};
   const context={console,Date,AbortController,setTimeout,clearTimeout,localStorage:{getItem:key=>store.get(key)??null,setItem:(key,value)=>store.set(key,String(value)),removeItem:key=>store.delete(key)},document:{getElementById:id=>id==='chat-box'?chatBox:null,createElement:()=>({className:'',innerHTML:'',textContent:''})},window:{TravelNearby:{render:(payload,node)=>rendered.push({payload,node})}}};
   vm.createContext(context);vm.runInContext(source,context);
   const nearby={source:'amap-place-v5',provider:'amap',query:'nhà thuốc',center:{lat:29.55,lng:106.57,country:'China',coordSystem:'wgs84'},pois:[{id:'poi-1',name:'药房',address:'重庆市',lat:29.551,lng:106.571,provider:'amap',distance:120,rating:4.7,reviews:[{text:'must not persist'}]}]};
   context.saveMessage('ai','Tôi tìm được một địa điểm.',{nearby});
-  const saved=JSON.parse(store.get('travelos_chat_history'));
-  assert.equal(saved.version,3);
+  const saved=JSON.parse(store.get('travelos_chat_sessions')).sessions[0];
   assert.equal(saved.messages[0].nearby.pois[0].name,'药房');
   assert.equal(saved.messages[0].nearby.pois[0].coordSystem,'gcj02');
   assert.equal(saved.messages[0].nearby.pois[0].reviews,undefined);
   chatBox.children.length=0;
-  context.loadChatHistory();
+  context.renderChatSession(context.readHistory());
   assert.equal(chatBox.children.length,1);
   assert.equal(rendered.length,1);
   assert.equal(rendered[0].payload.pois[0].poiId,'poi-1');
   assert.equal(rendered[0].node,chatBox.children[0]);
   assert.match(source,/chatHistoryArray = chatHistoryArray\.map\(message => \(\{ role:message\.role, content:message\.content \}\)\)/);
-  assert.match(source,/const conversationContext = latestStoredContext\?\.travelContext/);
+  assert.match(source,/conversationContext = latestStoredContext\?\.travelContext/);
   assert.match(source,/conversationContext: conversationContext \|\| undefined/);
   assert.match(source,/function compactTravelContext\(payload\)/);
 });

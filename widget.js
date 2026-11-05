@@ -10,7 +10,16 @@
         <section id="chat-widget-window" aria-hidden="true">
             <div class="widget-header">
                 <h2>Pipi</h2>
-                <button id="close-widget" type="button" aria-label="Đóng">×</button>
+                <div class="widget-header-actions">
+                    <button id="chat-history-button" type="button" aria-label="Lịch sử trò chuyện" title="Lịch sử 24 giờ">
+                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/><path d="M12 7v5l3.5 2"/></svg>
+                    </button>
+                    <button id="close-widget" type="button" aria-label="Đóng">×</button>
+                </div>
+            </div>
+            <div id="chat-history-panel" hidden>
+                <div class="chat-history-heading"><strong>Lịch sử 24 giờ</strong><button id="chat-new-button" type="button">+ Chat mới</button></div>
+                <div id="chat-history-list"></div>
             </div>
             <div id="chat-box"></div>
             <div class="widget-input-area">
@@ -233,10 +242,13 @@
 
     btn.onclick = () => {
         if (!window.isSystemLive) return;
+        if (!win.classList.contains('open')) window.TravelChatSessions?.startNew();
         setOpen(!win.classList.contains('open'));
     };
     close.onclick = event => { event.stopPropagation(); setOpen(false); };
     overlay.onclick = () => setOpen(false);
+    document.getElementById('chat-history-button').onclick = () => window.TravelChatSessions?.toggleHistory();
+    document.getElementById('chat-new-button').onclick = () => window.TravelChatSessions?.startNew();
 
     document.getElementById('userInput').addEventListener('keydown', event => {
         if (event.key === 'Enter') handleChat();

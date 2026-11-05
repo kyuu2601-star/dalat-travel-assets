@@ -66,7 +66,7 @@ export function semanticPlannerPayload(userMessage,location,previousContext,hist
   const recent=(Array.isArray(history)?history:[]).slice(-4).map(item=>({role:item?.role==='model'?'model':'user',text:clean(item?.parts?.[0]?.text||item?.text,500)}));
   return {
     userMessage:clean(userMessage,2000),location:{country:clean(location?.country,120),city:clean(location?.city,160),area:clean(location?.area,160),hasCurrentCoordinates:Number.isFinite(Number(location?.latitude))&&Number.isFinite(Number(location?.longitude))},
-    previousContext:previousContext?{selectedPlace:clean(previousContext?.placeDetails?.localizedName||previousContext?.placeDetails?.name,240),nearbyNames:(previousContext?.nearby?.pois||[]).slice(0,5).map(item=>clean(item?.localizedName||item?.name,180)).filter(Boolean)}:null,
+    previousContext:previousContext?{selectedPlace:clean(previousContext?.placeDetails?.localizedName||previousContext?.placeDetails?.name,240),nearbyNames:(previousContext?.nearby?.pois||[]).slice(0,5).map(item=>clean(item?.localizedName||item?.name,180)).filter(Boolean),topicAnchor:previousContext?.topicAnchor||null,summary:clean(previousContext?.summary,1700)}:null,
     recentConversation:recent
   };
 }

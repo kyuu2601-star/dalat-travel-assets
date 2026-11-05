@@ -1,7 +1,9 @@
 const CHAT_STORAGE_KEY = 'travelos_chat_history';
+const CHAT_SESSIONS_KEY = 'travelos_chat_sessions';
 const LEGACY_CHAT_STORAGE_KEY = 'dalatos_chat_history';
 const EXPIRY_TIME = 24 * 60 * 60 * 1000;
-const CHAT_HISTORY_VERSION = 3;
+const CHAT_HISTORY_VERSION = 4;
+let activeChatSessionId = null;
 const CHAT_PROGRESS_PHASES = [
     'Đang phân tích câu hỏi...',
     'Đang tìm kiếm thông tin...',
@@ -257,6 +259,11 @@ async function handleChat(presetText = '') {
 
     addMessage('user', text);
     saveMessage('user', text);
+    const activeSession = readHistory();
+    const requestSessionId = activeSession?.id;
+    if (activeSession?.messages.filter(message => message.role === 'user').length === 1) {
+        requestChatTitle(activeSession.id, text);
+    }
     if (!presetText) input.value = '';
 
     const loadingId = 'loading-' + Date.now();
@@ -265,6 +272,7 @@ async function handleChat(presetText = '') {
 
     let data = null;
     let retries = 3;
+    let conversationContext = null;
 
     let completed = false;
     try {
@@ -273,17 +281,19 @@ async function handleChat(presetText = '') {
                 const userLocation = getStructuredUserLocation();
                 const selectedLocation = [userLocation.country, userLocation.city, userLocation.area].filter(Boolean).join(' / ');
 
-                const localHistory = readHistory();
+                const localHistory = readSessionStore().sessions.find(session => session.id === requestSessionId);
                 let chatHistoryArray = localHistory ? localHistory.messages : [];
                 if (chatHistoryArray.length > 6) chatHistoryArray = chatHistoryArray.slice(-6);
                 chatHistoryArray = chatHistoryArray.map(message => ({ role:message.role, content:message.content }));
                 const latestStoredContext = [...(localHistory?.messages || [])].reverse().find(message => message?.travelContext || message?.nearby) || null;
-                const conversationContext = latestStoredContext?.travelContext || (latestStoredContext?.nearby ? { nearby:compactNearbySnapshot(latestStoredContext.nearby) } : null);
+                conversationContext = latestStoredContext?.travelContext || (latestStoredContext?.nearby ? { nearby:compactNearbySnapshot(latestStoredContext.nearby) } : null);
+                const conversationSummary = buildConversationSummary(localHistory);
 
                 const requestBody = {
                     userMessage: text,
                     chatHistory: chatHistoryArray,
                     conversationContext: conversationContext || undefined,
+                    conversationSummary: conversationSummary || undefined,
                     khuVuc: selectedLocation,
                     userLocation
                 };
@@ -332,15 +342,15 @@ async function handleChat(presetText = '') {
 
         const loadingElement = document.getElementById(loadingId);
         const messageElement = loadingElement?.closest('.msg');
-        if (messageElement) {
+        const nearby = compactNearbySnapshot(data?.travelos?.nearby);
+        const travelContext = mergeChatTopicContext(compactTravelContext(data?.travelos), conversationContext, text);
+        saveMessage('ai', aiMsg, { ...(nearby ? { nearby } : {}), ...(travelContext ? { travelContext } : {}) }, requestSessionId);
+        if (messageElement && activeChatSessionId === requestSessionId) {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
-            const nearby = compactNearbySnapshot(data?.travelos?.nearby);
             if (nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
-            const travelContext = compactTravelContext(data?.travelos);
-            saveMessage('ai', aiMsg, { ...(nearby ? { nearby } : {}), ...(travelContext ? { travelContext } : {}) });
             renderHotelChoices(messageElement, travelContext?.hotelArea);
-            completed = true;
         }
+        completed = true;
     } catch (error) {
         console.error(error);
         const loadingElement = document.getElementById(loadingId);
@@ -351,7 +361,7 @@ async function handleChat(presetText = '') {
         if (sendBtn) sendBtn.disabled = false;
         if (voiceBtn) voiceBtn.disabled = false;
         input.disabled = false;
-        if (!presetText) input.focus();
+        if (!presetText && activeChatSessionId === requestSessionId) input.focus();
     }
 }
 
@@ -432,6 +442,11 @@ function compactTravelContext(payload) {
     const list = (value, max, mapper) => Array.isArray(value) ? value.slice(0, max).map(mapper) : [];
     const nearby = compactNearbySnapshot(payload.nearby);
     const rawHotelArea = payload.hotelArea;
+    const rawAnchor = payload.topicAnchor;
+    const topicAnchor = rawAnchor && typeof rawAnchor === 'object' ? {
+        name:text(rawAnchor.name,300),city:text(rawAnchor.city,120),country:text(rawAnchor.country,120),
+        lat:numberOrNull(rawAnchor.lat),lng:numberOrNull(rawAnchor.lng),coordSystem:text(rawAnchor.coordSystem,20)
+    } : null;
     const hotelArea = rawHotelArea && ['awaiting_confirmation','awaiting_description'].includes(rawHotelArea.status) ? {
         status:text(rawHotelArea.status,40), hotelName:text(rawHotelArea.hotelName,200), city:text(rawHotelArea.city,120),
         landmark:text(rawHotelArea.landmark,200), request:text(rawHotelArea.request,600),
@@ -481,50 +496,165 @@ function compactTravelContext(payload) {
         places:list(rawCurated.places, 18, place => ({ id:text(place?.id, 200), name:text(place?.name, 300), address:text(place?.address, 700), category:text(place?.category, 120), description:text(place?.description, 700), lat:numberOrNull(place?.lat), lng:numberOrNull(place?.lng), distanceKm:numberOrNull(place?._distance_km) })),
         searchLocation:rawCurated.searchLocation || null
     } : null;
-    if (!nearby && !placeDetails && !weather && !busyness && !routes.length && !curated && !hotelArea) return null;
-    return { version:1, travelIntent:text(payload.travelIntent || payload.plan?.travelIntent, 40), nearby, placeDetails, weather, busyness, routes:routes.length ? routes : null, curated, hotelArea };
+    if (!nearby && !placeDetails && !weather && !busyness && !routes.length && !curated && !hotelArea && !topicAnchor) return null;
+    return { version:1, travelIntent:text(payload.travelIntent || payload.plan?.travelIntent, 40), nearby, placeDetails, weather, busyness, routes:routes.length ? routes : null, curated, hotelArea, topicAnchor };
+}
+
+function mergeChatTopicContext(current, previous, question) {
+    if (!current) return previous || null;
+    const key = String(question || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
+    const asksCurrent = /\b(quanh day|gan day|o day|gan toi|quanh toi|vi tri hien tai)\b/.test(key);
+    const explicitArea = /\b(da lat|trung khanh|chongqing|da nang|ha noi|ho chi minh|sai gon)\b/.test(key);
+    const prior = previous?.topicAnchor;
+    if (current.hotelArea && !current.placeDetails) return { ...current, topicAnchor:prior || null, weather:current.weather || previous?.weather || null };
+    const place = current.placeDetails;
+    const center = current.nearby?.center;
+    const source = place?.lat != null && place?.lng != null ? place : center?.lat != null && center?.lng != null ? center : current.weather?.coordinates;
+    const newlyResolved = source ? {
+        name:place?.localizedName || place?.name || (asksCurrent ? 'vị trí hiện tại' : current.nearby?.query?.keyword || 'khu vực đang tìm'),
+        city:place?.city || '',country:place?.country || center?.country || '',
+        lat:source.lat,lng:source.lng,coordSystem:place?.coordSystem || center?.coordSystem || 'wgs84'
+    } : null;
+    const topicAnchor = current.topicAnchor || (!asksCurrent && prior && !explicitArea ? prior : newlyResolved || prior || null);
+    return { ...current, topicAnchor, weather:current.weather || (!asksCurrent && prior && !explicitArea ? previous?.weather : null) || null };
+}
+
+function readSessionStore() {
+    let store;
+    try { store = JSON.parse(localStorage.getItem(CHAT_SESSIONS_KEY) || 'null'); } catch { store = null; }
+    if (!store || !Array.isArray(store.sessions)) {
+        let legacy;
+        try { legacy = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || localStorage.getItem(LEGACY_CHAT_STORAGE_KEY) || 'null'); } catch { legacy = null; }
+        const oldMessages = Array.isArray(legacy?.messages) ? legacy.messages : [];
+        const oldTime = Number(legacy?.timestamp) || Date.now();
+        store = { version:CHAT_HISTORY_VERSION, sessions:oldMessages.length && Date.now() - oldTime < EXPIRY_TIME
+            ? [{ id:`legacy-${oldTime}`, title:oldMessages.find(message => message.role === 'user')?.content?.slice(0, 60) || 'Cuộc trò chuyện trước', createdAt:oldTime, updatedAt:oldTime, messages:oldMessages.slice(-40) }]
+            : [] };
+        try { localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(store)); } catch { /* Keep the current chat usable without persistent storage. */ }
+        localStorage.removeItem(CHAT_STORAGE_KEY);
+        localStorage.removeItem(LEGACY_CHAT_STORAGE_KEY);
+    }
+    store.sessions = store.sessions.filter(session => session && Array.isArray(session.messages) && Date.now() - Number(session.updatedAt || session.createdAt) < EXPIRY_TIME).slice(-12);
+    return store;
+}
+
+function writeSessionStore(store) {
+    try { localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(store)); }
+    catch (error) {
+        // Keep the active conversation if storage fills up with old map snapshots.
+        store.sessions = store.sessions.filter(session => session.id === activeChatSessionId || session.messages?.length).slice(-5);
+        store.sessions.forEach(session => { session.messages = session.messages.slice(-25); });
+        try { localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(store)); } catch { console.warn('Chat history storage unavailable', error); }
+    }
 }
 
 function readHistory() {
-    let history = null;
-    try { history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || 'null'); }
-    catch { localStorage.removeItem(CHAT_STORAGE_KEY); }
+    return readSessionStore().sessions.find(session => session.id === activeChatSessionId) || null;
+}
 
-    if (!history) {
-        const legacy = localStorage.getItem(LEGACY_CHAT_STORAGE_KEY);
-        if (legacy) {
-            try { history = JSON.parse(legacy); }
-            catch { history = null; }
-            if (history) localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ ...history, version:CHAT_HISTORY_VERSION }));
-            localStorage.removeItem(LEGACY_CHAT_STORAGE_KEY);
-        }
+function createChatSession() {
+    const store = readSessionStore();
+    store.sessions = store.sessions.filter(session => session.messages.length);
+    const session = { id:`chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title:'Chat mới', createdAt:Date.now(), updatedAt:Date.now(), messages:[] };
+    store.sessions.push(session);
+    activeChatSessionId = session.id;
+    writeSessionStore(store);
+    return session;
+}
+
+function saveMessage(role, content, extras = {}, sessionId = activeChatSessionId) {
+    const store = readSessionStore();
+    let session = store.sessions.find(item => item.id === sessionId);
+    if (!session) {
+        session = { id:`chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title:'Chat mới', createdAt:Date.now(), updatedAt:Date.now(), messages:[] };
+        activeChatSessionId = session.id;
+        store.sessions.push(session);
     }
-
-    return history;
+    session.messages.push({ role, content, ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}), ...(extras.travelContext ? { travelContext:compactTravelContext(extras.travelContext) } : {}) });
+    session.messages = session.messages.slice(-40);
+    session.updatedAt = Date.now();
+    writeSessionStore(store);
 }
 
-function saveMessage(role, content, extras = {}) {
-    let history = readHistory() || { version:CHAT_HISTORY_VERSION, timestamp:Date.now(), messages:[] };
-    if (Date.now() - history.timestamp > EXPIRY_TIME) history = { version:CHAT_HISTORY_VERSION, timestamp:Date.now(), messages:[] };
-    history.version = CHAT_HISTORY_VERSION;
-    history.messages.push({ role, content, ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}), ...(extras.travelContext ? { travelContext:compactTravelContext(extras.travelContext) } : {}) });
-    if (history.messages.length > 80) history.messages = history.messages.slice(-80);
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
-}
-
-function loadChatHistory() {
-    const history = readHistory();
-
-    if (!history || Date.now() - history.timestamp > EXPIRY_TIME) {
-        localStorage.removeItem(CHAT_STORAGE_KEY);
+function renderChatSession(session) {
+    const box = document.getElementById('chat-box');
+    if (box) box.replaceChildren();
+    if (!session?.messages?.length) {
         addMessage('ai', "Chào bạn! Pipi là trợ lý du lịch của Let's Go Pipi. Bạn muốn tìm quán hay lên lịch trình đi đâu?");
         return;
     }
-
-    history.messages.forEach((msg, index) => {
+    session.messages.forEach((msg, index) => {
         const messageElement = addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content);
         const nearby = compactNearbySnapshot(msg.nearby);
         if (messageElement && nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
-        if (index === history.messages.length - 1) renderHotelChoices(messageElement, msg.travelContext?.hotelArea);
+        if (index === session.messages.length - 1) renderHotelChoices(messageElement, msg.travelContext?.hotelArea);
     });
 }
+
+function loadChatHistory() { renderChatSession(null); }
+
+function buildConversationSummary(session) {
+    if (!session?.messages?.length) return '';
+    const context = [...session.messages].reverse().find(message => message.travelContext)?.travelContext;
+    const anchor = context?.topicAnchor;
+    const location = anchor?.name ? `Chủ đề đang ở ${anchor.name}${anchor.city ? `, ${anchor.city}` : ''}; tọa độ ${anchor.lat}, ${anchor.lng}; quốc gia ${anchor.country || 'chưa rõ'}.` : '';
+    const weather = context?.weather?.current?.condition ? `Thời tiết đã kiểm tra: ${context.weather.current.condition}.` : '';
+    const priorMessages = session.messages.at(-1)?.role === 'user' ? session.messages.slice(0, -1) : session.messages;
+    const turns = priorMessages.slice(-6).map(message => `${message.role === 'user' ? 'Bạn' : 'Pipi'}: ${String(message.content || '').replace(/\s+/g, ' ').slice(0, 230)}`).join('\n');
+    return [location, weather, turns].filter(Boolean).join('\n').slice(0, 1700);
+}
+
+async function requestChatTitle(sessionId, firstQuestion) {
+    const fallback = String(firstQuestion).replace(/\s+/g, ' ').trim().slice(0, 58) || 'Chat mới';
+    let title = fallback;
+    try {
+        const workerBase = String(window.CONFIG?.WORKER_URL || CONFIG?.WORKER_URL || '').replace(/\/+$/, '');
+        if (workerBase) {
+            const response = await fetch(`${workerBase}/conversation/title`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ firstQuestion }) });
+            if (response.ok) title = String((await response.json()).title || fallback).trim().slice(0, 70) || fallback;
+        }
+    } catch { /* The first question remains a readable title when AI is unavailable. */ }
+    const store = readSessionStore();
+    const session = store.sessions.find(item => item.id === sessionId);
+    if (!session) return;
+    session.title = title;
+    writeSessionStore(store);
+    if (!document.getElementById('chat-history-panel')?.hidden) renderChatSessionList();
+}
+
+function renderChatSessionList() {
+    const list = document.getElementById('chat-history-list');
+    if (!list) return;
+    list.replaceChildren();
+    const sessions = readSessionStore().sessions.filter(session => session.messages.length).reverse();
+    if (!sessions.length) {
+        const empty = document.createElement('p'); empty.className = 'chat-history-empty'; empty.textContent = 'Chưa có cuộc trò chuyện nào trong 24 giờ qua.'; list.appendChild(empty); return;
+    }
+    sessions.forEach(session => {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'chat-history-item';
+        const title = document.createElement('strong'); title.textContent = session.title || 'Chat mới';
+        const time = document.createElement('small'); time.textContent = new Date(session.updatedAt).toLocaleString('vi-VN', { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' });
+        button.append(title, time);
+        button.addEventListener('click', () => {
+            activeChatSessionId = session.id;
+            renderChatSession(session);
+            toggleChatSessionHistory(false);
+        });
+        list.appendChild(button);
+    });
+}
+
+function toggleChatSessionHistory(force) {
+    const panel = document.getElementById('chat-history-panel');
+    const win = document.getElementById('chat-widget-window');
+    if (!panel || !win) return;
+    const show = typeof force === 'boolean' ? force : panel.hidden;
+    panel.hidden = !show;
+    win.classList.toggle('history-open', show);
+    if (show) renderChatSessionList();
+}
+
+window.TravelChatSessions = {
+    startNew() { renderChatSession(createChatSession()); toggleChatSessionHistory(false); },
+    toggleHistory() { toggleChatSessionHistory(); }
+};

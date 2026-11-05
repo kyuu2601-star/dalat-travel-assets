@@ -2338,6 +2338,8 @@ function compactWeatherContext(raw) {
 function compactConversationContext(raw) {
   if(!raw||typeof raw!=='object')return null;
   const nearby=compactNearbyContext(raw.nearby),placeDetails=raw.placeDetails&&typeof raw.placeDetails==='object'?compactPoi(raw.placeDetails):null;
+  const anchorRaw=raw.topicAnchor,anchorCoord=coordFrom(anchorRaw);
+  const topicAnchor=anchorCoord?{...anchorCoord,name:clean(anchorRaw.name,300),city:clean(anchorRaw.city,120),country:clean(anchorRaw.country,120),coordSystem:clean(anchorRaw.coordSystem,20)}:null;
   const hotelArea=raw.hotelArea&&['awaiting_confirmation','awaiting_description'].includes(raw.hotelArea.status)?{
     status:raw.hotelArea.status,hotelName:clean(raw.hotelArea.hotelName,200),city:clean(raw.hotelArea.city,120),
     landmark:clean(raw.hotelArea.landmark,200),request:clean(raw.hotelArea.request,600),
@@ -2349,8 +2351,8 @@ function compactConversationContext(raw) {
   }:null;
   const routes=Array.isArray(raw.routes)?compactRoutes({routes:raw.routes}):null;
   const curated=raw.curated&&typeof raw.curated==='object'?{places:Array.isArray(raw.curated.places)?raw.curated.places.slice(0,18):[],searchLocation:raw.curated.searchLocation||null}:null;
-  if(!nearby&&!placeDetails&&!weather&&!busyness&&!routes&&!curated&&!hotelArea)return null;
-  return {nearby,placeDetails:placeDetails?.name?placeDetails:null,weather,busyness,routes,curated,hotelArea,travelIntent:TRAVEL_INTENT_IDS.includes(raw.travelIntent)?raw.travelIntent:''};
+  if(!nearby&&!placeDetails&&!weather&&!busyness&&!routes&&!curated&&!hotelArea&&!topicAnchor)return null;
+  return {nearby,placeDetails:placeDetails?.name?placeDetails:null,weather,busyness,routes,curated,hotelArea,topicAnchor,travelIntent:TRAVEL_INTENT_IDS.includes(raw.travelIntent)?raw.travelIntent:''};
 }
 
 function listFollowupResponse(userMessage,previousContext) {
@@ -3321,6 +3323,103 @@ async function handleHotelAreaDiscovery(userMessage,previousContext,location,req
   return hotelAreaReply(request,env,`Theo vị trí bạn bổ sung, Pipi thấy **${nearest.localizedName||nearest.name}** — ${nearest.localizedAddress||nearest.address}. Đúng khách sạn này chưa?`,{hotelArea:{...pending,status:'awaiting_confirmation',candidates:[nearest,...options.filter(place=>place.id!==nearest.id)]}});
 }
 
+async function handleTopicFollowup(userMessage,previousContext,location,request,env) {
+  const anchor=previousContext?.topicAnchor,center=coordFrom(anchor);
+  if(!center)return null;
+  const key=fold(userMessage);
+  if(/\b(?:quanh day|gan day|o day|gan toi|quanh toi|vi tri hien tai)\b/.test(key))return null;
+  const relative=/\b(?:quanh do|gan do|o do|tai do|cho do|khu do|quanh khach san|gan khach san|vay|the thi|con)\b/.test(key);
+  const impliedFollowup=key.length<=160&&/\b(?:an vat|quan an|di an|di choi|choi o dau|choi cho nao|quan cafe|ca phe|cua hang tien loi|tap hoa|tham quan)\b/.test(key);
+  if(!relative&&!impliedFollowup)return null;
+  if((remoteAreaSearchIntent(userMessage)&&!/\b(?:quanh do|gan do|o do|tai do|cho do|khu do)\b/.test(key))||/\b(?:da lat|trung khanh|chongqing|da nang|ha noi|ho chi minh|sai gon)\b/.test(key))return null;
+  const rainy=/(?:mua|dông|dong|tuyet)/i.test(fold(previousContext?.weather?.current?.condition))||[51,53,55,61,63,65,80,81,82,95,96,99].includes(Number(previousContext?.weather?.current?.weatherCode));
+  let searches=[];
+  if(/\b(?:an vat|mon an|an uong|quan an|di an|do an|nha hang|quan ngon)\b/.test(key))searches=[{category:'restaurant',query:/\ban vat\b/.test(key)?'quán ăn vặt':'quán ăn'}];
+  else if(/\b(?:cafe|ca phe|quan cf)\b/.test(key))searches=[{category:'cafe',query:'quán cà phê'}];
+  else if(/\b(?:cua hang tien loi|chtl|tap hoa)\b/.test(key))searches=[{category:'convenience_store',query:'cửa hàng tiện lợi'}];
+  else if(/\b(?:di choi|choi o dau|choi cho nao|di dau|tham quan|vui choi|cho nao di duoc)\b/.test(key))searches=rainy
+    ?[{category:'museum',query:'bảo tàng'},{category:'shopping_mall',query:'trung tâm thương mại'},{category:'cafe',query:'quán cà phê'}]
+    :[{category:'tourist_attraction',query:'điểm tham quan'}];
+  if(!searches.length)return null;
+  const country=anchor.country||location.country,china=isChinaTravelContext({...location,latitude:center.lat,longitude:center.lng,country},anchor.city,anchor.name);
+  const found=[];
+  const wantsSnacks=searches.some(item=>item.query==='quán ăn vặt');
+  const fitsSnackVenue=place=>{
+    const label=`${place.name||''} ${place.type||''} ${place.primaryType||''} ${(place.types||[]).join(' ')}`,key=fold(label);
+    if(/(?:火锅|酒楼)/u.test(label)||/\b(?:hotpot|lau)\b/.test(key))return false;
+    return /\b(?:an vat|snack|fast food|che|kem|banh|tra sua|tieu an)\b/.test(key)||/(?:小吃|小面|面庄|馄饨|米线|甜品|奶茶|烧烤|串串|冰粉|包子|卤味)/u.test(label);
+  };
+  const fitsRainyVenue=(place,category)=>{
+    const label=`${place.name||''} ${place.localizedName||''}`;
+    const key=fold(label);
+    if(category==='museum')return /\b(?:bao tang|museum|trien lam|nha trung bay|art gallery)\b/.test(key)||/(?:博物馆|美术馆|展览馆)/u.test(label);
+    if(category==='shopping_mall')return /\b(?:trung tam thuong mai|mall|plaza|vincom|lotte mart|shopping center)\b/.test(key)||/(?:购物中心|商场)/u.test(label);
+    if(category==='cafe')return /\b(?:ca phe|cafe|coffee|starbucks|tea house|quan nuoc)\b/.test(key)||/(?:咖啡馆|咖啡厅)/u.test(label);
+    return true;
+  };
+  for(const search of searches){
+    const terms=search.query==='quán ăn vặt'
+      ?{providerQuery:china?'小吃店':'quán ăn vặt',queryVariants:china?['小吃','夜宵','重庆小吃']:['ăn vặt','snack bar']}
+      :semanticPlaceSearch(search.query,country,search.category);
+    const result=await mapTool('/poi/nearby',{...chinaProviderFields(china),center:{...center,country,coordSystem:anchor.coordSystem},country,
+      query:terms.providerQuery,keyword:terms.providerQuery,queryVariants:terms.queryVariants,category:search.category,
+      radius:3000,limit:10,candidateLimit:wantsSnacks?80:40,sortBy:'distance',language:china?'zh':'vi'},env);
+    if(!result.ok)continue;
+    const pool=result.data?.candidates?.length?result.data.candidates:result.data?.pois||[];
+    const filteredPool=wantsSnacks?pool.filter(fitsSnackVenue):pool;
+    const selected=await selectNearbyCandidates(filteredPool,search.category,center,'distance',10,env);
+    for(const raw of selected.pois||[]){
+      const place=compactPoi(raw),distance=coordFrom(place)?Math.round(coordDistanceMeters(place,center)):Infinity;
+      if(distance<=3000&&(!rainy||searches.length===1||fitsRainyVenue(place,search.category)))found.push({...place,distance,searchCategory:search.category});
+    }
+  }
+  const deduped=new Map();
+  for(const place of found){const id=place.id||`${fold(place.name)}:${Number(place.lat).toFixed(4)},${Number(place.lng).toFixed(4)}`;
+    if(!deduped.has(id)||place.distance<deduped.get(id).distance)deduped.set(id,place);}
+  const ranked=[...deduped.values()].sort((a,b)=>a.distance-b.distance),chosen=[],used=new Set();
+  for(const search of searches)for(const place of ranked.filter(item=>item.searchCategory===search.category).slice(0,Math.ceil(10/searches.length))){
+    if(!used.has(place.id)){used.add(place.id);chosen.push(place);}
+  }
+  for(const place of ranked){if(chosen.length>=10)break;if(!used.has(place.id)){used.add(place.id);chosen.push(place);}}
+  let pois=chosen.sort((a,b)=>a.distance-b.distance).slice(0,10);
+  if(china&&pois.length)pois=await localizeChinaPlaces(pois,'Trung Quốc',env);
+  const nearby={provider:china?'amap':pois[0]?.provider||'google_places',source:china?'amap-place-v5':'map-worker',
+    center:{...center,country,coordSystem:anchor.coordSystem},query:{keyword:searches.map(item=>item.query).join(' + '),radius:3000,sortBy:'distance'},count:pois.length,pois};
+  const label=anchor.name||anchor.city||'khu vực vừa nói';
+  const intro=rainy&&searches.length>1?`Vì thời tiết ${previousContext.weather.current.condition||'có mưa'}, Pipi ưu tiên bảo tàng, trung tâm thương mại và quán cà phê quanh ${label}. Bạn kiểm tra không gian và giờ mở cửa trước khi đi.`:`Pipi tìm quanh ${label}, theo đúng chủ đề mình đang nói.`;
+  const lines=pois.map((place,index)=>`${index+1}. ${place.localizedName||place.name} — ${formatNearbyDistance(place.distance)}.`).join('\n');
+  const text=pois.length?`${intro}\n${lines}\n\nBạn bấm bản đồ để xem các điểm và đường đi.`:`Pipi đã tìm quanh ${label} nhưng bản đồ chưa trả địa điểm phù hợp trong 3 km. Bạn thử nói rõ loại nơi muốn đến nhé.`;
+  return json({text,travelos:{version:3,travelIntent:'PLACE_DISCOVERY',nearby,topicAnchor:anchor,weather:previousContext.weather||undefined,placeDetails:previousContext.placeDetails||undefined}},200,request,env);
+}
+
+async function handleConversationTitle(request,env) {
+  if(!(await rateLimit(request,env)))return json({error:'Rate limit exceeded'},429,request,env);
+  let body;try{body=await request.json();}catch{return json({error:'Invalid JSON'},400,request,env);}
+  const firstQuestion=clean(body?.firstQuestion,500);
+  if(!firstQuestion)return json({error:'firstQuestion is required'},400,request,env);
+  const fallback=firstQuestion.replace(/[?!.]+$/,'').slice(0,58).replace(/\s+\S*$/,'').trim()||'Cuộc trò chuyện du lịch';
+  let title='';
+  if(env.AI?.run){
+    try{
+      const result=await env.AI.run('@cf/google/gemma-4-26b-a4b-it',{messages:[
+        {role:'system',content:'Đặt tiêu đề tiếng Việt 3 đến 7 từ cho cuộc trò chuyện du lịch. Chỉ trả một dòng tiêu đề, không giải thích, không dấu ngoặc kép. Giữ đúng tên địa điểm trong câu hỏi.'},
+        {role:'user',content:firstQuestion}
+      ],chat_template_kwargs:{enable_thinking:false},max_tokens:60,temperature:0.1});
+      const candidate=clean(result?.choices?.[0]?.message?.content||result?.response,80).split(/[\r\n]/)[0].replace(/^['"`*\s]+|['"`*\s]+$/g,'');
+      if(candidate&&candidate.split(/\s+/).length<=9)title=candidate;
+    }catch(error){console.warn('[Conversation title Workers AI fallback]',errorText(error,'Title unavailable',160));}
+  }
+  if(!title&&hasTextModel(env)){
+    try{
+      const schema={type:'OBJECT',properties:{title:{type:'STRING'}},required:['title']};
+      const result=await callJsonModel('Đặt tiêu đề cuộc trò chuyện du lịch bằng tiếng Việt, tối đa 7 từ. Nêu đúng chủ đề hoặc địa điểm trong câu hỏi đầu tiên. Không thêm thông tin chưa có, không dấu ngoặc kép.',buildContents([],firstQuestion),schema,env,'planner');
+      const generated=clean(result?.title,80).replace(/^['"`]+|['"`]+$/g,'');
+      if(generated&&generated.split(/\s+/).length<=9)title=generated;
+    }catch(error){console.warn('[Conversation title fallback]',errorText(error,'Title unavailable',160));}
+  }
+  return json({title:title||fallback},200,request,env);
+}
+
 async function handleAiV3(request, env) {
   if(!(await rateLimit(request,env))) return json({text:"⚠️ Let's Go Pipi đang nhận quá nhiều yêu cầu. Bạn thử lại sau khoảng 1 phút nhé.",error:{message:'Rate limit exceeded'}},200,request,env);
   let body; try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
@@ -3329,7 +3428,9 @@ async function handleAiV3(request, env) {
   const unsupportedKind=explicitlyUnsupportedTravelQuestion(userMessage);
   if(unsupportedKind)return json(unsupportedTravelResponse(unsupportedKind),200,request,env);
   const history=Array.isArray(body?.chatHistory)?body.chatHistory.slice(-8):[];
-  const previousContext=compactConversationContext(body?.conversationContext);
+  const priorContext=compactConversationContext(body?.conversationContext);
+  const summary=clean(body?.conversationSummary,1700);
+  const previousContext=summary?{...(priorContext||{}),summary}:priorContext;
   const listFollowup=listFollowupResponse(userMessage,previousContext);
   if(listFollowup)return json(listFollowup,200,request,env);
   const location=normalizeUserLocation(body?.userLocation,body?.khuVuc);
@@ -3338,6 +3439,8 @@ async function handleAiV3(request, env) {
   catch(error){console.warn('[Hotel area lookup]',errorText(error,'Lookup unavailable',200));
     return hotelAreaReply(request,env,'Pipi chưa kiểm tra được vị trí khách sạn lúc này. Bạn thử lại sau nhé.');}
   if(hotelAreaResponse)return hotelAreaResponse;
+  try { const topicResponse=await handleTopicFollowup(userMessage,previousContext,location,request,env);if(topicResponse)return topicResponse; }
+  catch(error){console.warn('[Topic followup]',errorText(error,'Topic lookup unavailable',200));}
   const currentNearbyIntent=liveNearbyIntent(userMessage);
   const explicitRemoteIntent=remoteAreaSearchIntent(userMessage);
   if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent&&location.locationMismatch){
@@ -3679,6 +3782,7 @@ export default {
     if (!isOriginAllowed(request, env)) return json({ error: 'Origin not allowed' }, 403, request, env);
 
     if (path === '/ai-v3' && request.method === 'POST') return handleAiV3(request, env);
+    if (path === '/conversation/title' && request.method === 'POST') return handleConversationTitle(request, env);
     if (path === '/voice-v1' && request.method === 'POST') return handleVoiceV1(request, env);
     if (path === '/voice-live-token' && request.method === 'POST') return handleLiveTranslateToken(request, env);
     if (path === '/voice-translate-fallback' && request.method === 'POST') return handleVoiceTranslateFallback(request, env);

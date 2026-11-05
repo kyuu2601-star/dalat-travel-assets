@@ -72,7 +72,7 @@ test('Chat keeps pending hotel confirmation even before a nearby map exists',asy
   vm.createContext(context);vm.runInContext(source,context);
   const pending={status:'awaiting_confirmation',hotelName:'Yitel Hotel',city:'Trùng Khánh',landmark:'Hồng Nhai Động',request:'Quanh khách sạn Yitel Hotel có gì chơi?',candidates:[hotel]};
   context.saveMessage('ai','Đây có đúng khách sạn không?',{travelContext:{hotelArea:pending}});
-  const saved=JSON.parse(store.get('travelos_chat_history'));
+  const saved=JSON.parse(store.get('travelos_chat_sessions')).sessions[0];
   assert.equal(saved.messages[0].travelContext.hotelArea.candidates[0].id,hotel.id);
   assert.equal(saved.messages[0].travelContext.nearby,null);
 });
@@ -91,4 +91,76 @@ test('Hotel confirmation renders tappable choices and a wrong-hotel option',asyn
   assert.match(buttons[0].children[1].children[0].textContent,/和颐至尚酒店/);
   buttons.forEach(button=>button.handlers.click());
   assert.deepEqual(context.clicked,['Đúng số 1','Đúng số 2','Không đúng']);
+});
+
+test('Follow-up snack search keeps the confirmed hotel as center instead of device GPS',async()=>{
+  const centers=[];
+  const env={ALLOWED_ORIGINS:origin,MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();centers.push(body.center);assert.equal(body.query,'小吃店');
+    return Response.json({ok:true,provider:'amap',pois:[
+      {id:'hotpot',name:'重庆串串火锅',lat:29.5611,lng:106.5801,city:'重庆市',country:'Trung Quốc',provider:'amap',type:'餐饮服务;火锅店'},
+      {id:'snack',name:'重庆小吃店',lat:29.5615,lng:106.581,city:'重庆市',country:'Trung Quốc',provider:'amap',type:'餐饮服务;小吃快餐店'}]});
+  }}};
+  const context={topicAnchor:{name:'Khách sạn Yitel',city:'Trùng Khánh',country:'Trung Quốc',lat:hotel.lat,lng:hotel.lng,coordSystem:'gcj02'},placeDetails:hotel};
+  const answer=await (await worker.fetch(post('Tui muốn đi ăn vặt quanh đó, có điểm ăn vặt nào không?',context),env)).json();
+  assert.equal(centers[0].lat,hotel.lat);
+  assert.equal(centers[0].lng,hotel.lng);
+  assert.equal(answer.travelos?.topicAnchor?.name,'Khách sạn Yitel');
+  assert.match(answer.text,/Khách sạn Yitel/);
+  assert.deepEqual(answer.travelos.nearby.pois.map(place=>place.id),['snack']);
+  await worker.fetch(post('Tui muốn đi ăn vặt',context),env);
+  assert.equal(centers.at(-1).lat,hotel.lat,'a short implicit follow-up keeps the hotel anchor');
+});
+
+test('Rainy Da Lat follow-up searches indoor places around Da Lat',async()=>{
+  const searches=[];
+  const env={ALLOWED_ORIGINS:origin,MAP_WORKER:{fetch:async request=>{
+    const body=await request.json();searches.push(body);
+    return Response.json({ok:true,provider:'google_places',pois:body.category==='cafe'?
+      [{id:'cafe',name:'Cà phê Đà Lạt',lat:11.941,lng:108.441,provider:'google_places',types:['cafe']},
+       {id:'shop',name:'Shop Baby',lat:11.9415,lng:108.4415,provider:'google_places',types:['store']}]:[]});
+  }}};
+  const context={topicAnchor:{name:'Đà Lạt',city:'Đà Lạt',country:'Việt Nam',lat:11.94,lng:108.44},weather:{current:{condition:'Mưa nhẹ',weatherCode:61}}};
+  const answer=await (await worker.fetch(post('Vậy có đi chơi ở đâu được không?',context),env)).json();
+  assert.deepEqual(searches.map(item=>item.category),['museum','shopping_mall','cafe']);
+  assert.ok(searches.every(item=>item.center.lat===11.94));
+  assert.match(answer.text,/Đà Lạt/);
+  assert.ok(answer.travelos.nearby.pois.every(place=>place.name!=='Shop Baby'));
+});
+
+test('Chat sessions separate conversations and keep only recent history',async()=>{
+  const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
+  const store=new Map(),context={console,Date,AbortController,setTimeout,clearTimeout,
+    localStorage:{getItem:key=>store.get(key)??null,setItem:(key,value)=>store.set(key,String(value)),removeItem:key=>store.delete(key)},document:{getElementById:()=>null,createElement:()=>({})},window:{}};
+  vm.createContext(context);vm.runInContext(source,context);
+  context.createChatSession();context.saveMessage('user','Quanh Yitel có gì chơi?');
+  context.createChatSession();context.saveMessage('user','Thời tiết Đà Lạt?');
+  const sessions=JSON.parse(store.get('travelos_chat_sessions')).sessions;
+  assert.equal(sessions.length,2);
+  assert.equal(context.readHistory().messages[0].content,'Thời tiết Đà Lạt?');
+  assert.doesNotMatch(context.buildConversationSummary(context.readHistory()),/Yitel/);
+  sessions[0].updatedAt=Date.now()-25*60*60*1000;
+  store.set('travelos_chat_sessions',JSON.stringify({version:4,sessions}));
+  assert.equal(context.readSessionStore().sessions.length,1);
+});
+
+test('Weather context keeps Da Lat as the topic for a rainy-day follow-up',async()=>{
+  const source=await readFile(new URL('../chat.js',import.meta.url),'utf8');
+  const context={console,Date,AbortController,setTimeout,clearTimeout,document:{getElementById:()=>null,createElement:()=>({})},window:{}};
+  vm.createContext(context);vm.runInContext(source,context);
+  const first=context.mergeChatTopicContext(context.compactTravelContext({travelIntent:'WEATHER_OUTDOOR',
+    placeDetails:{name:'Đà Lạt',lat:11.94,lng:108.44,city:'Đà Lạt',country:'Việt Nam'},
+    weather:{current:{condition:'Mưa nhẹ',weatherCode:61}}}),null,'Thời tiết Đà Lạt thế nào?');
+  assert.equal(first.topicAnchor.name,'Đà Lạt');
+  const second=context.mergeChatTopicContext(context.compactTravelContext({travelIntent:'PLACE_DISCOVERY',
+    nearby:{provider:'google_places',center:{lat:11.94,lng:108.44,country:'Việt Nam'},pois:[]}}),first,'Vậy có đi chơi ở đâu được không?');
+  assert.equal(second.topicAnchor.name,'Đà Lạt');
+  assert.equal(second.weather.current.condition,'Mưa nhẹ');
+});
+
+test('Pipi generates a short history title from the first question',async()=>{
+  const response=await worker.fetch(new Request('https://ai.test/conversation/title',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+    body:JSON.stringify({firstQuestion:'Quanh khách sạn Yitel Trùng Khánh có chỗ nào ăn chơi buổi tối?'})}),
+  {ALLOWED_ORIGINS:origin,AI:{run:async()=>({response:'Ăn chơi quanh Yitel Trùng Khánh'})}});
+  assert.equal((await response.json()).title,'Ăn chơi quanh Yitel Trùng Khánh');
 });
