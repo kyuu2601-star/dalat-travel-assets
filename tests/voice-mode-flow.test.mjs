@@ -215,6 +215,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   assert.equal(elements.get('pvm-close').disabled,false);
   interpreter.callbacks.onVoiceFallback({targetLanguage:'zh-Hans',translatedText:'你好'});
   assert.equal(nativeSpeakCalls,2,'Android speaks the backend translation if Live returned no voice');
+  assert.equal(elements.get('pvm-status').textContent,'Pipi đang trả lời…');
   assert.equal(elements.get('pvm-close').disabled,true,'popup stays open while fallback voice plays');
   await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(elements.get('pvm-close').disabled,false);

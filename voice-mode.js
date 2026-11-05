@@ -599,7 +599,7 @@
     }).finally(()=>{
       translateBusy=false;
       if(translateMode&&!panel.hidden){
-        if(translator?.ready){setState('Giữ mic để nói','ready');caption.textContent='Pipi đang chờ câu hỏi của bạn';}
+        if(translator?.ready && !translationSpeechBusy){setState('Giữ mic để nói','ready');caption.textContent='Pipi đang chờ câu hỏi của bạn';}
         else {setState('Đang chuẩn bị phiên dịch…','busy');caption.textContent='Sắp có thể dịch tiếp';}
       }
       syncMic();syncToggle();
