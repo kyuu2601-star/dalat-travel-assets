@@ -12,26 +12,6 @@ const CHAT_PROGRESS_PHASES = [
     'Đang hiển thị kết quả...'
 ];
 const CHAT_FEEDBACK_REASONS = ['Sai địa điểm', 'Dữ liệu cũ', 'Không hữu ích'];
-const CHAT_TOOL_LABELS = {
-    resolve_place:'Xác định địa điểm',
-    search_places:'Tìm địa điểm',
-    place_details:'Kiểm tra chi tiết',
-    weather:'Kiểm tra thời tiết',
-    place_busyness:'Kiểm tra độ đông',
-    walking_route:'Tính đường đi bộ',
-    traffic_route:'Tính đường di chuyển',
-    curated_places:'Tra dữ liệu TravelOS'
-};
-const CHAT_INTENT_LABELS = {
-    PLACE_DISCOVERY:'Tìm địa điểm',
-    VENUE_INTELLIGENCE:'Thông tin địa điểm',
-    ROUTE_MOBILITY:'Chỉ đường',
-    WEATHER_OUTDOOR:'Thời tiết',
-    ITINERARY_PLANNING:'Lịch trình',
-    SAFETY_HEALTH:'Hỗ trợ an toàn',
-    TRAVEL_UTILITY:'Tiện ích du lịch',
-    LOCAL_GUIDE:'Hỗ trợ di chuyển'
-};
 
 function renderChatProgress(id) {
     const steps = CHAT_PROGRESS_PHASES.map((label, index) => `
@@ -42,10 +22,7 @@ function renderChatProgress(id) {
     return `<div class="chat-progress" id="${id}" role="status" aria-live="polite" aria-label="${CHAT_PROGRESS_PHASES[0]}">
         <div class="chat-progress-title"><span class="chat-progress-pulse" aria-hidden="true"></span><span>Pipi đang làm việc</span></div>
         <ol class="chat-progress-list">${steps}</ol>
-        <div class="chat-progress-actions">
-            <span class="chat-progress-elapsed" data-progress-elapsed>0 giây</span>
-            <button type="button" class="chat-stop-button" data-chat-stop>Dừng</button>
-        </div>
+        <div class="chat-progress-meta"><span class="chat-progress-elapsed" data-progress-elapsed>0 giây</span></div>
     </div>`;
 }
 
@@ -66,7 +43,7 @@ function updateChatProgress(id, activeIndex) {
     if (box) box.scrollTop = box.scrollHeight;
 }
 
-function startChatProgress(id, onStop) {
+function startChatProgress(id) {
     let current = 0;
     const root = document.getElementById(id);
     const startedAt = Date.now();
@@ -89,16 +66,6 @@ function startChatProgress(id, onStop) {
         }
     };
     const elapsedTimer = setInterval(updateElapsed, 1000);
-    const stopButton = root?.querySelector('[data-chat-stop]');
-    const stop = () => {
-        clearInterval(elapsedTimer);
-        stopButton?.removeEventListener('click', handleStop);
-    };
-    const handleStop = () => {
-        if (stopButton) stopButton.disabled = true;
-        if (typeof onStop === 'function') onStop();
-    };
-    stopButton?.addEventListener('click', handleStop);
     return {
         advance,
         setPhase,
@@ -107,88 +74,17 @@ function startChatProgress(id, onStop) {
             if (label) label.textContent = title;
         },
         elapsedMs() { return Date.now() - startedAt; },
-        stop
+        stop() { clearInterval(elapsedTimer); }
     };
 }
 
-function formatAgentDuration(durationMs) {
-    const seconds = Math.max(0, Number(durationMs) || 0) / 1000;
-    return seconds < 10 ? `${seconds.toFixed(1)} giây` : `${Math.round(seconds)} giây`;
-}
-
-function compactAgentReceipt(travelos, durationMs = 0) {
-    if (!travelos || typeof travelos !== 'object') return null;
-    const text = (value, max = 300) => String(value ?? '').trim().slice(0, max);
-    const rawSources = Array.isArray(travelos.sources) ? travelos.sources : [];
-    const sources = rawSources.slice(0, 10).map((source, index) => typeof source === 'string'
-        ? { id:`source-${index + 1}`, tool:'', ok:true, source:text(source, 100), fetchedAt:'', error:'' }
-        : {
-            id:text(source?.id, 80) || `source-${index + 1}`,
-            tool:text(source?.tool, 80),
-            ok:source?.ok !== false,
-            source:text(source?.source, 100),
-            fetchedAt:text(source?.fetchedAt, 80),
-            error:text(source?.error, 240)
-        });
-    const plannedTools = Array.isArray(travelos.plan?.tools)
-        ? travelos.plan.tools.slice(0, 10).map(tool => text(tool?.name, 80)).filter(Boolean)
-        : [];
-    const intent = text(travelos.travelIntent || travelos.plan?.travelIntent, 80);
-    if (!sources.length && !plannedTools.length && !intent) return null;
-    return {
-        intent,
-        goal:text(travelos.plan?.goal, 300),
-        sources,
-        plannedTools,
-        durationMs:Math.max(0, Math.round(Number(durationMs) || 0)),
-        completedAt:Date.now()
-    };
-}
-
-function renderAgentReceipt(messageElement, receipt) {
-    if (!messageElement || !receipt) return;
-    const sources = Array.isArray(receipt.sources) ? receipt.sources : [];
-    const successful = sources.filter(source => source.ok !== false).length;
-    const details = document.createElement('details');
-    details.className = 'agent-receipt';
-    const summary = document.createElement('summary');
-    const sourceSummary = sources.length ? `${successful}/${sources.length} bước dữ liệu` : `${receipt.plannedTools?.length || 0} bước dự kiến`;
-    summary.textContent = `Đã kiểm tra · ${sourceSummary}`;
-    details.appendChild(summary);
-
-    const body = document.createElement('div');
-    body.className = 'agent-receipt-body';
-    const meta = document.createElement('div');
-    meta.className = 'agent-receipt-meta';
-    const intent = CHAT_INTENT_LABELS[receipt.intent] || receipt.intent || 'Yêu cầu du lịch';
-    const completedAt = Number(receipt.completedAt);
-    const time = Number.isFinite(completedAt)
-        ? new Date(completedAt).toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' })
-        : '';
-    meta.textContent = [intent, receipt.durationMs ? formatAgentDuration(receipt.durationMs) : '', time ? `cập nhật ${time}` : ''].filter(Boolean).join(' · ');
-    body.appendChild(meta);
-    if (receipt.goal) {
-        const goal = document.createElement('p');
-        goal.className = 'agent-receipt-goal';
-        goal.textContent = receipt.goal;
-        body.appendChild(goal);
-    }
-    if (sources.length) {
-        const list = document.createElement('ul');
-        list.className = 'agent-source-list';
-        sources.forEach(source => {
-            const item = document.createElement('li');
-            item.className = source.ok === false ? 'is-error' : 'is-ok';
-            const label = CHAT_TOOL_LABELS[source.tool] || source.tool || 'Nguồn dữ liệu';
-            const provider = source.source ? ` · ${source.source}` : '';
-            item.textContent = `${source.ok === false ? '!' : '✓'} ${label}${provider}`;
-            if (source.error) item.title = source.error;
-            list.appendChild(item);
-        });
-        body.appendChild(list);
-    }
-    details.appendChild(body);
-    messageElement.appendChild(details);
+function setChatSendButtonMode(button, mode = 'send') {
+    if (!button) return;
+    const stopping = mode === 'stop';
+    button.classList.toggle('is-stop', stopping);
+    button.disabled = false;
+    button.setAttribute('aria-label', stopping ? 'Dừng trả lời' : 'Gửi');
+    button.title = stopping ? 'Dừng' : 'Gửi';
 }
 
 function formatTravelDistance(value) {
@@ -273,9 +169,11 @@ function renderChatResponseControls(messageElement, { sessionId, messageId, ques
     const prompt = document.createElement('span');
     prompt.textContent = 'Hữu ích không?';
     const up = document.createElement('button');
-    up.type = 'button'; up.className = 'chat-feedback-button'; up.textContent = '👍'; up.setAttribute('aria-label', 'Câu trả lời hữu ích');
+    up.type = 'button'; up.className = 'chat-feedback-button'; up.setAttribute('aria-label', 'Câu trả lời hữu ích');
+    up.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H3V10h4Zm0 9h9.7a2 2 0 0 0 1.9-1.4l1.2-4A2 2 0 0 0 17.9 11H14l.6-3.3A3.1 3.1 0 0 0 11.5 4L7 10Z"/></svg>';
     const down = document.createElement('button');
-    down.type = 'button'; down.className = 'chat-feedback-button'; down.textContent = '👎'; down.setAttribute('aria-label', 'Câu trả lời chưa hữu ích');
+    down.type = 'button'; down.className = 'chat-feedback-button'; down.setAttribute('aria-label', 'Câu trả lời chưa hữu ích');
+    down.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h4v10h-4Zm0-9H7.3a2 2 0 0 0-1.9 1.4l-1.2 4A2 2 0 0 0 6.1 13H10l-.6 3.3A3.1 3.1 0 0 0 12.5 20l4.5-6Z"/></svg>';
     const retry = document.createElement('button');
     retry.type = 'button'; retry.className = 'chat-retry-button'; retry.textContent = 'Thử lại';
     row.append(prompt, up, down, retry);
@@ -548,11 +446,14 @@ async function handleChat(presetText = '') {
     const voiceBtn = document.getElementById('mic-btn');
     if (!input) return;
 
+    if (!presetText && activeChatRequest?.stop) {
+        activeChatRequest.stop();
+        return;
+    }
     if (sendBtn?.disabled || input.disabled) return;
     const text = String(presetText || input.value).trim();
     if (!text) return;
 
-    if (sendBtn) sendBtn.disabled = true;
     if (voiceBtn) voiceBtn.disabled = true;
     input.disabled = true;
     setHotelChoiceButtonsDisabled(true);
@@ -570,11 +471,15 @@ async function handleChat(presetText = '') {
     addMessage('ai', renderChatProgress(loadingId), true);
     const requestController = new AbortController();
     let stoppedByUser = false;
-    const progress = startChatProgress(loadingId, () => {
+    const stopRequest = () => {
+        if (stoppedByUser) return;
         stoppedByUser = true;
+        if (sendBtn) sendBtn.disabled = true;
         requestController.abort();
-    });
-    activeChatRequest = { id:loadingId, controller:requestController };
+    };
+    const progress = startChatProgress(loadingId);
+    activeChatRequest = { id:loadingId, controller:requestController, stop:stopRequest };
+    setChatSendButtonMode(sendBtn, 'stop');
 
     let data = null;
     let retries = 3;
@@ -676,11 +581,9 @@ async function handleChat(presetText = '') {
         const messageElement = loadingElement?.closest('.msg');
         const nearby = compactNearbySnapshot(data?.travelos?.nearby);
         const travelContext = mergeChatTopicContext(compactTravelContext(data?.travelos), conversationContext, text);
-        const receipt = compactAgentReceipt(data?.travelos, progress.elapsedMs());
         const savedMessage = saveMessage('ai', aiMsg, {
             ...(nearby ? { nearby } : {}),
-            ...(travelContext ? { travelContext } : {}),
-            ...(receipt ? { receipt } : {})
+            ...(travelContext ? { travelContext } : {})
         }, requestSessionId);
         if (messageElement && activeChatSessionId === requestSessionId) {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
@@ -690,7 +593,6 @@ async function handleChat(presetText = '') {
                 renderTravelDataCards(messageElement, travelContext || data?.travelos);
                 if (nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
             }
-            renderAgentReceipt(messageElement, receipt);
             renderChatResponseControls(messageElement, {
                 sessionId:requestSessionId,
                 messageId:savedMessage?.id,
@@ -708,7 +610,7 @@ async function handleChat(presetText = '') {
         progress.stop();
         if (activeChatRequest?.id === loadingId) activeChatRequest = null;
         if (!completed) setHotelChoiceButtonsDisabled(false);
-        if (sendBtn) sendBtn.disabled = false;
+        setChatSendButtonMode(sendBtn, 'send');
         if (voiceBtn) voiceBtn.disabled = false;
         input.disabled = false;
         if (!presetText && activeChatSessionId === requestSessionId) input.focus();
@@ -932,7 +834,6 @@ function saveMessage(role, content, extras = {}, sessionId = activeChatSessionId
         content,
         ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}),
         ...(extras.travelContext ? { travelContext:compactTravelContext(extras.travelContext) } : {}),
-        ...(extras.receipt ? { receipt:extras.receipt } : {}),
         ...(extras.feedback ? { feedback:extras.feedback } : {})
     };
     session.messages.push(savedMessage);
@@ -959,7 +860,6 @@ function renderChatSession(session) {
             renderTravelDataCards(messageElement, msg.travelContext);
             if (messageElement && nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
         }
-        renderAgentReceipt(messageElement, msg.receipt);
         const question = [...session.messages.slice(0, index)].reverse().find(item => item.role === 'user')?.content || '';
         renderChatResponseControls(messageElement, {
             sessionId:session.id,

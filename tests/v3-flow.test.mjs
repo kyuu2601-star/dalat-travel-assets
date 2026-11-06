@@ -900,7 +900,7 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
   assert.match(index,/<title>Let's Go Pipi<\/title>/);
   assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
-  assert.match(index,/chat\.js\?v=20261106-2/);
+  assert.match(index,/chat\.js\?v=20261106-3/);
   assert.match(style,/font-family: "Lilita One"/);
   assert.match(style,/font-size: 1\.16em/);
   assert.match(style,/margin-left: 3px/);
@@ -912,24 +912,28 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.match(buildScript,/\['assets', 'china-navigation'/);
 });
 
-test('AI chat shows request-driven progress and agent controls while backend tools are working', async () => {
+test('AI chat uses the send button for stop and keeps user-facing response controls simple', async () => {
   const [chat,style,index]=await Promise.all([
     readFile(new URL('../chat.js',import.meta.url),'utf8'),
     readFile(new URL('../style.css',import.meta.url),'utf8'),
     readFile(new URL('../index.html',import.meta.url),'utf8')
   ]);
   for(const phase of ['Đang chuẩn bị vị trí và ngữ cảnh...','Đang chờ Pipi và các nguồn dữ liệu...','Đã nhận dữ liệu phản hồi...','Đang hiển thị kết quả...'])assert.match(chat,new RegExp(phase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
-  assert.match(chat,/startChatProgress\(loadingId, \(\) =>/);
+  assert.match(chat,/startChatProgress\(loadingId\)/);
   assert.match(chat,/signal: requestController\.signal/);
-  assert.match(chat,/data-chat-stop/);
-  assert.match(chat,/compactAgentReceipt/);
+  assert.match(chat,/setChatSendButtonMode\(sendBtn, 'stop'\)/);
+  assert.match(chat,/activeChatRequest\?\.stop/);
+  assert.doesNotMatch(chat,/data-chat-stop|compactAgentReceipt|renderAgentReceipt|Đã kiểm tra/);
   assert.match(chat,/renderChatResponseControls/);
+  assert.match(chat,/<svg viewBox="0 0 24 24" aria-hidden="true">/);
   assert.doesNotMatch(chat,/setTimeout\(\(\) => advance/);
   assert.match(style,/\.chat-progress-step\.is-active/);
-  assert.match(style,/\.agent-receipt/);
+  assert.match(style,/\.send-btn\.is-stop/);
+  assert.match(style,/\.chat-feedback-button svg/);
+  assert.doesNotMatch(style,/\.agent-receipt|\.chat-stop-button/);
   assert.match(style,/\.chat-response-controls/);
   assert.match(style,/prefers-reduced-motion/);
-  assert.match(index,/style\.css\?v=20261106-1/);
+  assert.match(index,/style\.css\?v=20261106-2/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
@@ -994,9 +998,9 @@ test('Chat refreshes GPS and retries the same question once without duplicating 
     readHistory:()=>session,
     readSessionStore:()=>({sessions:[session]}),
     requestChatTitle(){},setHotelChoiceButtonsDisabled(){},renderChatProgress:id=>`<div id="${id}"></div>`,
-    startChatProgress:()=>({advance(){},setPhase(){},setTitle(){},elapsedMs(){return 10;},stop(){}}),compactNearbySnapshot:()=>null,compactTravelContext:()=>null,
-    compactAgentReceipt:()=>null,mergeChatTopicContext:()=>null,buildConversationSummary:()=>'',normalizeAssistantVoice:value=>String(value),renderMarkdownSafe:value=>String(value),
-    renderHotelChoices:()=>false,renderTravelDataCards(){},renderAgentReceipt(){},renderChatResponseControls(){},renderChatRequestFailure(){}
+    startChatProgress:()=>({advance(){},setPhase(){},setTitle(){},elapsedMs(){return 10;},stop(){}}),setChatSendButtonMode(){},compactNearbySnapshot:()=>null,compactTravelContext:()=>null,
+    mergeChatTopicContext:()=>null,buildConversationSummary:()=>'',normalizeAssistantVoice:value=>String(value),renderMarkdownSafe:value=>String(value),
+    renderHotelChoices:()=>false,renderTravelDataCards(){},renderChatResponseControls(){},renderChatRequestFailure(){}
   });
   vm.runInContext(`let activeChatSessionId='session-1',activeChatRequest=null;${chat.slice(start,end)};this.runChat=handleChat;`,context);
   await context.runChat();
