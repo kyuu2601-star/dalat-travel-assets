@@ -10,6 +10,7 @@ import { HOTEL_AREA_PROMPT, HOTEL_AREA_CHOICE_SCHEMA, parseHotelAreaRequest, hot
 import { parseNamedAreaRequest, namedAreaMatchScore } from './bot/named-area-discovery.js';
 import { inspectTravelRequest, neutralizeUntrustedText, sanitizeConversationHistory, sanitizeUntrustedData, validateGroundedAnswer } from './bot/guardrails.js';
 import { beginTravelTrace, completeTravelTrace, travelTraceId, updateTravelTrace } from './bot/monitoring.js';
+import { compareShadowRoute, shadowRouteTravelRequest } from './bot/request-router.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_STABLE_MODEL = 'gemini-3.1-flash-lite';
@@ -3807,8 +3808,10 @@ async function handleAiV3(request, env) {
   }
   try {
     const foodKnowledge=await loadFoodKnowledge(env);
+    const shadowRouter=shadowRouteTravelRequest({userMessage,location,previousContext});
     const plannerStarted=Date.now();
-    const plan=await planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge);
+    const planned=await planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge);
+    const plan={...planned,shadowRouter:compareShadowRoute(shadowRouter,planned)};
     updateTravelTrace(request,{intent:plan.travelIntent,planner:plan.planner,timings:{plannerMs:Date.now()-plannerStarted},fallback:String(plan.planner||'').includes('fallback')?'planner-fallback':''});
     if(plan.scopeRedirect||(plan.travelIntent==='LOCAL_GUIDE'&&!plan.tools.length)){
       const text=navigationScopeAnswer(userMessage);
