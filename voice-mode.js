@@ -69,7 +69,7 @@
   let recognition = null, holding = false, transcript = '', confidence = null, recognitionError = '', sending = false, activeRequest = null, activeTyping = null, generation = 0;
   let speechQueue = Promise.resolve();
   let speechEpoch = 0;
-  let translateMode = false, translateBusy = false, translateListening = false, translationSpeechBusy = false, translator = null, translatorPromise = null, translationSpeechTimer = null;
+  let translateMode = false, translateBusy = false, translateListening = false, translationSpeechBusy = false, translationReplayBusy = false, translator = null, translatorPromise = null, translationSpeechTimer = null;
   const pendingText=new Set(),translationRows=new Map();
   let selectedMicId = 'default', audioInputBusy = false;
   const shortInputName = label => /loa ngoài/i.test(label)?'Loa ngoài'
@@ -78,7 +78,7 @@
     : /tự động/i.test(label)?'Tự động':'Micro';
   const closeAudioMenu = () => {audioInputMenu.hidden=true;audioInputShort.setAttribute('aria-expanded','false');};
   const syncToggle = () => {
-    const busy = sending || holding || translateBusy || translateListening || translationSpeechBusy || audioInputBusy || Boolean(panel.classList.contains?.('speaking'));
+    const busy = sending || holding || translateBusy || translateListening || translationSpeechBusy || translationReplayBusy || audioInputBusy || Boolean(panel.classList.contains?.('speaking'));
     translateSwitch.disabled = busy || pendingText.size>0;
     audioInputSelect.disabled = busy;
     audioInputShort.disabled = busy;
@@ -86,7 +86,7 @@
     if(busy)closeAudioMenu();
     audioInputPicker.hidden = !nativeVoice?.getAudioInputs && !translateMode;
   };
-  const syncMic = () => { mic.disabled = !holding && (!microphoneReady || sending || translateBusy || translationSpeechBusy || audioInputBusy || (translateMode ? !translator?.ready : !Recognition || !voiceReady)); };
+  const syncMic = () => { mic.disabled = !holding && (!microphoneReady || sending || translateBusy || translationSpeechBusy || translationReplayBusy || audioInputBusy || (translateMode ? !translator?.ready : !Recognition || !voiceReady)); };
   const fixedClips = {
     'Pipi đang phân tích câu hỏi.': 'assets/voice/planning.wav?v=local-2',
     'Pipi đang tìm kiếm thông tin.': 'assets/voice/searching.wav?v=local-2',
@@ -213,7 +213,7 @@
     activeRequest?.abort(); activeRequest = null;
     recognition?.abort(); recognition = null;
     stopSpeaking();
-    clearTimeout(translationSpeechTimer);translator?.close();translator=null;translatorPromise=null;translateMode = false; translateBusy = false;translateListening=false;translateSwitch.checked = false;
+    clearTimeout(translationSpeechTimer);translator?.close();translator=null;translatorPromise=null;translateMode = false; translateBusy = false;translateListening=false;translationReplayBusy=false;translateSwitch.checked = false;
     translationRows.clear();log.replaceChildren?.();
     nativeVoice?.clearAudioInput?.().catch(() => {});
     selectedMicId = 'default';audioInputSelect.value = 'default';
@@ -387,6 +387,46 @@
     log.replaceChildren?.();translationRows.clear();
     for(const row of window.PipiTranslationHistory?.list?.()||[])appendTranslation(row,{restore:true});
   }
+  async function replayTranslation(text,targetLanguage,button) {
+    if(!translateMode || panel.hidden || holding || translateBusy || translateListening || translationSpeechBusy || translationReplayBusy || pendingText.size)return;
+    const language=targetLanguage==='zh-Hans'?'zh-CN':'vi-VN';
+    translationReplayBusy=true;button.disabled=true;
+    setState('Pipi đang đọc bản dịch…','speaking');syncMic();syncToggle();
+    let played=false,failed=false;
+    if(nativeVoice?.speak){
+      try {await nativeVoice.speak({text,language});played=true;}
+      catch(error){console.warn('Pipi native translation replay:',error);}
+    }
+    if(!played && language==='vi-VN' && window.PipiLocalVoice?.synthesize && voiceReady){
+      try {await playNatural(text,generation,speechEpoch);played=true;}
+      catch(error){console.warn('Pipi local translation replay:',error);}
+    }
+    if(!played && language==='zh-CN'){
+      try {
+        if(text.length>500)throw new Error('TRANSLATION_REPLAY_TOO_LONG');
+        const response=await fetch(`${CONFIG.WORKER_URL.replace(/\/+$/, '')}/voice-translate-speech`,{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language:'zh-Hans'})
+        });
+        if(!response.ok)throw new Error('TRANSLATION_REPLAY_UNAVAILABLE');
+        const url=URL.createObjectURL(await response.blob());
+        try {await playAudioUrl(url);played=true;} finally {URL.revokeObjectURL(url);}
+      } catch(error){console.warn('Pipi Chinese translation replay:',error);}
+    }
+    if(!played){
+      try {
+        if(!window.speechSynthesis || typeof SpeechSynthesisUtterance!=='function')throw new Error('TRANSLATION_REPLAY_UNAVAILABLE');
+        await new Promise((resolve,reject)=>{
+          const utterance=new SpeechSynthesisUtterance(text);
+          utterance.lang=language;utterance.onend=resolve;utterance.onerror=reject;
+          window.speechSynthesis.speak(utterance);
+        });
+        played=true;
+      } catch(error){failed=true;console.warn('Pipi translation replay:',error);}
+    }
+    translationReplayBusy=false;button.disabled=false;
+    if(translateMode&&!panel.hidden){setState('Giữ mic để nói','ready');caption.textContent=failed?'Chưa phát được bản dịch. Bạn thử bấm loa lần nữa nhé.':'Pipi đang chờ câu hỏi của bạn';}
+    syncMic();syncToggle();
+  }
   function appendTranslation(result,{restore=false}={}) {
     if(!result?.sourceText || !result?.translatedText)return;
     const key=result.sequence==null?'':String(result.sequence);
@@ -400,7 +440,12 @@
     targetLabel.textContent=result.targetLanguage==='vi'?'Tiếng Việt':'Tiếng Trung';
     source.append(sourceLabel,document.createTextNode(result.sourceText));
     translated.append(targetLabel,document.createTextNode(result.translatedText));
-    card.replaceChildren?.(source,translated);
+    const replay=document.createElement('button');
+    replay.type='button';replay.className='pvm-translation-replay';
+    replay.setAttribute('aria-label',`Phát lại bản dịch ${result.targetLanguage==='zh-Hans'?'tiếng Trung':'tiếng Việt'}`);
+    replay.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a5 5 0 0 1 0 6M18 6a9 9 0 0 1 0 12"/></svg><span>Phát lại</span>';
+    replay.addEventListener('click',()=>replayTranslation(result.translatedText,result.targetLanguage,replay));
+    card.replaceChildren?.(source,translated,replay);
     if(!card.parentNode && !card.parent)log.appendChild(card);
     if(key)translationRows.set(key,card);
     if(!restore)window.PipiTranslationHistory?.add?.(result);
@@ -439,7 +484,7 @@
   if (typeof navigator !== 'undefined') navigator.mediaDevices?.addEventListener?.('devicechange', () => {if(!panel.hidden)refreshAudioInputs();});
 
   translateSwitch.addEventListener('change', async () => {
-    if (sending || holding || translateBusy || translateListening || translationSpeechBusy || pendingText.size || panel.classList.contains?.('speaking')) {
+    if (sending || holding || translateBusy || translateListening || translationSpeechBusy || translationReplayBusy || pendingText.size || panel.classList.contains?.('speaking')) {
       translateSwitch.checked = translateMode;return;
     }
     translateMode = translateSwitch.checked;
@@ -639,7 +684,7 @@
   }
   function begin(event) {
     if (translateMode) {
-      if(!microphoneReady || translateBusy || translationSpeechBusy || holding || !translator?.ready || panel.hidden)return;
+      if(!microphoneReady || translateBusy || translationSpeechBusy || translationReplayBusy || holding || !translator?.ready || panel.hidden)return;
       event.preventDefault();mic.setPointerCapture?.(event.pointerId);
       stopSpeaking();holding=true;translateBusy=true;
       mic.classList.add('active');mic.setAttribute('aria-pressed','true');

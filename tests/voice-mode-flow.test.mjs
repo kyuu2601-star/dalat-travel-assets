@@ -89,6 +89,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
     {type:'done'}
   ].map(event=>JSON.stringify(event)).join('\n')+'\n';
   let networkCalls = 0, synthesisCalls = 0, nativeSpeakCalls = 0, failSynthesis = false, gpsRefreshCalls = 0;
+  const nativeSpeakArgs=[];
   const playedUrls = [];
   const fetch = async url => {
     networkCalls++;
@@ -114,7 +115,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
       startRecognition:async()=>{recognitionStarts++;},
       stopRecognition:async()=>{nativeListener?.({type:'final',transcript:recognizedText,confidence:0.9});},
       cancelRecognition:async()=>{},
-      speak:async()=>{nativeSpeakCalls++;},
+      speak:async args=>{nativeSpeakCalls++;nativeSpeakArgs.push(args);},
       stop:async()=>{}
     }}},
     TravelNearby:{openFull:payload=>{openedMap=payload;}},
@@ -220,8 +221,14 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   assert.equal(elements.get('pvm-close').disabled,true);
   interpreter.callbacks.onTextDone({sequence:2});
   assert.equal(elements.get('pvm-close').disabled,false);
+  cards[0].children[2].listeners.click();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  cards[1].children[2].listeners.click();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.deepEqual(nativeSpeakArgs.slice(-2).map(item=>[item.text,item.language]),[['你好','zh-CN'],['Xin chào','vi-VN']]);
+  assert.equal(elements.get('pvm-status').textContent,'Giữ mic để nói');
   interpreter.callbacks.onVoiceFallback({targetLanguage:'zh-Hans',translatedText:'你好'});
-  assert.equal(nativeSpeakCalls,2,'Android speaks the backend translation if Live returned no voice');
+  assert.equal(nativeSpeakCalls,4,'Android speaks the backend translation if Live returned no voice');
   assert.equal(elements.get('pvm-status').textContent,'Pipi đang trả lời…');
   assert.equal(elements.get('pvm-close').disabled,true,'popup stays open while fallback voice plays');
   await new Promise(resolve=>setTimeout(resolve,0));
