@@ -102,6 +102,14 @@ async function importWorker(path) {
   return import(`${new URL(path,import.meta.url).href}?test=${Date.now()}-${Math.random()}`);
 }
 
+async function confirmNamedArea(worker,env,userMessage,userLocation) {
+  const send=async (message,context)=>worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:message,userLocation,conversationContext:context})}),env);
+  const first=await (await send(userMessage,null)).json();
+  assert.equal(first.travelos.namedArea?.status,'awaiting_confirmation');
+  const response=await send('Đúng số 1',first.travelos);
+  return {first,response,data:await response.json()};
+}
+
 test('Map Worker keeps pharmacy category coverage and brand name', async () => {
   const { default: worker } = await importWorker('../map-worker/src/index.js');
   const originalFetch = globalThis.fetch;
@@ -892,7 +900,7 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
   assert.match(index,/<title>Let's Go Pipi<\/title>/);
   assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
-  assert.match(index,/chat\.js\?v=20261106-1/);
+  assert.match(index,/chat\.js\?v=20261106-2/);
   assert.match(style,/font-family: "Lilita One"/);
   assert.match(style,/font-size: 1\.16em/);
   assert.match(style,/margin-left: 3px/);
@@ -1921,12 +1929,11 @@ test('AI v3 resolves a remote area before searching there instead of using curre
     return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'chicken-1',name:'Gà Rán Test',address:'Bình Thạnh, TP.HCM',lat:10.795,lng:106.722,distance:80,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
   try{
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Khu vực mục tiêu là Landmark 81; hãy tìm giúp tôi các nơi bán gà rán',userLocation:{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022,source:'gps'},chatHistory:[]})}),env);
-    const data=await response.json();
+    const {response,data}=await confirmNamedArea(worker,env,'Khu vực mục tiêu là Landmark 81; hãy tìm giúp tôi các nơi bán gà rán',{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022,source:'gps'});
     assert.equal(response.status,200);
     assert.deepEqual(mapPaths,['/place/resolve','/poi/nearby']);
     assert.equal(data.travelos.nearby.pois[0].name,'Gà Rán Test');
-    assert.match(data.text,/Pipi tìm được/);
+    assert.match(data.text,/Pipi đã tìm quanh/);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -1943,13 +1950,12 @@ test('AI v3 handles an explicit remote-area search even when Gemini is unavailab
     assert.equal(body.sortBy,'distance');
     return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:[{id:'chicken-1',name:'Haeduri Chicken',address:'Bình Thạnh, TP.HCM',lat:10.7952,lng:106.7222,distance:344,provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
-  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán gà rán quanh Landmark 81 giúp tôi nhé',userLocation:{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022}})}),env);
-  const data=await response.json();
+  const {response,data}=await confirmNamedArea(worker,env,'Tìm quán gà rán quanh Landmark 81 giúp tôi nhé',{country:'Việt Nam',city:'Đà Nẵng',latitude:16.0544,longitude:108.2022});
   assert.equal(response.status,200);
   assert.deepEqual(paths,['/place/resolve','/poi/nearby']);
-  assert.equal(data.travelos.remoteSearch.resolvedArea.name,'Landmark 81');
+  assert.equal(data.travelos.topicAnchor.name,'Landmark 81');
   assert.equal(data.travelos.nearby.pois[0].name,'Haeduri Chicken');
-  assert.match(data.text,/Pipi tìm được 1 địa điểm/);
+  assert.match(data.text,/Pipi đã tìm quanh/);
 });
 
 test('AI v3 translates a China dish query and returns Vietnamese AMap notes', async () => {
@@ -1972,8 +1978,7 @@ test('AI v3 translates a China dish query and returns Vietnamese AMap notes', as
     return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'amap-hotpot',name:'海底捞火锅',address:'王府井大街88号',lat:39.9142,lng:116.4112,coordSystem:'gcj02',distance:40,rating:'4.8',tag:'四川火锅;服务热情',cost:'128',provider:'amap',country:'Trung Quốc'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
   try{
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán lẩu quanh Vương Phủ Tỉnh',userLocation:{country:'Trung Quốc',city:'Bắc Kinh'}})}),env);
-    const data=await response.json(),poi=data.travelos.nearby.pois[0];
+    const {response,data}=await confirmNamedArea(worker,env,'Tìm quán lẩu quanh Vương Phủ Tỉnh',{country:'Trung Quốc',city:'Bắc Kinh'}),poi=data.travelos.nearby.pois[0];
     assert.equal(response.status,200);
     assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby']);
     assert.equal(calls[1].body.center.coordSystem,'wgs84');
@@ -1992,7 +1997,7 @@ test('AI v3 localizes AMap places without leaking the China flow to Google', asy
   const calls=[];
   const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
     const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
-    if(path==='/place/resolve'&&body.query==='Vương Phủ Tỉnh')return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',places:[{id:'wangfujing',name:'王府井大街',address:'北京市东城区',lat:39.914,lng:116.411,country:'Trung Quốc',provider:'google_places'}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    if(path==='/place/resolve'&&body.query==='王府井大街')return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',places:[{id:'wangfujing',name:'王府井大街',address:'北京市东城区',lat:39.914,lng:116.411,country:'Trung Quốc',provider:'amap',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
     if(path==='/poi/nearby'){
       assert.equal(body.query,'火锅');
       assert.equal(body.language,'zh');
@@ -2000,8 +2005,7 @@ test('AI v3 localizes AMap places without leaking the China flow to Google', asy
     }
     throw new Error(`Unexpected China flow call ${path}`);
   }}};
-  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm quán lẩu quanh Vương Phủ Tỉnh',userLocation:{country:'Trung Quốc',city:'Bắc Kinh'}})}),env);
-  const data=await response.json(),poi=data.travelos.nearby.pois[0];
+  const {response,data}=await confirmNamedArea(worker,env,'Tìm quán lẩu quanh Vương Phủ Tỉnh',{country:'Trung Quốc',city:'Bắc Kinh'}),poi=data.travelos.nearby.pois[0];
   assert.equal(response.status,200);
   assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/poi/nearby']);
   assert.match(poi.localizedName,/海底捞火锅/);
@@ -2042,8 +2046,7 @@ test('AI v3 ranks food venues by recent meaningful review evidence instead of ag
     ];
     return new Response(JSON.stringify({ok:true,source:'google-places-text-v1',provider:'google_places',center:body.center,pois:venues,candidates:venues}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
-  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Có quán gà rán nào rating cao ở quanh khu vực Emart PVT k'})}),env);
-  const data=await response.json();
+  const {response,data}=await confirmNamedArea(worker,env,'Có quán gà rán nào rating cao ở quanh khu vực Emart PVT k',{});
   assert.equal(response.status,200);
   assert.equal(calls[0].path,'/place/resolve');
   assert.equal(calls[0].body.query,'Emart PVT');
@@ -2058,7 +2061,7 @@ test('AI v3 ranks food venues by recent meaningful review evidence instead of ag
   assert.match(data.text,/Pipi đã tìm quanh.*có thể phù hợp với bạn/);
   assert.doesNotMatch(data.text,/API|30 ngày|dữ liệu|review/);
   assert.match(data.travelos.nearby.pois[0].note,/Có khách gần đây khen món gà rán/);
-  assert.equal(data.travelos.remoteSearch.requestedArea,'Emart PVT');
+  assert.equal(data.travelos.topicAnchor.name,'Emart Phan Văn Trị');
 });
 
 test('AI v3 retries a dish-name search when broad food categories have no relevant venue', async () => {
@@ -2087,10 +2090,9 @@ test('AI v3 strips trailing ranking words from a remote China area and forces AM
     if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',provider:'amap',places:[{id:'raffles-cq',name:'重庆来福士广场',lat:29.566,lng:106.586,country:'Trung Quốc',provider:'amap',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
     return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[{id:'store-1',name:'罗森便利店',address:'渝中区',lat:29.5661,lng:106.5861,distance:30,provider:'amap',country:'Trung Quốc',coordSystem:'gcj02'}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}};
-  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm cửa hàng tiện lợi quanh Raffles City Trùng Khánh gần nhất',userLocation:{country:'Việt Nam',city:'TP.HCM'}})}),env);
-  const data=await response.json();
+  const {response,data}=await confirmNamedArea(worker,env,'Tìm cửa hàng tiện lợi quanh Raffles City Trùng Khánh gần nhất',{country:'Việt Nam',city:'TP.HCM'});
   assert.equal(response.status,200);
-  assert.equal(calls[0].body.query,'Raffles City Trùng Khánh');
+  assert.equal(calls[0].body.query,'重庆来福士广场');
   assert.equal(calls[0].body.provider,'amap');
   assert.equal(calls[1].body.provider,'amap');
   assert.equal(calls[1].body.country,'Trung Quốc');

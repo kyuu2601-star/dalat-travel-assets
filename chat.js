@@ -370,17 +370,18 @@ function setHotelChoiceButtonsDisabled(disabled) {
     document.querySelectorAll('#chat-box .hotel-choice-button').forEach(button => { button.disabled = disabled; });
 }
 
-function renderHotelChoices(messageElement, hotelArea) {
-    if (!messageElement || hotelArea?.status !== 'awaiting_confirmation') return false;
-    const candidates = Array.isArray(hotelArea.candidates) ? hotelArea.candidates.slice(0, 5) : [];
+function renderPlaceChoices(messageElement, area, kind = 'hotel') {
+    if (!messageElement || area?.status !== 'awaiting_confirmation') return false;
+    const candidates = Array.isArray(area.candidates) ? area.candidates.slice(0, 5) : [];
     if (!candidates.length) return false;
     messageElement.classList.add('hotel-choice-message');
     messageElement.replaceChildren();
     const title = document.createElement('p');
     title.className = 'hotel-choice-title';
+    const label = kind === 'hotel' ? 'khách sạn' : 'địa điểm';
     title.textContent = candidates.length === 1
-        ? 'Pipi tìm thấy khách sạn này. Đúng chỗ bạn nói không?'
-        : 'Pipi tìm thấy các khách sạn này. Bạn chọn đúng chỗ nhé:';
+        ? `Pipi tìm thấy ${label} này. Đúng chỗ bạn nói không?`
+        : `Pipi tìm thấy các ${label} này. Bạn chọn đúng chỗ nhé:`;
     messageElement.appendChild(title);
     const list = document.createElement('div');
     list.className = 'hotel-choice-list';
@@ -388,14 +389,14 @@ function renderHotelChoices(messageElement, hotelArea) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'hotel-choice-button';
-        button.setAttribute('aria-label', `Chọn khách sạn ${index + 1}: ${place.localizedName || place.name}`);
+        button.setAttribute('aria-label', `Chọn ${label} ${index + 1}: ${place.localizedName || place.name}`);
         const number = document.createElement('span');
         number.className = 'hotel-choice-number';
         number.textContent = String(index + 1);
         const detail = document.createElement('span');
         detail.className = 'hotel-choice-detail';
         const name = document.createElement('strong');
-        name.textContent = place.localizedName || place.name || `Khách sạn ${index + 1}`;
+        name.textContent = place.localizedName || place.name || `${label} ${index + 1}`;
         const address = document.createElement('small');
         address.textContent = place.localizedAddress || place.address || '';
         detail.append(name, address);
@@ -406,11 +407,15 @@ function renderHotelChoices(messageElement, hotelArea) {
     const none = document.createElement('button');
     none.type = 'button';
     none.className = 'hotel-choice-button hotel-choice-none';
-    none.textContent = 'Không đúng khách sạn nào';
+    none.textContent = `Không đúng ${label} nào`;
     none.addEventListener('click', () => handleChat('Không đúng'));
     list.appendChild(none);
     messageElement.appendChild(list);
     return true;
+}
+
+function renderHotelChoices(messageElement, hotelArea) {
+    return renderPlaceChoices(messageElement, hotelArea, 'hotel');
 }
 
 function isChinaGpsPoint(value) {
@@ -679,8 +684,9 @@ async function handleChat(presetText = '') {
         }, requestSessionId);
         if (messageElement && activeChatSessionId === requestSessionId) {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
-            const renderedHotelChoices = renderHotelChoices(messageElement, travelContext?.hotelArea);
-            if (!renderedHotelChoices) {
+            const renderedChoices = renderHotelChoices(messageElement, travelContext?.hotelArea)
+                || renderPlaceChoices(messageElement, travelContext?.namedArea, 'place');
+            if (!renderedChoices) {
                 renderTravelDataCards(messageElement, travelContext || data?.travelos);
                 if (nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
             }
@@ -796,6 +802,12 @@ function compactTravelContext(payload) {
         landmark:text(rawHotelArea.landmark,200), request:text(rawHotelArea.request,600),
         candidates:list(rawHotelArea.candidates,5,place=>({id:text(place?.id,250),name:text(place?.name,300),localizedName:text(place?.localizedName,300),address:text(place?.address,700),localizedAddress:text(place?.localizedAddress,700),lat:numberOrNull(place?.lat),lng:numberOrNull(place?.lng),country:text(place?.country,120),city:text(place?.city,120),provider:text(place?.provider,80),coordSystem:text(place?.coordSystem,20)}))
     } : null;
+    const rawNamedArea = payload.namedArea;
+    const namedArea = rawNamedArea && ['awaiting_confirmation','awaiting_description'].includes(rawNamedArea.status) ? {
+        status:text(rawNamedArea.status,40),area:text(rawNamedArea.area,300),query:text(rawNamedArea.query,300),
+        country:text(rawNamedArea.country,120),radius:numberOrNull(rawNamedArea.radius),limit:numberOrNull(rawNamedArea.limit),sortBy:text(rawNamedArea.sortBy,30),
+        candidates:list(rawNamedArea.candidates,5,place=>({id:text(place?.id,250),name:text(place?.name,300),localizedName:text(place?.localizedName,300),address:text(place?.address,700),localizedAddress:text(place?.localizedAddress,700),lat:numberOrNull(place?.lat),lng:numberOrNull(place?.lng),country:text(place?.country,120),city:text(place?.city,120),provider:text(place?.provider,80),coordSystem:text(place?.coordSystem,20)}))
+    } : null;
     const rawPlace = payload.placeDetails;
     const placeDetails = rawPlace && typeof rawPlace === 'object' ? {
         id:text(rawPlace.id || rawPlace.poiId, 250), poiId:text(rawPlace.poiId || rawPlace.id, 250), name:text(rawPlace.name, 300),
@@ -840,8 +852,8 @@ function compactTravelContext(payload) {
         places:list(rawCurated.places, 18, place => ({ id:text(place?.id, 200), name:text(place?.name, 300), address:text(place?.address, 700), category:text(place?.category, 120), description:text(place?.description, 700), lat:numberOrNull(place?.lat), lng:numberOrNull(place?.lng), distanceKm:numberOrNull(place?._distance_km) })),
         searchLocation:rawCurated.searchLocation || null
     } : null;
-    if (!nearby && !placeDetails && !weather && !busyness && !routes.length && !curated && !hotelArea && !topicAnchor) return null;
-    return { version:1, travelIntent:text(payload.travelIntent || payload.plan?.travelIntent, 40), nearby, placeDetails, weather, busyness, routes:routes.length ? routes : null, curated, hotelArea, topicAnchor };
+    if (!nearby && !placeDetails && !weather && !busyness && !routes.length && !curated && !hotelArea && !namedArea && !topicAnchor) return null;
+    return { version:1, travelIntent:text(payload.travelIntent || payload.plan?.travelIntent, 40), nearby, placeDetails, weather, busyness, routes:routes.length ? routes : null, curated, hotelArea, namedArea, topicAnchor };
 }
 
 function mergeChatTopicContext(current, previous, question) {
@@ -850,7 +862,7 @@ function mergeChatTopicContext(current, previous, question) {
     const asksCurrent = /\b(quanh day|gan day|o day|gan toi|quanh toi|vi tri hien tai)\b/.test(key);
     const explicitArea = /\b(da lat|trung khanh|chongqing|da nang|ha noi|ho chi minh|sai gon)\b/.test(key);
     const prior = previous?.topicAnchor;
-    if (current.hotelArea && !current.placeDetails) return { ...current, topicAnchor:prior || null, weather:current.weather || previous?.weather || null };
+    if ((current.hotelArea || current.namedArea) && !current.placeDetails) return { ...current, topicAnchor:prior || null, weather:current.weather || previous?.weather || null };
     const place = current.placeDetails;
     const center = current.nearby?.center;
     const source = place?.lat != null && place?.lng != null ? place : center?.lat != null && center?.lng != null ? center : current.weather?.coordinates;
@@ -941,8 +953,9 @@ function renderChatSession(session) {
         const messageElement = addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content);
         if (msg.role !== 'ai') return;
         const nearby = compactNearbySnapshot(msg.nearby);
-        const renderedHotelChoices = index === session.messages.length - 1 && renderHotelChoices(messageElement, msg.travelContext?.hotelArea);
-        if (!renderedHotelChoices) {
+        const renderedChoices = index === session.messages.length - 1 && (renderHotelChoices(messageElement, msg.travelContext?.hotelArea)
+            || renderPlaceChoices(messageElement, msg.travelContext?.namedArea, 'place'));
+        if (!renderedChoices) {
             renderTravelDataCards(messageElement, msg.travelContext);
             if (messageElement && nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
         }
