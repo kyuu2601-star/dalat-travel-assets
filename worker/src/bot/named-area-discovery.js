@@ -18,6 +18,7 @@ export function namedAreaMatchScore(requested,place,providerQuery='') {
   const shared=tokens.filter(token=>wanted.has(token)).length;
   const latinMatch=tokens.length>=2&&shared/tokens.length>=.8;
   const chineseQuery=String(providerQuery||''),chineseBase=chineseQuery.replace(/(?:大街|广场|景区|市|区)$/u,'');
+  const chineseExact=/[\u3400-\u9fff]/u.test(chineseQuery)&&raw===chineseQuery;
   const chineseMatch=/[\u3400-\u9fff]/u.test(chineseQuery)
     && (raw.includes(chineseQuery)||chineseBase.length>=2&&raw.includes(chineseBase));
   const distinctive=token=>token.length>=4&&!new Set(['hotel','khach','quan','thanh','pho','cong','vien','trung','khanh','city','place','store','lake','park','market']).has(token);
@@ -26,5 +27,5 @@ export function namedAreaMatchScore(requested,place,providerQuery='') {
   const address=fold(`${place?.address||''} ${place?.city||''}`);
   const leftover=query.replace(name,'').trim();
   const areaFit=leftover&&address.includes(leftover)?20:0;
-  return (latinMatch?shared/tokens.length*100:chineseMatch?90:80)+areaFit+Math.min(tokens.length,8);
+  return (latinMatch?shared/tokens.length*100:chineseExact?110:chineseMatch?85:80)+areaFit+Math.min(tokens.length,8);
 }

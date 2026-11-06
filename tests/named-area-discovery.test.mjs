@@ -15,6 +15,8 @@ test('Named landmarks in any city require confirmation while city-only searches 
   assert.equal(parseNamedAreaRequest('',{area:'Đà Lạt',query:'quán ăn'}),null);
   assert.ok(namedAreaMatchScore('hồ Xuân Hương Đà Lạt',{name:'Hồ Xuân Hương',address:'Đà Lạt'})>80);
   assert.equal(namedAreaMatchScore('hồ Xuân Hương Đà Lạt',{name:'Hồ Tuyền Lâm',address:'Đà Lạt'}),0);
+  assert.ok(namedAreaMatchScore('Hồng Nhai Động',{name:'洪崖洞民俗风貌区'},'洪崖洞民俗风貌区')
+    >namedAreaMatchScore('Hồng Nhai Động',{name:'洪崖洞民俗风貌区地下停车场'},'洪崖洞民俗风貌区')+15);
 });
 
 test('Xuân Hương search rejects Tuyền Lâm and searches only after the user confirms',async()=>{

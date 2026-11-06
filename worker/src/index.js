@@ -3543,8 +3543,10 @@ async function resolveNamedAreaCandidates(intent, location, env, overrideQuery='
     const result=await mapTool('/place/resolve',{...chinaProviderFields(attempt.china),query:attempt.query,center:null,
       country:attempt.country,language:attempt.china?'zh':'vi',limit:8},env);
     const candidates=result.ok?(result.data?.places||[]).map(compactPoi):[];
-    const ranked=candidates.map(place=>({place,score:namedAreaMatchScore(area,place,attempt.query)}))
-      .filter(item=>item.score>=80&&coordFrom(item.place))
+    const scored=candidates.map(place=>({place,score:namedAreaMatchScore(area,place,attempt.query)}));
+    const bestScore=Math.max(0,...scored.map(item=>item.score));
+    const ranked=scored
+      .filter(item=>item.score>=80&&item.score>=bestScore-15&&coordFrom(item.place))
       .sort((a,b)=>b.score-a.score).slice(0,5).map(item=>item.place);
     if(ranked.length)return attempt.china?localizeChinaPlaces(ranked,'Trung Quốc',env,{query:area,useAi:false}):ranked;
   }
