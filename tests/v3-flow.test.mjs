@@ -892,7 +892,7 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
   assert.match(index,/<title>Let's Go Pipi<\/title>/);
   assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
-  assert.match(index,/chat\.js\?v=20261105-3/);
+  assert.match(index,/chat\.js\?v=20261106-1/);
   assert.match(style,/font-family: "Lilita One"/);
   assert.match(style,/font-size: 1\.16em/);
   assert.match(style,/margin-left: 3px/);
@@ -904,18 +904,24 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.match(buildScript,/\['assets', 'china-navigation'/);
 });
 
-test('AI chat shows staged progress while backend tools are working', async () => {
+test('AI chat shows request-driven progress and agent controls while backend tools are working', async () => {
   const [chat,style,index]=await Promise.all([
     readFile(new URL('../chat.js',import.meta.url),'utf8'),
     readFile(new URL('../style.css',import.meta.url),'utf8'),
     readFile(new URL('../index.html',import.meta.url),'utf8')
   ]);
-  for(const phase of ['Đang phân tích câu hỏi...','Đang tìm kiếm thông tin...','Đang phân tích khu vực xung quanh...','Đang soạn tin nhắn...'])assert.match(chat,new RegExp(phase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
-  assert.match(chat,/startChatProgress\(loadingId\)/);
-  assert.match(chat,/timers\.forEach\(timer => clearTimeout\(timer\)\)/);
+  for(const phase of ['Đang chuẩn bị vị trí và ngữ cảnh...','Đang chờ Pipi và các nguồn dữ liệu...','Đã nhận dữ liệu phản hồi...','Đang hiển thị kết quả...'])assert.match(chat,new RegExp(phase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  assert.match(chat,/startChatProgress\(loadingId, \(\) =>/);
+  assert.match(chat,/signal: requestController\.signal/);
+  assert.match(chat,/data-chat-stop/);
+  assert.match(chat,/compactAgentReceipt/);
+  assert.match(chat,/renderChatResponseControls/);
+  assert.doesNotMatch(chat,/setTimeout\(\(\) => advance/);
   assert.match(style,/\.chat-progress-step\.is-active/);
+  assert.match(style,/\.agent-receipt/);
+  assert.match(style,/\.chat-response-controls/);
   assert.match(style,/prefers-reduced-motion/);
-  assert.match(index,/style\.css\?v=20261105-2/);
+  assert.match(index,/style\.css\?v=20261106-1/);
 });
 
 test('Current-location chat uses the GPS position already attached to the app', async () => {
@@ -925,20 +931,72 @@ test('Current-location chat uses the GPS position already attached to the app', 
   ]);
   assert.match(chat,/const currentPos = window\.userPos \|\| null/);
   assert.match(chat,/const userLocation = getStructuredUserLocation\(\)/);
-  assert.doesNotMatch(chat,/refreshCurrentPositionForChat/);
   assert.doesNotMatch(chat,/navigator\.geolocation/);
-  assert.doesNotMatch(chat,/GPS_FRESH_REQUIRED/);
+  assert.match(chat,/GPS_STALE_OR_INACCURATE/);
+  assert.match(chat,/window\.TravelLocation\?\.requestFreshPosition/);
   assert.match(app,/navigator\.geolocation\.watchPosition/);
-  assert.match(app,/shouldAttachGpsFix\(newPos\)/);
+  assert.match(app,/shouldAttachGpsFix\(newPos, options\)/);
   assert.match(app,/progressiveMotionSamples/);
   assert.match(app,/GPS_RELOCATION_CONFIRMATIONS/);
   assert.match(app,/getCurrentPosition\(handleAppGpsPosition/);
-  assert.match(app,/if \(shouldAttachGpsFix\(newPos\)\)/);
+  assert.match(app,/requestFreshPosition: requestFreshAppGps/);
+  assert.match(app,/maximumAge: 0/);
   assert.match(app,/function startAppGpsWatch\(\)/);
   assert.match(app,/setTimeout\(startAppGpsWatch, 3000\)/);
   assert.match(chat,/locationMismatch/);
   assert.match(chat,/window\.travelosLocationAnchor/);
   assert.doesNotMatch(chat,/getCurrentPosition/);
+});
+
+test('A stationary explicit GPS refresh updates metadata instead of being discarded as jitter', async () => {
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+  const start=app.indexOf('function distanceBetweenCoords');
+  const end=app.indexOf('function attachGpsFix');
+  const context=vm.createContext({});
+  vm.runInContext(`
+    const GPS_JITTER_FLOOR_KM=.02, GPS_LARGE_JUMP_KM=.5, GPS_RELOCATION_CONFIRMATIONS=2;
+    let userPos={lat:10.8,lon:106.7,accuracy:25,timestamp:1000};
+    let pendingMotionFix=null,progressiveMotionSamples=0;
+    ${app.slice(start,end)}
+    this.decide=shouldAttachGpsFix;
+  `,context);
+  const samePlace={lat:10.80001,lon:106.70001,accuracy:18,timestamp:2000};
+  assert.equal(context.decide(samePlace),false);
+  assert.equal(context.decide(samePlace,{refreshMetadata:true}),true);
+});
+
+test('Chat refreshes GPS and retries the same question once without duplicating history', async () => {
+  const chat=await readFile(new URL('../chat.js',import.meta.url),'utf8');
+  const start=chat.indexOf('function locationRefreshError');
+  const end=chat.indexOf('function normalizeAssistantVoice');
+  const input={value:'Tìm cửa hàng quanh đây',disabled:false,focus(){}};
+  const sendButton={disabled:false},micButton={disabled:false};
+  const session={id:'session-1',messages:[]};
+  const saved=[];
+  let fetchCalls=0,refreshCalls=0,fresh=false;
+  const window={TravelLocation:{requestFreshPosition:async()=>{refreshCalls++;fresh=true;return {lat:10.8,lon:106.7,accuracy:20,timestamp:Date.now()};}}};
+  const context=vm.createContext({
+    window,Response,AbortController,DOMException,console,setTimeout,clearTimeout,
+    CONFIG:{WORKER_URL:'https://pipi.test',AI_PATH:'/ai-v3'},
+    document:{getElementById:id=>id==='userInput'?input:id==='send-btn'?sendButton:id==='mic-btn'?micButton:null},
+    getStructuredUserLocation:()=>({country:'Việt Nam',city:'TP.HCM',latitude:10.8,longitude:106.7,accuracy:fresh?20:900,gpsTimestamp:fresh?Date.now():Date.now()-600000}),
+    fetch:async()=>{fetchCalls++;return new Response(JSON.stringify(fetchCalls===1?{text:'refresh',error:{code:'GPS_STALE_OR_INACCURATE',maxAccuracyMeters:200}}:{text:'Đã tìm lại bằng GPS mới.',travelos:{version:3}}),{status:200,headers:{'Content-Type':'application/json'}});},
+    addMessage(){},
+    saveMessage:(role,content)=>{saved.push({role,content});if(role==='user')session.messages.push({role,content});},
+    readHistory:()=>session,
+    readSessionStore:()=>({sessions:[session]}),
+    requestChatTitle(){},setHotelChoiceButtonsDisabled(){},renderChatProgress:id=>`<div id="${id}"></div>`,
+    startChatProgress:()=>({advance(){},setPhase(){},setTitle(){},elapsedMs(){return 10;},stop(){}}),compactNearbySnapshot:()=>null,compactTravelContext:()=>null,
+    compactAgentReceipt:()=>null,mergeChatTopicContext:()=>null,buildConversationSummary:()=>'',normalizeAssistantVoice:value=>String(value),renderMarkdownSafe:value=>String(value),
+    renderHotelChoices:()=>false,renderTravelDataCards(){},renderAgentReceipt(){},renderChatResponseControls(){},renderChatRequestFailure(){}
+  });
+  vm.runInContext(`let activeChatSessionId='session-1',activeChatRequest=null;${chat.slice(start,end)};this.runChat=handleChat;`,context);
+  await context.runChat();
+  assert.equal(refreshCalls,1);
+  assert.equal(fetchCalls,2);
+  assert.equal(saved.filter(item=>item.role==='user').length,1);
+  assert.equal(saved.filter(item=>item.role==='ai').length,1);
+  assert.equal(saved.find(item=>item.role==='ai').content,'Đã tìm lại bằng GPS mới.');
 });
 
 test('AI v3 rejects a China label mixed with stale Vietnam GPS for nearby search', async () => {
@@ -961,42 +1019,120 @@ test('AI v3 rejects a China label mixed with stale Vietnam GPS for nearby search
   assert.equal(mapCalls,0);
 });
 
-test('AI v3 switches Gemini models when the primary model is overloaded', async () => {
+test('AI v3 falls back from the answer model to the stable lite model', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const originalFetch=globalThis.fetch,calls=[];
   globalThis.fetch=async (url,init={})=>{
-    const href=String(url),payload=JSON.parse(String(init.body||'{}'));calls.push(href);
+    const href=String(url);calls.push(href);
     if(href.includes('gemini-3.5-flash-lite'))return new Response(JSON.stringify({error:{message:'This model is currently experiencing high demand. Please try again later.'}}),{status:503,headers:{'Content-Type':'application/json'}});
-    if(payload?.generationConfig?.responseMimeType==='application/json'){
-      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({goal:'Giải thích phép lịch sự địa phương',travelIntent:'LOCAL_GUIDE',responseMode:'DIRECT',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]})}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
-    }
-    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Bạn nên nói nhỏ ở nơi công cộng và xếp hàng theo hướng dẫn tại chỗ.'}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Pipi đã tạo tuyến đi bộ tới Dinh Độc Lập từ dữ liệu bản đồ.'}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   try{
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Ở Trùng Khánh nên cư xử thế nào?',userLocation:{country:'Trung Quốc',city:'Trùng Khánh'}})}),{GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const destination={id:'palace',name:'Dinh Độc Lập',address:'135 Nam Kỳ Khởi Nghĩa',lat:10.777,lng:106.695,provider:'google_places'};
+    const env={GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+      const path=new URL(request.url).pathname;
+      if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,provider:'google_places',places:[destination]}),{headers:{'Content-Type':'application/json'}});
+      return new Response(JSON.stringify({ok:true,provider:'google_routes',routes:[{distance:1200,duration:900,steps:[]}]}),{headers:{'Content-Type':'application/json'}});
+    }}};
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Đi bộ đến Dinh Độc Lập',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.7769,longitude:106.7009}})}),env);
     const data=await response.json();
     assert.equal(response.status,200);
-    assert.match(data.text,/nói nhỏ/);
-    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.8-flash']);
+    assert.match(data.text,/Dinh Độc Lập/);
+    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.1-flash-lite']);
   }finally{globalThis.fetch=originalFetch;}
 });
 
-test('AI v3 hides upstream overload details when every Gemini model is unavailable', async () => {
+test('AI v3 returns API-grounded route when every answer model is unavailable', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const originalFetch=globalThis.fetch,calls=[];
   const originalWarn=console.warn,originalError=console.error;
   globalThis.fetch=async url=>{calls.push(String(url));return new Response(JSON.stringify({error:{message:'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.'}}),{status:503,headers:{'Content-Type':'application/json'}});};
   console.warn=()=>{};console.error=()=>{};
   try{
-    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Kể tôi nghe vài phép lịch sự khi đi du lịch',userLocation:{country:'Việt Nam',city:'TP.HCM'}})}),{GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+    const destination={id:'palace',name:'Dinh Độc Lập',address:'135 Nam Kỳ Khởi Nghĩa',lat:10.777,lng:106.695,provider:'google_places'};
+    const env={GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+      const path=new URL(request.url).pathname;
+      if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,provider:'google_places',places:[destination]}),{headers:{'Content-Type':'application/json'}});
+      return new Response(JSON.stringify({ok:true,provider:'google_routes',routes:[{distance:1200,duration:900,steps:[]}]}),{headers:{'Content-Type':'application/json'}});
+    }}};
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Từ vị trí hiện tại đi bộ đến Dinh Độc Lập như thế nào?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.7769,longitude:106.7009}})}),env);
     const data=await response.json();
     assert.equal(response.status,200);
-    assert.equal(data.error.code,'AI_TEMPORARILY_UNAVAILABLE');
-    assert.match(data.text,/hơi quá tải/);
+    assert.equal(data.error,undefined);
+    assert.equal(data.travelos.travelIntent,'ROUTE_MOBILITY');
+    assert.match(data.text,/Dinh Độc Lập/);
+    assert.match(data.text,/1\.2 km/);
+    assert.match(data.text,/15 phút/);
     assert.doesNotMatch(data.text,/high demand|try again later|Gemini HTTP/i);
-    assert.equal(calls.length,3);
-    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.1-flash-lite']);
+    assert.equal(calls.length,2);
+    assert.deepEqual(calls.map(url=>new URL(url).pathname.match(/models\/([^:]+)/)?.[1]),['gemini-3.5-flash-lite','gemini-3.1-flash-lite']);
   }finally{globalThis.fetch=originalFetch;console.warn=originalWarn;console.error=originalError;}
+});
+
+test('Explicit route intent and destination win over a wrong semantic place search', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,mapCalls=[];
+  globalThis.fetch=async (_url,init={})=>{
+    const payload=JSON.parse(String(init.body||'{}'));
+    if(payload.generationConfig?.responseMimeType==='application/json'){
+      const wrong={englishMeaning:'Find places near Independence Palace',primaryIntent:'PLACE_DISCOVERY',needs:[
+        {kind:'PLACE_SEARCH',query:'Dinh Độc Lập',queryEn:'Independence Palace',target:'current_location',area:'',time:'',travelMode:'NONE',sourceText:'Dinh Độc Lập',required:true,confidence:.99}
+      ],answerContract:['Find nearby places'],clarificationQuestion:'',overallConfidence:.99,shouldUseLiveData:true};
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(wrong)}]}}]}),{headers:{'Content-Type':'application/json'}});
+    }
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Pipi đã tạo tuyến đi bộ tới Dinh Độc Lập.'}]}}]}),{headers:{'Content-Type':'application/json'}});
+  };
+  const destination={id:'palace',name:'Dinh Độc Lập',address:'135 Nam Kỳ Khởi Nghĩa',lat:10.777,lng:106.695,provider:'google_places'};
+  const env={GEMINI_API_KEY:'test',SEMANTIC_PLANNER_ENABLED:'true',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,provider:'google_places',places:[destination]}),{headers:{'Content-Type':'application/json'}});
+    if(path==='/route/walking')return new Response(JSON.stringify({ok:true,provider:'google_routes',routes:[{distance:900,duration:720,steps:[]}]}),{headers:{'Content-Type':'application/json'}});
+    throw new Error(`Unexpected map call ${path}`);
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Từ vị trí hiện tại đi bộ đến Dinh Độc Lập như thế nào?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.7769,longitude:106.7009}})}),env);
+    const data=await response.json();
+    assert.equal(data.travelos.travelIntent,'ROUTE_MOBILITY');
+    assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['resolve_place','walking_route']);
+    assert.equal(data.travelos.plan.tools[0].query,'Dinh Độc Lập');
+    assert.deepEqual(mapCalls.map(call=>call.path),['/place/resolve','/route/walking']);
+    assert.equal(mapCalls[1].body.origin.lat,10.7769);
+    assert.equal(mapCalls[1].body.destination.lat,10.777);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Local-guide and casual questions do not call models or live tools', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch;let modelCalls=0,mapCalls=0;
+  globalThis.fetch=async()=>{modelCalls++;throw new Error('Model must not be called');};
+  const env={GEMINI_API_KEY:'test',SEMANTIC_PLANNER_ENABLED:'true',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('Map must not be called');}}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Ở Trùng Khánh nên cư xử thế nào khi vào quán ăn địa phương?',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.5516}})}),env);
+    const data=await response.json();
+    assert.equal(data.travelos.travelIntent,'LOCAL_GUIDE');
+    assert.deepEqual(data.travelos.plan.tools,[]);
+    assert.match(data.text,/tìm địa điểm và chỉ đường/);
+    assert.equal(modelCalls,0);
+    assert.equal(mapCalls,0);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Health request stays search-and-navigation scoped and works without a model', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const mapCalls=[];
+  const pharmacy={id:'pharmacy-1',name:'Nhà thuốc gần nhất',address:'123 Test',lat:10.777,lng:106.7,distance:120,provider:'google_places',types:['pharmacy']};
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
+    return new Response(JSON.stringify({ok:true,provider:'google_places',source:'google-places-text-v1',center:body.center,pois:[pharmacy],candidates:[pharmacy]}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tôi đang du lịch và bị đau bụng nhẹ, nên uống thuốc gì?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.7769,longitude:106.7009}})}),env);
+  const data=await response.json();
+  assert.equal(data.travelos.travelIntent,'SAFETY_HEALTH');
+  assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['search_places']);
+  assert.equal(mapCalls[0].path,'/poi/nearby');
+  assert.equal(mapCalls[0].body.category,'pharmacy');
+  assert.match(data.text,/không chẩn đoán hoặc chọn thuốc/);
+  assert.match(data.text,/Nhà thuốc gần nhất/);
 });
 
 test('Chat history restores the nearby map card for 24 hours and exposes only a compact follow-up context', async () => {
@@ -1260,45 +1396,20 @@ test('English interpretation keeps Vietnamese source and never sends English to 
   assert.equal(normalizeSemanticPlan({...raw,needs:[{...raw.needs[0],sourceText:'ở Đà Lạt'}]},'Tìm cửa hàng tiện lợi quanh đây').needs.length,0);
 });
 
-test('GPT handles planning and reply first; Gemini answers when GPT fails', async () => {
+test('Casual greeting stays deterministic and steers back to search or navigation', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const originalFetch=globalThis.fetch;
   const request=()=>new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Chào Pipi',userLocation:{country:'Việt Nam',latitude:10.77,longitude:106.69}})});
   const env={OPENAI_API_KEY:'fake-openai',GEMINI_API_KEY:'fake-gemini',SEMANTIC_PLANNER_ENABLED:'true',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'};
   const calls=[];
-  let failOpenAi=false;
-  globalThis.fetch=async (url,init={})=>{
-    if(String(url).includes('api.openai.com')){
-      calls.push('openai');
-      assert.equal(init.headers.Authorization,'Bearer fake-openai');
-      const body=JSON.parse(init.body);
-      assert.equal(body.store,false);
-      assert.equal(typeof body.input,'string');
-      if(body.text?.format?.type==='json_object')assert.match(body.input,/JSON/);
-      if(failOpenAi)return new Response(JSON.stringify({error:{message:'unavailable'}}),{status:503});
-      const text=body.text?.format?.type==='json_object'
-        ?JSON.stringify({englishMeaning:'Greet Pipi',primaryIntent:'LOCAL_GUIDE',needs:[],answerContract:[],clarificationQuestion:'Chào bạn, mình giúp gì?',overallConfidence:.9,shouldUseLiveData:false})
-        :'Chào bạn, Pipi đây!';
-      return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text}]}]}),{status:200});
-    }
-    calls.push('gemini');
-    const body=JSON.parse(init.body);
-    const text=body.generationConfig?.responseMimeType==='application/json'
-      ?JSON.stringify({primaryIntent:'LOCAL_GUIDE',needs:[],answerContract:[],clarificationQuestion:'',overallConfidence:.9,shouldUseLiveData:false})
-      :'Chào bạn, Pipi đây!';
-    return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]}}]}),{status:200});
-  };
+  globalThis.fetch=async url=>{calls.push(String(url));throw new Error('No model should be called for casual chat');};
   try{
-    let response=await worker.fetch(request(),env),data=await response.json();
+    const response=await worker.fetch(request(),env),data=await response.json();
     assert.equal(response.status,200);
-    assert.match(data.text,/Pipi/);
+    assert.match(data.text,/Pipi hiện tập trung tìm địa điểm và chỉ đường/);
+    assert.match(data.text,/muốn đi đâu/);
     assert.equal(data.travelos.plan.needsClarification,false);
-    assert.deepEqual(calls,['openai','openai']);
-    failOpenAi=true;calls.length=0;
-    response=await worker.fetch(request(),env);data=await response.json();
-    assert.equal(response.status,200);
-    assert.match(data.text,/Pipi/);
-    assert.deepEqual(calls,['openai','gemini','openai','gemini']);
+    assert.deepEqual(calls,[]);
   }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -1596,6 +1707,29 @@ test('AI v3 understands CHTL and deterministically searches nearest convenience 
   assert.match(data.text,/GS25/);
 });
 
+test('AI v3 excludes rehabilitation and generic health services from pharmacy results without a model', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    assert.equal(new URL(request.url).pathname,'/poi/nearby');
+    const body=await request.json();
+    assert.equal(body.category,'pharmacy');
+    return new Response(JSON.stringify({ok:true,source:'amap-place-v5',provider:'amap',center:body.center,pois:[
+      {id:'pharmacy-1',name:'和平药房',address:'渝中区',lat:29.5631,lng:106.5512,distance:25,provider:'amap',type:'医疗保健服务;医药保健销售店;药房',country:'Trung Quốc'},
+      {id:'rehab-1',name:'康复理疗中心',address:'渝中区',lat:29.5632,lng:106.5513,distance:35,provider:'amap',type:'医疗保健服务;医疗保健服务场所;康复中心',country:'Trung Quốc'},
+      {id:'health-1',name:'健康服务中心',address:'渝中区',lat:29.5633,lng:106.5514,distance:45,provider:'amap',country:'Trung Quốc'},
+      {id:'marketplace-1',name:'Sàn thương mại dành cho nhà thuốc',address:'渝中区',lat:29.5634,lng:106.5515,distance:55,provider:'amap',type:'医疗保健服务;服务机构',country:'Trung Quốc'},
+      {id:'sexual-store-1',name:'Cửa hàng thuốc sinh lý',address:'渝中区',lat:29.5635,lng:106.5516,distance:65,provider:'amap',type:'医疗保健服务;商店',country:'Trung Quốc'},
+      {id:'office-1',name:'Pharmaceutical Company Representative Office',address:'渝中区',lat:29.5636,lng:106.5517,distance:75,provider:'amap',primaryType:'pharmacy',types:['pharmacy'],country:'Trung Quốc'},
+      {id:'retail-company-1',name:'Công Ty TNHH Nhà Thuốc Tốt',address:'渝中区',lat:29.5637,lng:106.5518,distance:85,provider:'amap',primaryType:'pharmacy',types:['pharmacy'],country:'Trung Quốc'}
+    ]}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Tìm nhà thuốc quanh đây',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.551,source:'gps'}})}),env);
+  const data=await response.json();
+  assert.deepEqual(data.travelos.nearby.pois.map(place=>place.id),['pharmacy-1','retail-company-1']);
+  assert.match(data.text,/和平药房/);
+  assert.doesNotMatch(data.text,/康复理疗中心|健康服务中心|Sàn thương mại|thuốc sinh lý|Representative Office/);
+});
+
 test('AI v3 keeps a new around-here search on GPS despite a previous distant place', async () => {
   const {default:worker}=await importWorker('../worker/src/index.js');
   const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
@@ -1681,6 +1815,82 @@ test('AI v3 never turns a missing fresh GPS fix into an empty nearby result', as
   assert.equal(data.error.code,'GPS_REQUIRED');
   assert.match(data.text,/chưa lấy được GPS hiện tại/);
   assert.equal(mapCalls,0);
+});
+
+test('AI v3 requests a GPS refresh before using a stale or inaccurate nearby center', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{
+    method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+    body:JSON.stringify({
+      userMessage:'Tìm cửa hàng tiện lợi quanh đây',
+      userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.803,longitude:106.69,accuracy:2000,gpsTimestamp:Date.now()-30*60*1000,source:'test-stale-gps'}
+    })
+  }),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('Map Worker must not run before GPS refresh');}}});
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(data.error.code,'GPS_STALE_OR_INACCURATE');
+  assert.equal(data.error.action,'REFRESH_LOCATION');
+  assert.deepEqual(data.error.reasons,['STALE','INACCURATE']);
+  assert.equal(data.error.maxAgeMs,120000);
+  assert.equal(data.error.maxAccuracyMeters,200);
+  assert.equal(data.travelos.nearby,undefined);
+  assert.equal(mapCalls,0);
+});
+
+test('AI v3 requests a GPS refresh before a current-origin route calls map tools', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{
+    method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+    body:JSON.stringify({
+      userMessage:'Từ vị trí hiện tại đi bộ đến Dinh Độc Lập mất bao lâu?',
+      userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.803,longitude:106.69,accuracy:900,gpsTimestamp:Date.now()-10*60*1000,source:'test-stale-gps'}
+    })
+  }),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('Map Worker must not run before GPS refresh');}}});
+  const data=await response.json();
+  assert.equal(data.error.code,'GPS_STALE_OR_INACCURATE');
+  assert.ok(data.travelos.plan.tools.some(tool=>tool.name==='walking_route'));
+  assert.equal(mapCalls,0);
+});
+
+test('AI v3 requests a GPS refresh before health support searches the current area', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{
+    method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+    body:JSON.stringify({
+      userMessage:'Tôi đang du lịch và bị đau bụng nhẹ, nên uống thuốc gì?',
+      userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.803,longitude:106.69,accuracy:800,gpsTimestamp:Date.now()-8*60*1000,source:'test-stale-gps'}
+    })
+  }),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('Map Worker must not run before GPS refresh');}}});
+  const data=await response.json();
+  assert.equal(data.error.code,'GPS_STALE_OR_INACCURATE');
+  assert.equal(data.travelos.plan.travelIntent,'SAFETY_HEALTH');
+  assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['search_places']);
+  assert.equal(mapCalls,0);
+});
+
+test('AI v3 requests a GPS refresh for current weather but not remote weather', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const staleLocation={country:'Việt Nam',city:'TP.HCM',latitude:10.803,longitude:106.69,accuracy:900,gpsTimestamp:Date.now()-10*60*1000,source:'test-stale-gps'};
+  let mapCalls=0;
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    mapCalls++;
+    const path=new URL(request.url).pathname;
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,provider:'google_places',places:[{name:'Đà Lạt',lat:11.9404,lng:108.4583,country:'Việt Nam'}]}),{headers:{'Content-Type':'application/json'}});
+    if(path==='/weather/current')return new Response(JSON.stringify({ok:true,provider:'open_meteo',weather:{coordinates:{lat:11.9404,lng:108.4583},current:{time:'2026-11-05T12:00:00Z',temperature:20,condition:'Ít mây'},hourly:{time:['2026-11-05T12:00:00Z'],temperature:[20],precipitationProbability:[10],precipitation:[0],weatherCode:[1],windSpeed:[5]}}}),{headers:{'Content-Type':'application/json'}});
+    throw new Error(`Unexpected map path ${path}`);
+  }}};
+  const currentResponse=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết ở đây thế nào?',userLocation:staleLocation})}),env);
+  const currentData=await currentResponse.json();
+  assert.equal(currentData.error.code,'GPS_STALE_OR_INACCURATE');
+  assert.equal(mapCalls,0);
+  const remoteResponse=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết ở Đà Lạt thế nào?',userLocation:staleLocation})}),env);
+  const remoteData=await remoteResponse.json();
+  assert.equal(remoteData.error,undefined);
+  assert.deepEqual(remoteData.travelos.plan.tools.map(tool=>tool.name),['resolve_place','weather']);
+  assert.equal(mapCalls,2);
 });
 
 test('AI v3 resolves a remote area before searching there instead of using current GPS', async () => {
@@ -2023,6 +2233,21 @@ test('Voice Mode streams progress, a short spoken answer, and detail from one AP
   assert.doesNotMatch(events.find(event=>event.type==='spoken').text,/Lawson/);
   assert.equal(events.find(event=>event.type==='detail').travelos.nearby.pois[0].name,'罗森便利店');
   assert.equal(events.at(-1).type,'done');
+});
+
+test('Voice Mode asks the client to refresh stale GPS before speaking or searching', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let mapCalls=0;
+  const response=await worker.fetch(new Request('https://ai.test/voice-v1',{
+    method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},
+    body:JSON.stringify({userMessage:'tìm tạp hóa xung quanh',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.803,longitude:106.69,accuracy:1200,gpsTimestamp:Date.now()-20*60*1000,source:'test-stale-gps'}})
+  }),{ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async()=>{mapCalls++;throw new Error('Map Worker must not run before GPS refresh');}}});
+  const events=(await response.text()).trim().split('\n').map(JSON.parse);
+  assert.equal(events[0].type,'location_refresh_required');
+  assert.equal(events[0].error.code,'GPS_STALE_OR_INACCURATE');
+  assert.equal(events.some(event=>event.type==='spoken'||event.type==='detail'),false);
+  assert.equal(events.at(-1).type,'done');
+  assert.equal(mapCalls,0);
 });
 
 test('Natural voice endpoint keeps the Gemini key server-side and returns WAV audio', async () => {

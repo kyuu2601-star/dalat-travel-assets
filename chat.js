@@ -4,12 +4,34 @@ const LEGACY_CHAT_STORAGE_KEY = 'dalatos_chat_history';
 const EXPIRY_TIME = 24 * 60 * 60 * 1000;
 const CHAT_HISTORY_VERSION = 4;
 let activeChatSessionId = null;
+let activeChatRequest = null;
 const CHAT_PROGRESS_PHASES = [
-    'Đang phân tích câu hỏi...',
-    'Đang tìm kiếm thông tin...',
-    'Đang phân tích khu vực xung quanh...',
-    'Đang soạn tin nhắn...'
+    'Đang chuẩn bị vị trí và ngữ cảnh...',
+    'Đang chờ Pipi và các nguồn dữ liệu...',
+    'Đã nhận dữ liệu phản hồi...',
+    'Đang hiển thị kết quả...'
 ];
+const CHAT_FEEDBACK_REASONS = ['Sai địa điểm', 'Dữ liệu cũ', 'Không hữu ích'];
+const CHAT_TOOL_LABELS = {
+    resolve_place:'Xác định địa điểm',
+    search_places:'Tìm địa điểm',
+    place_details:'Kiểm tra chi tiết',
+    weather:'Kiểm tra thời tiết',
+    place_busyness:'Kiểm tra độ đông',
+    walking_route:'Tính đường đi bộ',
+    traffic_route:'Tính đường di chuyển',
+    curated_places:'Tra dữ liệu TravelOS'
+};
+const CHAT_INTENT_LABELS = {
+    PLACE_DISCOVERY:'Tìm địa điểm',
+    VENUE_INTELLIGENCE:'Thông tin địa điểm',
+    ROUTE_MOBILITY:'Chỉ đường',
+    WEATHER_OUTDOOR:'Thời tiết',
+    ITINERARY_PLANNING:'Lịch trình',
+    SAFETY_HEALTH:'Hỗ trợ an toàn',
+    TRAVEL_UTILITY:'Tiện ích du lịch',
+    LOCAL_GUIDE:'Hỗ trợ di chuyển'
+};
 
 function renderChatProgress(id) {
     const steps = CHAT_PROGRESS_PHASES.map((label, index) => `
@@ -20,6 +42,10 @@ function renderChatProgress(id) {
     return `<div class="chat-progress" id="${id}" role="status" aria-live="polite" aria-label="${CHAT_PROGRESS_PHASES[0]}">
         <div class="chat-progress-title"><span class="chat-progress-pulse" aria-hidden="true"></span><span>Pipi đang làm việc</span></div>
         <ol class="chat-progress-list">${steps}</ol>
+        <div class="chat-progress-actions">
+            <span class="chat-progress-elapsed" data-progress-elapsed>0 giây</span>
+            <button type="button" class="chat-stop-button" data-chat-stop>Dừng</button>
+        </div>
     </div>`;
 }
 
@@ -40,21 +66,268 @@ function updateChatProgress(id, activeIndex) {
     if (box) box.scrollTop = box.scrollHeight;
 }
 
-function startChatProgress(id) {
+function startChatProgress(id, onStop) {
     let current = 0;
+    const root = document.getElementById(id);
+    const startedAt = Date.now();
     const advance = index => {
         current = Math.max(current, index);
         updateChatProgress(id, current);
     };
-    const timers = [
-        setTimeout(() => advance(1), 900),
-        setTimeout(() => advance(2), 4500),
-        setTimeout(() => advance(3), 10000)
-    ];
+    const setPhase = index => {
+        current = Math.max(0, Math.min(CHAT_PROGRESS_PHASES.length - 1, Number(index) || 0));
+        updateChatProgress(id, current);
+    };
+    const updateElapsed = () => {
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+        const elapsed = root?.querySelector('[data-progress-elapsed]');
+        if (elapsed) elapsed.textContent = `${elapsedSeconds} giây`;
+        root?.classList.toggle('is-slow', elapsedSeconds >= 15);
+        if (elapsedSeconds === 15 && current < 2) {
+            const label = root?.querySelector('.chat-progress-title span:last-child');
+            if (label) label.textContent = 'Pipi vẫn đang xử lý…';
+        }
+    };
+    const elapsedTimer = setInterval(updateElapsed, 1000);
+    const stopButton = root?.querySelector('[data-chat-stop]');
+    const stop = () => {
+        clearInterval(elapsedTimer);
+        stopButton?.removeEventListener('click', handleStop);
+    };
+    const handleStop = () => {
+        if (stopButton) stopButton.disabled = true;
+        if (typeof onStop === 'function') onStop();
+    };
+    stopButton?.addEventListener('click', handleStop);
     return {
         advance,
-        stop() { timers.forEach(timer => clearTimeout(timer)); }
+        setPhase,
+        setTitle(title) {
+            const label = root?.querySelector('.chat-progress-title span:last-child');
+            if (label) label.textContent = title;
+        },
+        elapsedMs() { return Date.now() - startedAt; },
+        stop
     };
+}
+
+function formatAgentDuration(durationMs) {
+    const seconds = Math.max(0, Number(durationMs) || 0) / 1000;
+    return seconds < 10 ? `${seconds.toFixed(1)} giây` : `${Math.round(seconds)} giây`;
+}
+
+function compactAgentReceipt(travelos, durationMs = 0) {
+    if (!travelos || typeof travelos !== 'object') return null;
+    const text = (value, max = 300) => String(value ?? '').trim().slice(0, max);
+    const rawSources = Array.isArray(travelos.sources) ? travelos.sources : [];
+    const sources = rawSources.slice(0, 10).map((source, index) => typeof source === 'string'
+        ? { id:`source-${index + 1}`, tool:'', ok:true, source:text(source, 100), fetchedAt:'', error:'' }
+        : {
+            id:text(source?.id, 80) || `source-${index + 1}`,
+            tool:text(source?.tool, 80),
+            ok:source?.ok !== false,
+            source:text(source?.source, 100),
+            fetchedAt:text(source?.fetchedAt, 80),
+            error:text(source?.error, 240)
+        });
+    const plannedTools = Array.isArray(travelos.plan?.tools)
+        ? travelos.plan.tools.slice(0, 10).map(tool => text(tool?.name, 80)).filter(Boolean)
+        : [];
+    const intent = text(travelos.travelIntent || travelos.plan?.travelIntent, 80);
+    if (!sources.length && !plannedTools.length && !intent) return null;
+    return {
+        intent,
+        goal:text(travelos.plan?.goal, 300),
+        sources,
+        plannedTools,
+        durationMs:Math.max(0, Math.round(Number(durationMs) || 0)),
+        completedAt:Date.now()
+    };
+}
+
+function renderAgentReceipt(messageElement, receipt) {
+    if (!messageElement || !receipt) return;
+    const sources = Array.isArray(receipt.sources) ? receipt.sources : [];
+    const successful = sources.filter(source => source.ok !== false).length;
+    const details = document.createElement('details');
+    details.className = 'agent-receipt';
+    const summary = document.createElement('summary');
+    const sourceSummary = sources.length ? `${successful}/${sources.length} bước dữ liệu` : `${receipt.plannedTools?.length || 0} bước dự kiến`;
+    summary.textContent = `Đã kiểm tra · ${sourceSummary}`;
+    details.appendChild(summary);
+
+    const body = document.createElement('div');
+    body.className = 'agent-receipt-body';
+    const meta = document.createElement('div');
+    meta.className = 'agent-receipt-meta';
+    const intent = CHAT_INTENT_LABELS[receipt.intent] || receipt.intent || 'Yêu cầu du lịch';
+    const completedAt = Number(receipt.completedAt);
+    const time = Number.isFinite(completedAt)
+        ? new Date(completedAt).toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' })
+        : '';
+    meta.textContent = [intent, receipt.durationMs ? formatAgentDuration(receipt.durationMs) : '', time ? `cập nhật ${time}` : ''].filter(Boolean).join(' · ');
+    body.appendChild(meta);
+    if (receipt.goal) {
+        const goal = document.createElement('p');
+        goal.className = 'agent-receipt-goal';
+        goal.textContent = receipt.goal;
+        body.appendChild(goal);
+    }
+    if (sources.length) {
+        const list = document.createElement('ul');
+        list.className = 'agent-source-list';
+        sources.forEach(source => {
+            const item = document.createElement('li');
+            item.className = source.ok === false ? 'is-error' : 'is-ok';
+            const label = CHAT_TOOL_LABELS[source.tool] || source.tool || 'Nguồn dữ liệu';
+            const provider = source.source ? ` · ${source.source}` : '';
+            item.textContent = `${source.ok === false ? '!' : '✓'} ${label}${provider}`;
+            if (source.error) item.title = source.error;
+            list.appendChild(item);
+        });
+        body.appendChild(list);
+    }
+    details.appendChild(body);
+    messageElement.appendChild(details);
+}
+
+function formatTravelDistance(value) {
+    if (value === null || value === undefined || value === '') return '';
+    const meters = Number(value);
+    if (!Number.isFinite(meters) || meters < 0) return '';
+    return meters >= 1000 ? `${(meters / 1000).toFixed(meters >= 10000 ? 0 : 1)} km` : `${Math.round(meters)} m`;
+}
+
+function formatTravelMinutes(value) {
+    if (value === null || value === undefined || value === '') return '';
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds) || seconds < 0) return '';
+    return `${Math.max(1, Math.round(seconds / 60))} phút`;
+}
+
+function renderTravelDataCards(messageElement, travelContext) {
+    if (!messageElement || !travelContext || typeof travelContext !== 'object') return;
+    const cards = [];
+    const weather = travelContext.weather?.current;
+    const hasTemperature = weather?.temperature !== null && weather?.temperature !== undefined && weather?.temperature !== '' && Number.isFinite(Number(weather.temperature));
+    if (weather && (weather.condition || hasTemperature)) {
+        const temperature = hasTemperature ? `${Math.round(Number(weather.temperature))}°C` : '';
+        const detail = [weather.condition, temperature, Number(weather.precipitation) > 0 ? `mưa ${weather.precipitation} mm` : ''].filter(Boolean).join(' · ');
+        cards.push({ icon:'☁', title:'Thời tiết hiện tại', detail });
+    }
+    const route = Array.isArray(travelContext.routes) ? travelContext.routes[0] : null;
+    if (route) {
+        const detail = [formatTravelDistance(route.distance), formatTravelMinutes(route.duration), route.description].filter(Boolean).join(' · ');
+        cards.push({ icon:'➜', title:'Tuyến đường', detail });
+    }
+    const busyness = travelContext.busyness;
+    if (busyness && (busyness.available || busyness.label)) {
+        const hasScore = busyness.score !== null && busyness.score !== undefined && busyness.score !== '' && Number.isFinite(Number(busyness.score));
+        const score = hasScore ? `${Math.round(Number(busyness.score))}/100` : '';
+        cards.push({ icon:'◉', title:'Độ đông', detail:[busyness.label, score].filter(Boolean).join(' · ') });
+    }
+    const curatedPlaces = Array.isArray(travelContext.curated?.places) ? travelContext.curated.places : [];
+    if (curatedPlaces.length) {
+        const names = curatedPlaces.slice(0, 3).map(place => place?.name).filter(Boolean).join(', ');
+        cards.push({ icon:'▦', title:'Dữ liệu lịch trình', detail:`${curatedPlaces.length} địa điểm${names ? ` · ${names}` : ''}` });
+    }
+    if (!cards.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'agent-data-cards';
+    cards.forEach(card => {
+        const item = document.createElement('div');
+        item.className = 'agent-data-card';
+        const icon = document.createElement('span');
+        icon.className = 'agent-data-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = card.icon;
+        const content = document.createElement('span');
+        const title = document.createElement('strong');
+        title.textContent = card.title;
+        const detail = document.createElement('small');
+        detail.textContent = card.detail;
+        content.append(title, detail);
+        item.append(icon, content);
+        wrap.appendChild(item);
+    });
+    messageElement.appendChild(wrap);
+}
+
+function updateStoredMessageFeedback(sessionId, messageId, feedback) {
+    if (!sessionId || !messageId) return;
+    const store = readSessionStore();
+    const session = store.sessions.find(item => item.id === sessionId);
+    const message = session?.messages.find(item => item.id === messageId);
+    if (!message) return;
+    message.feedback = feedback;
+    session.updatedAt = Date.now();
+    writeSessionStore(store);
+}
+
+function renderChatResponseControls(messageElement, { sessionId, messageId, question, feedback } = {}) {
+    if (!messageElement || !question) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-response-controls';
+    const row = document.createElement('div');
+    row.className = 'chat-response-actions';
+    const prompt = document.createElement('span');
+    prompt.textContent = 'Hữu ích không?';
+    const up = document.createElement('button');
+    up.type = 'button'; up.className = 'chat-feedback-button'; up.textContent = '👍'; up.setAttribute('aria-label', 'Câu trả lời hữu ích');
+    const down = document.createElement('button');
+    down.type = 'button'; down.className = 'chat-feedback-button'; down.textContent = '👎'; down.setAttribute('aria-label', 'Câu trả lời chưa hữu ích');
+    const retry = document.createElement('button');
+    retry.type = 'button'; retry.className = 'chat-retry-button'; retry.textContent = 'Thử lại';
+    row.append(prompt, up, down, retry);
+    wrap.appendChild(row);
+    const reasons = document.createElement('div');
+    reasons.className = 'chat-feedback-reasons';
+    reasons.hidden = true;
+    CHAT_FEEDBACK_REASONS.forEach(reason => {
+        const button = document.createElement('button');
+        button.type = 'button'; button.textContent = reason;
+        button.addEventListener('click', () => {
+            const next = { rating:'down', reason };
+            updateStoredMessageFeedback(sessionId, messageId, next);
+            reasons.hidden = true;
+            up.classList.remove('is-selected');
+            down.classList.add('is-selected');
+            prompt.textContent = 'Đã ghi nhận';
+        });
+        reasons.appendChild(button);
+    });
+    wrap.appendChild(reasons);
+    const applyFeedback = value => {
+        up.classList.toggle('is-selected', value?.rating === 'up');
+        down.classList.toggle('is-selected', value?.rating === 'down');
+        if (value?.rating) prompt.textContent = 'Đã ghi nhận';
+    };
+    applyFeedback(feedback);
+    up.addEventListener('click', () => {
+        const next = { rating:'up', reason:'' };
+        updateStoredMessageFeedback(sessionId, messageId, next);
+        reasons.hidden = true;
+        applyFeedback(next);
+    });
+    down.addEventListener('click', () => {
+        const next = { rating:'down', reason:'' };
+        updateStoredMessageFeedback(sessionId, messageId, next);
+        applyFeedback(next);
+        reasons.hidden = false;
+    });
+    retry.addEventListener('click', () => handleChat(question));
+    messageElement.appendChild(wrap);
+}
+
+function renderChatRequestFailure(messageElement, question, stopped = false) {
+    if (!messageElement) return;
+    messageElement.replaceChildren();
+    const text = document.createElement('p');
+    text.textContent = stopped ? 'Đã dừng yêu cầu này.' : 'Kết nối đang gặp lỗi. Bạn có thể thử lại mà không mất nội dung câu hỏi.';
+    const retry = document.createElement('button');
+    retry.type = 'button'; retry.className = 'chat-failure-retry'; retry.textContent = 'Thử lại';
+    retry.addEventListener('click', () => handleChat(question));
+    messageElement.append(text, retry);
 }
 
 function renderMarkdownSafe(text) {
@@ -222,6 +495,28 @@ function getStructuredUserLocation() {
     };
 }
 
+function locationRefreshError(data) {
+    const error = data?.error?.code ? data.error : data?.travelos?.nearbyError;
+    return ['GPS_STALE_OR_INACCURATE', 'GPS_REQUIRED'].includes(error?.code) ? error : null;
+}
+
+async function refreshLocationForAssistant(error = {}) {
+    const requestFreshPosition = window.TravelLocation?.requestFreshPosition;
+    if (typeof requestFreshPosition !== 'function') throw new Error('GPS_REFRESH_UNAVAILABLE');
+    return requestFreshPosition({
+        maxAccuracyMeters: Number(error.maxAccuracyMeters) || 200,
+        timeoutMs: 15000
+    });
+}
+
+function showLocationRefreshProgress(id) {
+    const root = document.getElementById(id);
+    if (!root) return;
+    const title = root.querySelector('.chat-progress-title span:last-child');
+    if (title) title.textContent = 'Pipi đang cập nhật vị trí…';
+    root.setAttribute('aria-label', 'Đang cập nhật vị trí GPS');
+}
+
 async function initBot() {
     loadChatHistory();
     if (window.TRAVELOS_NATIVE) return { ok:true, deferred:true };
@@ -268,10 +563,17 @@ async function handleChat(presetText = '') {
 
     const loadingId = 'loading-' + Date.now();
     addMessage('ai', renderChatProgress(loadingId), true);
-    const progress = startChatProgress(loadingId);
+    const requestController = new AbortController();
+    let stoppedByUser = false;
+    const progress = startChatProgress(loadingId, () => {
+        stoppedByUser = true;
+        requestController.abort();
+    });
+    activeChatRequest = { id:loadingId, controller:requestController };
 
     let data = null;
     let retries = 3;
+    let locationRefreshAttempts = 0;
     let conversationContext = null;
 
     let completed = false;
@@ -298,24 +600,47 @@ async function handleChat(presetText = '') {
                     userLocation
                 };
                 const workerBase = CONFIG.WORKER_URL.replace(/\/+$/, '');
+                progress.advance(1);
                 let response = await fetch(`${workerBase}${CONFIG.AI_PATH || '/ai-v3'}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify(requestBody),
+                    signal: requestController.signal
                 });
                 // Cho phép deploy GitHub Pages trước Worker mà chat không bị gãy.
                 if (response.status === 404 || response.status === 405) {
                     response = await fetch(workerBase, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(requestBody)
+                        body: JSON.stringify(requestBody),
+                        signal: requestController.signal
                     });
                 }
 
                 if (response.ok) {
                     progress.advance(2);
                     data = await response.json();
-                    if (data?.error?.message?.includes('location')) {
+                    const refreshError = locationRefreshError(data);
+                    if (refreshError && locationRefreshAttempts < 1) {
+                        locationRefreshAttempts += 1;
+                        progress.setPhase(0);
+                        showLocationRefreshProgress(loadingId);
+                        try {
+                            await refreshLocationForAssistant(refreshError);
+                            if (stoppedByUser) throw new DOMException('Stopped by user', 'AbortError');
+                            progress.setTitle('Pipi đang làm việc');
+                            progress.setPhase(1);
+                            continue;
+                        } catch (error) {
+                            if (error?.name === 'AbortError' || stoppedByUser) throw error;
+                            console.warn('Không thể cập nhật GPS cho chat:', error);
+                            data = {
+                                text:'Pipi chưa lấy được vị trí đủ chính xác. Bạn bật quyền Vị trí, ra chỗ thoáng hơn rồi thử lại nhé.',
+                                error:{code:error?.code || 'GPS_REFRESH_FAILED'}
+                            };
+                            break;
+                        }
+                    } else if (data?.error?.message?.includes('location')) {
                         retries--;
                         if (retries > 0) {
                             await new Promise(resolve => setTimeout(resolve, 300));
@@ -326,6 +651,7 @@ async function handleChat(presetText = '') {
                     }
                 }
             } catch (error) {
+                if (error?.name === 'AbortError' || stoppedByUser) throw error;
                 console.error('Lỗi kết nối, đang thử lại...', error);
             }
 
@@ -333,6 +659,7 @@ async function handleChat(presetText = '') {
             if (retries > 0) await new Promise(resolve => setTimeout(resolve, 300));
         }
 
+        if (!data) throw new Error('CHAT_REQUEST_FAILED');
         let aiMsg = '';
         if (data?.candidates?.[0]?.content?.parts) aiMsg = data.candidates[0].content.parts.map(part => part?.text || '').filter(Boolean).join('\n').trim();
         else if (data?.text) aiMsg = data.text;
@@ -344,19 +671,36 @@ async function handleChat(presetText = '') {
         const messageElement = loadingElement?.closest('.msg');
         const nearby = compactNearbySnapshot(data?.travelos?.nearby);
         const travelContext = mergeChatTopicContext(compactTravelContext(data?.travelos), conversationContext, text);
-        saveMessage('ai', aiMsg, { ...(nearby ? { nearby } : {}), ...(travelContext ? { travelContext } : {}) }, requestSessionId);
+        const receipt = compactAgentReceipt(data?.travelos, progress.elapsedMs());
+        const savedMessage = saveMessage('ai', aiMsg, {
+            ...(nearby ? { nearby } : {}),
+            ...(travelContext ? { travelContext } : {}),
+            ...(receipt ? { receipt } : {})
+        }, requestSessionId);
         if (messageElement && activeChatSessionId === requestSessionId) {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
-            if (nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
-            renderHotelChoices(messageElement, travelContext?.hotelArea);
+            const renderedHotelChoices = renderHotelChoices(messageElement, travelContext?.hotelArea);
+            if (!renderedHotelChoices) {
+                renderTravelDataCards(messageElement, travelContext || data?.travelos);
+                if (nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
+            }
+            renderAgentReceipt(messageElement, receipt);
+            renderChatResponseControls(messageElement, {
+                sessionId:requestSessionId,
+                messageId:savedMessage?.id,
+                question:text,
+                feedback:savedMessage?.feedback
+            });
         }
         completed = true;
     } catch (error) {
-        console.error(error);
         const loadingElement = document.getElementById(loadingId);
-        if (loadingElement?.closest('.msg')) loadingElement.closest('.msg').textContent = 'Kết nối đang gặp lỗi. Bạn thử lại nhé.';
+        const messageElement = loadingElement?.closest('.msg');
+        if (!stoppedByUser) console.error(error);
+        renderChatRequestFailure(messageElement, text, stoppedByUser || error?.name === 'AbortError');
     } finally {
         progress.stop();
+        if (activeChatRequest?.id === loadingId) activeChatRequest = null;
         if (!completed) setHotelChoiceButtonsDisabled(false);
         if (sendBtn) sendBtn.disabled = false;
         if (voiceBtn) voiceBtn.disabled = false;
@@ -570,10 +914,20 @@ function saveMessage(role, content, extras = {}, sessionId = activeChatSessionId
         activeChatSessionId = session.id;
         store.sessions.push(session);
     }
-    session.messages.push({ role, content, ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}), ...(extras.travelContext ? { travelContext:compactTravelContext(extras.travelContext) } : {}) });
+    const savedMessage = {
+        id:String(extras.messageId || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+        role,
+        content,
+        ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}),
+        ...(extras.travelContext ? { travelContext:compactTravelContext(extras.travelContext) } : {}),
+        ...(extras.receipt ? { receipt:extras.receipt } : {}),
+        ...(extras.feedback ? { feedback:extras.feedback } : {})
+    };
+    session.messages.push(savedMessage);
     session.messages = session.messages.slice(-40);
     session.updatedAt = Date.now();
     writeSessionStore(store);
+    return savedMessage;
 }
 
 function renderChatSession(session) {
@@ -585,9 +939,21 @@ function renderChatSession(session) {
     }
     session.messages.forEach((msg, index) => {
         const messageElement = addMessage(msg.role, msg.role === 'ai' ? normalizeAssistantVoice(msg.content) : msg.content);
+        if (msg.role !== 'ai') return;
         const nearby = compactNearbySnapshot(msg.nearby);
-        if (messageElement && nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
-        if (index === session.messages.length - 1) renderHotelChoices(messageElement, msg.travelContext?.hotelArea);
+        const renderedHotelChoices = index === session.messages.length - 1 && renderHotelChoices(messageElement, msg.travelContext?.hotelArea);
+        if (!renderedHotelChoices) {
+            renderTravelDataCards(messageElement, msg.travelContext);
+            if (messageElement && nearby?.pois?.length && window.TravelNearby?.render) window.TravelNearby.render(nearby, messageElement);
+        }
+        renderAgentReceipt(messageElement, msg.receipt);
+        const question = [...session.messages.slice(0, index)].reverse().find(item => item.role === 'user')?.content || '';
+        renderChatResponseControls(messageElement, {
+            sessionId:session.id,
+            messageId:msg.id,
+            question,
+            feedback:msg.feedback
+        });
     });
 }
 

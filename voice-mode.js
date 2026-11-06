@@ -471,6 +471,16 @@
     } finally {translateBusy=false;syncMic();syncToggle();}
   });
 
+  async function refreshVoiceLocation(error = {}) {
+    const requestFreshPosition = window.TravelLocation?.requestFreshPosition;
+    if (typeof requestFreshPosition !== 'function') {
+      const unavailable = new Error('GPS_REFRESH_UNAVAILABLE');
+      unavailable.code = 'GPS_REFRESH_UNAVAILABLE';
+      throw unavailable;
+    }
+    return requestFreshPosition({maxAccuracyMeters:Number(error.maxAccuracyMeters)||200,timeoutMs:15000});
+  }
+
   async function send(text) {
     if (!text || sending || panel.hidden) return;
     sending = true;
@@ -528,38 +538,58 @@
       showDetail();
     };
     try {
-      const response = await fetch(`${CONFIG.WORKER_URL.replace(/\/+$/, '')}/voice-v1`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload), signal: activeRequest.signal
-      });
-      if (!response.ok || !response.body) throw new Error(`Voice endpoint: ${response.status}`);
-      const reader = response.body.getReader(), decoder = new TextDecoder();
-      let buffer = '';
-      const consume = line => {
-        if (!line.trim() || token !== generation) return;
-        let event; try { event = JSON.parse(line); } catch { return; }
-        if (event.type === 'phase' && phaseText[event.phase]) {
-          if (!replyStarted) setState(phaseText[event.phase], 'busy');
-        } else if (event.type === 'spoken') {
-          spokenText = event.text || '';
-          setState('Pipi đang chuẩn bị nói…', 'busy');
-          briefPromise = speak(spokenText, token, true, revealReply);
-          briefPromise.then(played => { if (!played) revealReply(); });
-        } else if (event.type === 'detail') {
-          detail = event;
-          showDetail();
-        } else if (event.type === 'error') throw new Error(event.text || 'Voice request failed');
-      };
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let newline;
-        while ((newline = buffer.indexOf('\n')) !== -1) {
-          consume(buffer.slice(0, newline)); buffer = buffer.slice(newline + 1);
+      let locationRefreshAttempts = 0;
+      while (token === generation) {
+        const latestLocation = typeof getStructuredUserLocation === 'function' ? getStructuredUserLocation() : payload.userLocation;
+        payload.userLocation = latestLocation;
+        payload.khuVuc = [latestLocation?.country, latestLocation?.city, latestLocation?.area].filter(Boolean).join(' / ');
+        const response = await fetch(`${CONFIG.WORKER_URL.replace(/\/+$/, '')}/voice-v1`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload), signal: activeRequest.signal
+        });
+        if (!response.ok || !response.body) throw new Error(`Voice endpoint: ${response.status}`);
+        const reader = response.body.getReader(), decoder = new TextDecoder();
+        let buffer = '', refreshEvent = null;
+        const consume = line => {
+          if (!line.trim() || token !== generation) return;
+          let event; try { event = JSON.parse(line); } catch { return; }
+          if (event.type === 'location_refresh_required') {
+            refreshEvent = event;
+          } else if (event.type === 'phase' && phaseText[event.phase]) {
+            if (!replyStarted) setState(phaseText[event.phase], 'busy');
+          } else if (event.type === 'spoken') {
+            spokenText = event.text || '';
+            setState('Pipi đang chuẩn bị nói…', 'busy');
+            briefPromise = speak(spokenText, token, true, revealReply);
+            briefPromise.then(played => { if (!played) revealReply(); });
+          } else if (event.type === 'detail') {
+            detail = event;
+            showDetail();
+          } else if (event.type === 'error') throw new Error(event.text || 'Voice request failed');
+        };
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let newline;
+          while ((newline = buffer.indexOf('\n')) !== -1) {
+            consume(buffer.slice(0, newline)); buffer = buffer.slice(newline + 1);
+          }
         }
+        consume(buffer);
+        if (refreshEvent) {
+          if (locationRefreshAttempts >= 1) {
+            const stale = new Error('GPS_REFRESH_FAILED');
+            stale.code = 'GPS_REFRESH_FAILED';
+            throw stale;
+          }
+          locationRefreshAttempts += 1;
+          setState('Pipi đang cập nhật vị trí…', 'busy');
+          await refreshVoiceLocation(refreshEvent.error);
+          continue;
+        }
+        break;
       }
-      consume(buffer);
       if (token === generation && detail) {
         await briefPromise;
         revealReply();
@@ -574,7 +604,9 @@
         if (activeTyping === typing) activeTyping = null;
         const message = error.message?.startsWith('Voice endpoint: 404')
           ? 'Chế độ voice thử nghiệm chưa được bật trên máy chủ.'
-          : 'Pipi chưa kết nối được. Bạn thử lại nhé.';
+          : String(error?.code || '').startsWith('GPS_')
+            ? 'Pipi chưa lấy được vị trí đủ chính xác. Bạn bật quyền Vị trí, ra chỗ thoáng hơn rồi thử lại nhé.'
+            : 'Pipi chưa kết nối được. Bạn thử lại nhé.';
         setState('Giữ mic để nói', 'ready');
         caption.textContent = 'Pipi đang chờ câu hỏi của bạn';
         append('ai', message);

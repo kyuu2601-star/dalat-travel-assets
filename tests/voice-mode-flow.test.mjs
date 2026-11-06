@@ -84,11 +84,15 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
     {type:'detail',text:'Đây là câu trả lời chi tiết.',travelos:{version:3,nearby:{provider:'google_places',pois:[{id:'shop',name:'Cửa hàng gần đây',lat:10.77,lng:106.69}]}}},
     {type:'done'}
   ].map(event => JSON.stringify(event)).join('\n') + '\n';
-  let networkCalls = 0, synthesisCalls = 0, nativeSpeakCalls = 0, failSynthesis = false;
+  const refreshEvents = [
+    {type:'location_refresh_required',error:{code:'GPS_STALE_OR_INACCURATE',maxAccuracyMeters:200}},
+    {type:'done'}
+  ].map(event=>JSON.stringify(event)).join('\n')+'\n';
+  let networkCalls = 0, synthesisCalls = 0, nativeSpeakCalls = 0, failSynthesis = false, gpsRefreshCalls = 0;
   const playedUrls = [];
   const fetch = async url => {
     networkCalls++;
-    if (String(url).endsWith('/voice-v1')) return new Response(voiceEvents,{headers:{'Content-Type':'application/x-ndjson'}});
+    if (String(url).endsWith('/voice-v1')) return new Response(networkCalls===1?refreshEvents:voiceEvents,{headers:{'Content-Type':'application/x-ndjson'}});
     throw new Error(`Unexpected network request: ${url}`);
   };
   class FakeAudio {
@@ -103,6 +107,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   const window = {
     SpeechRecognition:Recognition,
     TRAVELOS_NATIVE:true,
+    TravelLocation:{requestFreshPosition:async()=>{gpsRefreshCalls++;return {lat:10.77,lon:106.69,accuracy:20,timestamp:Date.now()};}},
     Capacitor:{Plugins:{PipiVoice:{
       requestMicrophonePermission:async()=>{permissionRequests++;return {microphone:permission};},
       addListener:async(_event,listener)=>{nativeListener=listener;return {remove(){nativeListener=null;}};},
@@ -147,6 +152,8 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   await new Promise(resolve => setTimeout(resolve,10));
   assert.ok(log.children.some(child => child.textContent === 'Đây là câu trả lời chi tiết.'));
   assert.ok(!log.children.some(child => child.className === 'pvm-message ai pvm-typing'));
+  assert.equal(gpsRefreshCalls,1,'Voice refreshes stale GPS once before replaying the same request');
+  assert.equal(networkCalls,2,'Voice retries the same backend request after the GPS refresh');
   assert.equal(playedUrls.length,1,'The first answer uses the local voice');
   failSynthesis = true;
   mic.listeners.pointerdown({pointerId:3,preventDefault() {}});
@@ -158,7 +165,7 @@ test('Native voice asks for mic permission and keeps typing dots until local spe
   mic.listeners.pointerup({preventDefault() {}});
   await new Promise(resolve => setTimeout(resolve,0));
   assert.equal(synthesisCalls,2,'Unclear speech uses its prepared clip immediately');
-  assert.equal(networkCalls,2,'Unclear speech does not request an AI or cloud voice');
+  assert.equal(networkCalls,3,'Unclear speech does not request an AI or cloud voice');
   assert.ok(playedUrls.some(url => url.includes('unclear.wav')));
   assert.equal(elements.get('pvm-status').textContent,'Giữ mic để nói');
   assert.equal(elements.get('pvm-caption').textContent,'Pipi đang chờ câu hỏi của bạn');

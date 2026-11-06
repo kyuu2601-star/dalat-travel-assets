@@ -9,8 +9,12 @@ import foodQueryPrompt from './bot/prompts/food-query.js';
 import { HOTEL_AREA_PROMPT, HOTEL_AREA_CHOICE_SCHEMA, parseHotelAreaRequest, hotelConfirmation } from './bot/hotel-area-discovery.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
-const DEFAULT_FALLBACK_MODELS = ['gemini-3.8-flash','gemini-3.1-flash-lite'];
+const DEFAULT_STABLE_MODEL = 'gemini-3.1-flash-lite';
+const DEFAULT_FALLBACK_MODELS = [DEFAULT_STABLE_MODEL];
 const DEFAULT_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnXggiUJriOBPHz05pt01aIq_qaCDeQAcWpyYTG6zx1XI9WzfVDTbb8rPwYPf2w8uHxeDpx3Tznx53/pub?gid=615358788&single=true&output=csv';
+const DEFAULT_GPS_MAX_AGE_MS = 2 * 60 * 1000;
+const DEFAULT_GPS_MAX_ACCURACY_METERS = 200;
+const GPS_FUTURE_TOLERANCE_MS = 30 * 1000;
 
 const LEGACY_LOCATION_MAP = {
   'da lat': { country: 'Việt Nam', city: 'Đà Lạt', area: '' },
@@ -1379,6 +1383,51 @@ function hasGps(location) {
   return Number.isFinite(Number(latitude))&&Number.isFinite(Number(longitude));
 }
 
+function gpsQuality(location, env, now=Date.now()) {
+  const maxAgeMs=clamp(env?.GPS_MAX_AGE_MS,10000,10*60*1000,DEFAULT_GPS_MAX_AGE_MS);
+  const maxAccuracyMeters=clamp(env?.GPS_MAX_ACCURACY_METERS,20,2000,DEFAULT_GPS_MAX_ACCURACY_METERS);
+  const timestamp=Number(location?.gpsTimestamp),accuracy=Number(location?.accuracy);
+  const hasTimestamp=location?.gpsTimestamp!==null&&location?.gpsTimestamp!==''&&Number.isFinite(timestamp);
+  const hasAccuracy=location?.accuracy!==null&&location?.accuracy!==''&&Number.isFinite(accuracy);
+  const ageMs=hasTimestamp?now-timestamp:null;
+  const reasons=[];
+  if(hasTimestamp&&(timestamp<=0||ageMs>maxAgeMs||ageMs<-GPS_FUTURE_TOLERANCE_MS))reasons.push('STALE');
+  if(hasAccuracy&&(accuracy<0||accuracy>maxAccuracyMeters))reasons.push('INACCURATE');
+  return {ok:reasons.length===0,reasons,maxAgeMs,maxAccuracyMeters,ageMs,accuracy:hasAccuracy?accuracy:null};
+}
+
+function gpsRefreshPayload(quality) {
+  const error={
+    code:'GPS_STALE_OR_INACCURATE',action:'REFRESH_LOCATION',reasons:quality.reasons,
+    maxAgeMs:quality.maxAgeMs,maxAccuracyMeters:quality.maxAccuracyMeters
+  };
+  return {
+    text:'Pipi cần cập nhật lại vị trí GPS trước khi tìm kiếm hoặc chỉ đường. Bạn chờ một chút nhé.',
+    error,
+    travelos:{version:3,nearbyError:{...error,message:'Current GPS is stale or inaccurate.'}}
+  };
+}
+
+function routeHasExplicitOrigin(userMessage, plan) {
+  const routeTool=(plan?.tools||[]).find(tool=>tool.name==='walking_route'||tool.name==='traffic_route');
+  const toolOrigin=coordFrom({lat:routeTool?.originLatitude,lng:routeTool?.originLongitude});
+  return Boolean(toolOrigin||clean(routeTool?.originQuery,300));
+}
+
+function planNeedsCurrentGps(plan, userMessage) {
+  const tools=plan?.tools||[];
+  const hasRoute=tools.some(tool=>tool.name==='walking_route'||tool.name==='traffic_route');
+  if(hasRoute&&!routeHasExplicitOrigin(userMessage,plan))return true;
+  for(let index=0;index<tools.length;index++){
+    const tool=tools[index];
+    if(!['search_places','weather'].includes(tool?.name))continue;
+    const explicitCenter=coordFrom({lat:tool.latitude,lng:tool.longitude});
+    const resolvedCenter=tools.slice(0,index).some(candidate=>candidate.name==='resolve_place');
+    if(!explicitCenter&&!resolvedCenter)return true;
+  }
+  return false;
+}
+
 function nearbyLanguage(location) {
   return isChinaTravelContext(location) ? 'zh' : 'vi';
 }
@@ -1472,8 +1521,14 @@ function geminiModels(env, purpose = 'default') {
   if(purpose==='place-category')return [clean(env.GEMINI_PLANNER_MODEL,120)||'gemini-3.1-flash-lite'];
   const planner=purpose==='planner',configured=clean(planner?env.GEMINI_PLANNER_MODEL:env.GEMINI_MODEL,120),fallbacks=clean(planner?env.GEMINI_PLANNER_FALLBACK_MODELS:env.GEMINI_FALLBACK_MODELS,500)
     .split(',').map(model=>clean(model,120)).filter(Boolean);
-  const defaults=planner?['gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-3.8-flash']:DEFAULT_FALLBACK_MODELS;
-  return [...new Set([configured||(planner?'gemini-3.1-flash-lite':DEFAULT_MODEL),...(fallbacks.length?fallbacks:defaults)].filter(Boolean))].slice(0,3);
+  const stable=clean(env.GEMINI_STABLE_MODEL,120)||DEFAULT_STABLE_MODEL;
+  const primary=configured||(planner?DEFAULT_STABLE_MODEL:DEFAULT_MODEL);
+  const defaults=planner?[DEFAULT_STABLE_MODEL,'gemini-3.5-flash-lite','gemini-3.8-flash']:DEFAULT_FALLBACK_MODELS;
+  const candidates=[...new Set([primary,...(fallbacks.length?fallbacks:defaults)].filter(Boolean))];
+  // The answer path always ends on one known lite model. A larger fallback can
+  // still be configured explicitly, but it cannot displace the stable last hop.
+  if(primary===stable)return [stable,...candidates.filter(model=>model!==stable)].slice(0,3);
+  return [...candidates.filter(model=>model!==stable).slice(0,2),stable].slice(0,3);
 }
 
 function retryableGeminiFailure(status, message='', error=null) {
@@ -1886,8 +1941,30 @@ const TRAVEL_INTENT_IDS = [
   'VENUE_INTELLIGENCE','SAFETY_HEALTH','TRAVEL_UTILITY','LOCAL_GUIDE'
 ];
 
+function explicitRouteRequest(userMessage) {
+  const text=fold(userMessage);
+  const routeCue=/\b(?:chi duong|dan duong|tim duong|duong di|di bo|lai xe|xe may|o to|taxi|di chuyen|traffic|giao thong|ket xe|bao xa|bao lau|mat bao nhieu phut)\b/.test(text);
+  const endpoints=/\btu\s+.{2,160}\s+(?:den|toi|qua)\s+.{2,160}/.test(text);
+  return routeCue||endpoints;
+}
+
+function explicitLocalGuideOrCasual(userMessage) {
+  const text=fold(userMessage);
+  const actionable=/\b(?:tim|kiem|gan toi|gan nhat|quanh|xung quanh|o dau|cho nao|quan nao|tiem nao|chi duong|dan duong|duong di|di bo|lai xe|thoi tiet|du bao|lich trinh|ke hoach|review|danh gia|mo cua|dong cua|atm|rut tien|nha thuoc|benh vien|phong kham|cap cuu)\b/.test(text);
+  if(actionable)return false;
+  return /\b(?:cu xu|phep lich su|van hoa|phong tuc|tap quan|nen noi gi|cach giao tiep|cach ung xu|kieng ky|chao pipi|xin chao|hello|hi pipi|khoe khong|noi chuyen phiem|ke chuyen|ke truyen)\b/.test(text);
+}
+
+function navigationScopeAnswer(userMessage) {
+  const greeting=/\b(?:chao|xin chao|hello|hi)\b/.test(fold(userMessage));
+  return `${greeting?'Chào bạn! ':''}Pipi hiện tập trung tìm địa điểm và chỉ đường cho chuyến đi. Bạn muốn đi đâu, hoặc cần tìm gì gần vị trí hiện tại?`;
+}
+
 function detectTravelIntent(userMessage, previousContext = null) {
   const text=fold(userMessage),hasPreviousPlace=Boolean(previousContext?.placeDetails||previousContext?.nearby?.pois?.length);
+  const hasWeather=/\b(?:thoi tiet|du bao|troi|mua|nang|nhiet do)\b/.test(text),hasItinerary=/\b(?:lich trinh|ke hoach|sap xep|itinerary)\b/.test(text);
+  if(explicitRouteRequest(userMessage)&&!hasWeather&&!hasItinerary)return'ROUTE_MOBILITY';
+  if(explicitLocalGuideOrCasual(userMessage))return'LOCAL_GUIDE';
   const asksToFind=/\b(?:tim|kiem|gan toi|gan nhat|quanh|xung quanh|o dau|cho nao|quan nao|tiem nao|co (?:quan|tiem|cho|nha hang))\b/.test(text);
   const namesPlaceType=/\b(?:nha thuoc|hieu thuoc|benh vien|phong kham|atm|cua hang tien loi|chtl|sieu thi|tap hoa|nha hang|quan|tiem|quan an|cafe|ca phe|khach san|diem tham quan|diem vui choi|gi choi|cong vien|bao tang|trung tam thuong mai|tttm|ga metro|ga tau dien|tram xe buyt|nha ve sinh|toilet|quan bar|pharmacity|long chau|an khang|gs25|circle k|familymart|lawson|kfc|jollibee|lotteria|popeyes|chicken plus)\b/.test(text);
   if(asksToFind&&namesPlaceType)return'PLACE_DISCOVERY';
@@ -1941,6 +2018,22 @@ function enforceTravelIntentPlan(plan, intent, userMessage, location, previousCo
     plan.responseMode='LIVE';
     if(hasGps||explicit||hasResolve){plan.needsClarification=false;plan.clarificationQuestion='';}
     else {plan.needsClarification=true;plan.responseMode='CLARIFY';plan.clarificationQuestion='Pipi chưa có GPS hiện tại. Bạn bật Location hoặc cho Pipi tên thành phố cần xem thời tiết nhé.';}
+  }
+  if(intent==='ROUTE_MOBILITY'){
+    const routePlan=routePlanForRequest(userMessage,location,previousContext);
+    tools.splice(0,tools.length,...routePlan.tools);
+    plan.responseMode=routePlan.needsClarification?'CLARIFY':'LIVE';
+    plan.needsClarification=routePlan.needsClarification;
+    plan.clarificationQuestion=routePlan.clarificationQuestion;
+    plan.goal='Xác định đúng điểm đến rồi tạo tuyến đường bằng API bản đồ';
+  }
+  if(intent==='SAFETY_HEALTH'){
+    const support=safetySearchPlan(userMessage,location);
+    tools.splice(0,tools.length,...support.tools);
+    plan.responseMode=support.needsClarification?'CLARIFY':'LIVE';
+    plan.needsClarification=support.needsClarification;
+    plan.clarificationQuestion=support.clarificationQuestion;
+    plan.goal='Tìm nơi trợ giúp gần nhất bằng API bản đồ, không chẩn đoán hoặc kê thuốc';
   }
   if(intent==='ITINERARY_PLANNING'){
     add({name:'curated_places',query:userMessage,category:'',placeName:'',address:'',placeId:'',radius:3000,limit:12,language:'vi',latitude:null,longitude:null,destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'itinerary'});
@@ -2082,8 +2175,56 @@ function expandedNearbyRadius(nearby) {
 
 function routeDestinationQuery(userMessage) {
   const text=clean(userMessage,500).replace(/[?!.]+$/,'').trim();
-  const match=text.match(/(?:đến|tới|qua|den|toi|di\s+bo\s+ra)\s+(.+)$/i);
-  return clean(match?.[1],300);
+  // Greedy prefix intentionally selects the last destination delimiter, so an
+  // unaccented pronoun in "cho toi den ..." is not mistaken for "tới".
+  const match=text.match(/(?:^|.*\s)(?:đến|tới|qua|den|toi)\s+(.+)$/i);
+  const destination=clean(match?.[1],300)
+    .replace(/\s+(?:như\s+thế\s+nào|thế\s+nào|ra\s+sao|bằng\s+(?:cách|đường)\s+nào|mất\s+bao\s+lâu|bao\s+xa|bao\s+nhiêu\s+phút)$/i,'')
+    .replace(/\s+(?:giúp(?:\s+(?:tôi|tui|mình))?|nhé|nha|ạ|với)$/i,'')
+    .trim();
+  return /^(?:đó|đây|chỗ\s+đó|địa\s+điểm\s+đó|nơi\s+đó)$/i.test(destination)?'':destination;
+}
+
+function previousRouteTarget(userMessage, previousContext) {
+  const nearby=previousContext?.nearby,selected=contextPlaceForQuestion(userMessage,nearby);
+  if(selected)return selected;
+  if(previousContext?.placeDetails)return previousContext.placeDetails;
+  const pois=nearby?.pois||[],refers=/\b(?:do|day|cho do|dia diem do|noi do|cho nay|dia diem nay)\b/.test(fold(userMessage));
+  return refers&&pois.length===1?pois[0]:null;
+}
+
+function routePlanForRequest(userMessage, location, previousContext) {
+  const destination=routeDestinationQuery(userMessage),previousTarget=destination?null:previousRouteTarget(userMessage,previousContext);
+  const driving=/\b(?:lai xe|xe may|o to|taxi|traffic|giao thong|ket xe)\b/.test(fold(userMessage));
+  const routeTool=driving?'traffic_route':'walking_route',travelMode=driving?'DRIVE':'WALK',tools=[];
+  if(destination){
+    const category=inferredPlaceCategory(destination),brand=placeBrandInQuery(destination);
+    const generic=Boolean(category&&!brand&&(genericPlaceQuery(destination)||/\b(?:gần\s+nhất|quanh\s+đây|gần\s+(?:tôi|tui|mình))\b/i.test(destination)));
+    if(generic){
+      const query=clean(destination.replace(/\s+(?:gần\s+nhất|quanh\s+đây|gần\s+(?:tôi|tui|mình))$/i,''),300)||destination;
+      tools.push(v3Tool('search_places',{query,category,radius:3000,limit:5,language:nearbyLanguage(location)}));
+    }else tools.push(v3Tool('resolve_place',{query:destination,placeName:destination,limit:3,language:isChinaTravelContext(location,destination)?'zh':'vi'}));
+  }
+  if(destination||previousTarget){
+    tools.push(v3Tool(routeTool,{travelMode,
+      destinationLatitude:previousTarget?.lat??previousTarget?.latitude??null,
+      destinationLongitude:previousTarget?.lng??previousTarget?.longitude??null,
+      placeName:clean(previousTarget?.localizedName||previousTarget?.name,200)}));
+    return {tools,needsClarification:false,clarificationQuestion:''};
+  }
+  const hasUnselectedList=(previousContext?.nearby?.pois||[]).length>1;
+  return {tools,needsClarification:true,clarificationQuestion:hasUnselectedList?'Bạn muốn đi tới địa điểm nào trong danh sách vừa tìm?':'Bạn muốn đi tới địa điểm nào?'};
+}
+
+function safetySearchPlan(userMessage, location) {
+  const text=fold(userMessage),tools=[];
+  const emergency=/\b(?:cap cuu|kho tho|dau nguc|bat tinh|chay mau nhieu|bi thuong nang|sot cao|co giat)\b/.test(text);
+  const police=/\b(?:canh sat|cong an|moc tui|lua dao|bi trom|mat do)\b/.test(text);
+  const medication=/\b(?:thuoc|nha thuoc|hieu thuoc|dau bung nhe|tieu chay nhe)\b/.test(text);
+  const category=police?'':emergency?'hospital':medication?'pharmacy':'clinic';
+  const query=police?'đồn công an':emergency?'bệnh viện cấp cứu':medication?'nhà thuốc':'phòng khám';
+  tools.push(v3Tool('search_places',{query,category,radius:5000,limit:5,language:nearbyLanguage(location)}));
+  return {tools,needsClarification:false,clarificationQuestion:''};
 }
 
 async function planV3(userMessage, history, location, previousContext, env, foodKnowledge=starterKnowledge) {
@@ -2095,6 +2236,10 @@ async function planV3(userMessage, history, location, previousContext, env, food
   const followsPrevious=nearbyFollowupIntent(userMessage,previousNearby);
   const namedPlace=!followsPrevious&&!['WEATHER_OUTDOOR','ROUTE_MOBILITY','ITINERARY_PLANNING'].includes(detectedIntent)?namedPlaceSearchIntent(userMessage,remote):null;
   const isExpansion=Boolean(previousNearby)&&/\b(?:mo rong|tang ban kinh|tim xa hon|xa hon|pham vi lon hon|tim them khu vuc)\b/.test(fold(userMessage));
+  if(detectedIntent==='ROUTE_MOBILITY'){
+    const routePlan=routePlanForRequest(userMessage,location,previousContext);
+    return normalizeV3Plan({goal:'Xác định đúng điểm đến rồi tạo tuyến đường bằng API bản đồ',travelIntent:detectedIntent,responseMode:routePlan.needsClarification?'CLARIFY':'LIVE',needsClarification:routePlan.needsClarification,clarificationQuestion:routePlan.clarificationQuestion,isItinerary:false,tools:routePlan.tools});
+  }
   if(isExpansion){
     const previousQuery=typeof previousNearby.query==='string'?previousNearby.query:previousNearby.query?.keyword;
     const category=typeof previousNearby.query==='object'?previousNearby.query?.category:'';
@@ -2124,6 +2269,10 @@ async function planV3(userMessage, history, location, previousContext, env, food
   if(detectedIntent==='ITINERARY_PLANNING'){
     const deterministic={goal:"Lập lịch trình từ dữ liệu Let's Go Pipi",travelIntent:detectedIntent,responseMode:'ITINERARY',needsClarification:false,clarificationQuestion:'',isItinerary:true,tools:[v3Tool('curated_places',{query:userMessage,limit:12,curatedType:'itinerary'})]};
     return normalizeV3Plan(deterministic);
+  }
+  if(detectedIntent==='SAFETY_HEALTH'){
+    const support=safetySearchPlan(userMessage,location);
+    return normalizeV3Plan({goal:'Tìm nơi trợ giúp gần nhất bằng API bản đồ, không chẩn đoán hoặc kê thuốc',travelIntent:detectedIntent,responseMode:support.needsClarification?'CLARIFY':'LIVE',needsClarification:support.needsClarification,clarificationQuestion:support.clarificationQuestion,isItinerary:false,tools:support.tools});
   }
   if(namedPlace){
     const china=isChinaTravelContext(location,namedPlace.name,namedPlace.area),tools=[];
@@ -2157,13 +2306,6 @@ async function planV3(userMessage, history, location, previousContext, env, food
     }
     const canAnswerFromContext=asksRanking&&hasTarget;
     return normalizeV3Plan({goal:'Kiểm tra thông tin địa điểm đã chọn',travelIntent:detectedIntent,responseMode:tools.length?'LIVE':'DIRECT',needsClarification:!tools.length&&!canAnswerFromContext,clarificationQuestion:'Bạn chọn một địa điểm trong danh sách hoặc nói rõ tên quán cần kiểm tra nhé.',isItinerary:false,tools});
-  }
-  if(detectedIntent==='ROUTE_MOBILITY'){
-    const hasTarget=Boolean(previousContext?.placeDetails||previousContext?.nearby?.pois?.length),destination=routeDestinationQuery(userMessage),tools=[];
-    if(!hasTarget&&destination)tools.push(v3Tool('resolve_place',{query:destination,limit:3,language:isChinaTravelContext(location,destination)?'zh':'vi'}));
-    const driving=/\b(?:lai xe|xe may|o to|traffic|giao thong|ket xe)\b/.test(fold(userMessage));
-    if(hasTarget||destination)tools.push(v3Tool(driving?'traffic_route':'walking_route',{travelMode:driving?'DRIVE':'WALK'}));
-    return normalizeV3Plan({goal:'Tạo tuyến đường bằng API bản đồ',travelIntent:detectedIntent,responseMode:tools.length?'LIVE':'CLARIFY',needsClarification:!tools.length,clarificationQuestion:'Bạn muốn đi tới địa điểm nào?',isItinerary:false,tools});
   }
   return normalizeV3Plan({goal:'Trò chuyện du lịch',travelIntent:detectedIntent,responseMode:'DIRECT',needsClarification:false,clarificationQuestion:'',isItinerary:false,tools:[]});
 }
@@ -2230,8 +2372,10 @@ function mergeSemanticTools(baseTools=[],semanticTools=[],confidence=0) {
 }
 
 async function planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge=starterKnowledge) {
-  // Interpretation happens before deterministic parsing. The original Vietnamese
-  // remains the source of truth for named places, country and location checks.
+  // Deterministic parsing is the policy boundary. The model may enrich ambiguous
+  // requests, but it cannot turn a route/safety action into an unrelated search.
+  const basePlan=await planV3(userMessage,history,location,previousContext,env,foodKnowledge);
+  if(explicitLocalGuideOrCasual(userMessage))return {...deterministicPlannerFallback(basePlan,userMessage,'scope-redirect'),travelIntent:'LOCAL_GUIDE',responseMode:'DIRECT',needsClarification:false,clarificationQuestion:'',tools:[],scopeRedirect:true};
   let semantic=null;
   if(shouldUseSemanticPlanner(env)){
     try{
@@ -2240,7 +2384,6 @@ async function planRequestV3(userMessage,history,location,previousContext,env,fo
       semantic=normalizeSemanticPlan(raw,userMessage);
     }catch(error){console.warn('[Semantic planner fallback]',errorText(error,'Planner unavailable',300));}
   }
-  const basePlan=await planV3(userMessage,history,location,previousContext,env,foodKnowledge);
   const foodRequest=foodDiscoveryRequest(userMessage,foodKnowledge);
   if(!semantic)return {...deterministicPlannerFallback(basePlan,userMessage,shouldUseSemanticPlanner(env)?'deterministic-fallback':'deterministic'),foodQualitySearch:Boolean(foodRequest?.quality)};
   try{
@@ -2250,15 +2393,19 @@ async function planRequestV3(userMessage,history,location,previousContext,env,fo
     const tools=explicitNamedArea
       ?mergePlannedTools(basePlan.tools,compiled.tools.filter(item=>!['resolve_place','search_places','place_details','place_busyness'].includes(item.name)))
       :mergeSemanticTools(basePlan.tools,compiled.tools,semantic.overallConfidence);
-    const travelIntent=explicitNamedArea?basePlan.travelIntent:semantic.overallConfidence>=.65?semantic.primaryIntent:basePlan.travelIntent;
+    const lockedIntent=['ROUTE_MOBILITY','SAFETY_HEALTH'].includes(basePlan.travelIntent)?basePlan.travelIntent:'';
+    const travelIntent=lockedIntent||(explicitNamedArea?basePlan.travelIntent:semantic.overallConfidence>=.65?semantic.primaryIntent:basePlan.travelIntent);
     const clarify=Boolean(semantic.clarificationQuestion)&&!tools.length&&basePlan.responseMode==='DIRECT';
-    return {
+    const planned={
       ...basePlan,goal:`Hiểu và xử lý: ${semantic.answerContract.join('; ')||basePlan.goal}`,travelIntent,
       responseMode:clarify?'CLARIFY':(tools.length?'LIVE':basePlan.responseMode),needsClarification:clarify,
       clarificationQuestion:clarify?semantic.clarificationQuestion:basePlan.clarificationQuestion,tools,
       planner:'gemini-structured',plannerConfidence:semantic.overallConfidence,englishMeaning:semantic.englishMeaning,foodQualitySearch:Boolean(foodRequest?.quality),needs:semantic.needs,
       answerContract:semantic.answerContract,unsupportedNeeds:compiled.unsupportedNeeds
     };
+    return ['ROUTE_MOBILITY','SAFETY_HEALTH'].includes(travelIntent)
+      ?enforceTravelIntentPlan(planned,travelIntent,userMessage,location,previousContext)
+      :planned;
   }catch(error){
     console.warn('[Semantic planner fallback]',errorText(error,'Planner unavailable',300));
     return deterministicPlannerFallback(basePlan,userMessage);
@@ -2391,6 +2538,10 @@ const FOOD_SEARCH_TERMS=['quan an','mon an','an uong','food','restaurant','cafe'
 const PLACE_NOTES_SCHEMA={type:'OBJECT',properties:{items:{type:'ARRAY',items:{type:'OBJECT',properties:{id:{type:'STRING'},localizedName:{type:'STRING'},localizedAddress:{type:'STRING'},note:{type:'STRING'},confidence:{type:'STRING',enum:['confirmed','likely','limited']}},required:['id','localizedName','localizedAddress','note','confidence']}}},required:['items']};
 const PLACE_CATEGORY_SCHEMA={type:'OBJECT',properties:{items:{type:'ARRAY',items:{type:'OBJECT',properties:{id:{type:'STRING'},verdict:{type:'STRING',enum:['match','reject','uncertain']}},required:['id','verdict']}}},required:['items']};
 const PLACE_TYPE_EVIDENCE={pharmacy:/pharmacy|chemist|药店|药房|大药房|nhà thuốc/i,hospital:/hospital|医院|bệnh viện/i,clinic:/doctor|clinic|诊所|门诊|phòng khám/i,convenience_store:/convenience_store|commercial\.convenience|便利店|小卖部|副食店|杂货店/i,grocery_store:/grocery_store|food_store|杂货店|副食店|小卖部/i,supermarket:/supermarket|超市/i,restaurant:/restaurant|fast_food|餐厅|饭店|餐馆|小吃/i,cafe:/cafe|coffee_shop|咖啡/i,hotel:/hotel|lodging|宾馆|酒店|旅馆|民宿/i,atm:/\batm\b|自动取款机/i,bank:/\bbank\b|银行/i,gas_station:/gas_station|加油站/i};
+const STRICT_PLACE_CATEGORIES=new Set(['pharmacy','hospital','clinic','atm','bank','gas_station']);
+const PHARMACY_RETAIL_NAME=/\b(?:nha thuoc|hieu thuoc|tiem thuoc|pharmacy|drugstore|drug store|chemist)\b|药店|药房|大药房/;
+const PHARMACY_HARD_REJECT=/\b(?:san thuong mai|marketplace|sinh ly|cuong duong|sex shop|adult store)\b/;
+const PHARMACY_CORPORATE_NAME=/\b(?:van phong|representative office|rep office|cong ty|company|joint stock|manufacturer|transaction office)\b/;
 
 async function selectNearbyCandidates(raw, category, center, sortBy, limit, env, foodKnowledge=starterKnowledge) {
   const origin=coordFrom(center),items=(Array.isArray(raw)?raw:[]).slice(0,150).map(compactPoi).filter(p=>coordFrom(p));
@@ -2407,6 +2558,13 @@ async function selectNearbyCandidates(raw, category, center, sortBy, limit, env,
   for(const place of candidates){
     const evidence=`${place.primaryType||''} ${(place.types||[]).join(' ')} ${place.type||''} ${place.tag||''}`.toLowerCase().trim();
     const name=fold(place.name);
+    if(category==='pharmacy'){
+      const providerMatch=PLACE_TYPE_EVIDENCE.pharmacy.test(evidence);
+      const retailName=PHARMACY_RETAIL_NAME.test(name)||PLACE_TYPE_EVIDENCE.pharmacy.test(place.name);
+      if(PHARMACY_HARD_REJECT.test(name)||(PHARMACY_CORPORATE_NAME.test(name)&&!retailName))continue;
+      if(providerMatch||retailName){accepted.push(place);continue;}
+      uncertain.push(place);continue;
+    }
     if(category==='convenience_store'){
       if(/electronics|cell_phone|mobile_phone|computer_store|clothing_store|家电|手机|数码|服装|通讯/.test(evidence))continue;
       if(/convenience_store|commercial\.convenience|便利店|小卖部|副食店|杂货店/.test(evidence)||/便利店|小卖部|副食店|杂货店/.test(place.name)){accepted.push(place);continue;}
@@ -2419,7 +2577,7 @@ async function selectNearbyCandidates(raw, category, center, sortBy, limit, env,
     const matches=PLACE_TYPE_EVIDENCE[category];
     if(matches){
       if(matches.test(evidence)||matches.test(place.name)){accepted.push(place);continue;}
-      if(evidence)uncertain.push(place);else accepted.push(place);
+      uncertain.push(place);
     }else accepted.push(place);
   }
   let aiChecked=false;
@@ -2430,13 +2588,15 @@ async function selectNearbyCandidates(raw, category, center, sortBy, limit, env,
       const result=await callJsonModel(prompt,buildContents([],JSON.stringify({category,places:evidence})),PLACE_CATEGORY_SCHEMA,env,'place-category');
       const verdicts=new Map((result?.items||[]).map(item=>[clean(item.id,300),item.verdict]));
       if(!uncertain.slice(0,25).some(place=>['match','reject','uncertain'].includes(verdicts.get(place.id))))throw new Error('No category verdicts');
-      for(const place of uncertain)if(verdicts.get(place.id)==='match')accepted.push(place);
+      for(const place of uncertain)if(verdicts.get(place.id)==='match'&&!STRICT_PLACE_CATEGORIES.has(category))accepted.push(place);
       aiChecked=true;
     }catch{}
   }
   if(!aiChecked)for(const place of uncertain){
     const evidence=`${place.primaryType||''} ${(place.types||[]).join(' ')} ${place.type||''}`.toLowerCase();
-    if(category!=='convenience_store'||/grocery_store|food_store|commercial\.food_and_drink|杂货|副食/.test(evidence))accepted.push(place);
+    if(category==='convenience_store'){
+      if(/grocery_store|food_store|commercial\.food_and_drink|杂货|副食/.test(evidence))accepted.push(place);
+    }else if(!STRICT_PLACE_CATEGORIES.has(category))accepted.push(place);
   }
   accepted.sort((a,b)=>sortBy==='rating'?(Number(b.rating)||0)-(Number(a.rating)||0)||a.distance-b.distance:a.distance-b.distance);
   return {pois:accepted.slice(0,limit),candidateCount:candidates.length,acceptedCount:accepted.length,uncertainCount:uncertain.length,aiChecked};
@@ -2855,6 +3015,41 @@ function deterministicEvidenceAnswer(state) {
   return parts.join(' ');
 }
 
+function deterministicRouteAnswer(state, plan) {
+  const route=Array.isArray(state?.routes)?state.routes[0]:null;
+  if(!route)return'';
+  const destination=clean(state?.lastPlace?.localizedName||state?.lastPlace?.name,240)||'điểm đến';
+  const mode=plan?.tools?.some(tool=>tool.name==='traffic_route')?'lái xe':'đi bộ';
+  const distance=route.distance<1000?`${Math.round(route.distance)} m`:`${(route.distance/1000).toFixed(1)} km`;
+  const duration=Math.max(1,Math.round(route.duration/60));
+  const delay=Number(route.trafficDelay)>0?` Giao thông làm tăng khoảng ${Math.max(1,Math.round(route.trafficDelay/60))} phút.`:'';
+  return `Tuyến ${mode} tới ${destination} dài ${distance}, thời gian khoảng ${duration} phút.${delay}`;
+}
+
+function deterministicSafetyAnswer(state) {
+  if(!state?.nearby)return'';
+  const list=deterministicNearbyText(state.nearby);
+  return `Pipi không chẩn đoán hoặc chọn thuốc thay cho nhân viên y tế. ${list}`;
+}
+
+function deterministicGroundedAnswer(plan,state,userMessage) {
+  if(plan?.travelIntent==='ROUTE_MOBILITY'){
+    const route=deterministicRouteAnswer(state,plan);
+    if(route)return route;
+  }
+  if(plan?.travelIntent==='SAFETY_HEALTH'){
+    const safety=deterministicSafetyAnswer(state);
+    if(safety)return safety;
+  }
+  if(state?.nearby)return deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
+  const evidence=deterministicEvidenceAnswer(state);
+  if(evidence)return evidence;
+  const unsupported=deterministicUnsupportedAnswer(plan?.unsupportedNeeds);
+  if(unsupported)return unsupported;
+  if(plan?.scopeRedirect||plan?.travelIntent==='LOCAL_GUIDE')return navigationScopeAnswer(userMessage);
+  return'';
+}
+
 function deterministicUnsupportedAnswer(needs=[]) {
   if(!Array.isArray(needs)||!needs.length)return '';
   const labels={
@@ -2998,7 +3193,11 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
   const evidence=[];
   const previousNearby=previousContext?.nearby||null;
   const followup=nearbyFollowupIntent(userMessage,previousNearby),contextPlace=followup?contextPlaceForQuestion(userMessage,previousNearby):null;
-  const priorPlace=contextPlace||previousContext?.placeDetails||null;
+  const routeLookup=plan.travelIntent==='ROUTE_MOBILITY'&&plan.tools.some(tool=>['resolve_place','search_places'].includes(tool.name));
+  const routeTarget=plan.travelIntent==='ROUTE_MOBILITY'&&!routeLookup?previousRouteTarget(userMessage,previousContext):null;
+  // A newly named destination must never fall back to an older selected POI if
+  // its lookup fails; otherwise the route can silently point to the wrong place.
+  const priorPlace=routeLookup?null:(routeTarget||contextPlace||previousContext?.placeDetails||null);
   const explicitWeatherQuery=plan.travelIntent==='WEATHER_OUTDOOR'?weatherLocationQuery(userMessage):'';
   const refersToPreviousPlace=/\b(?:o do|tai do|cho do|dia diem do|noi do)\b/.test(fold(userMessage));
   /** @type {any} */
@@ -3455,11 +3654,31 @@ async function handleAiV3(request, env) {
       error:{code:'GPS_REQUIRED'},travelos:{version:3,nearbyError:{code:'GPS_REQUIRED',message:'Fresh current GPS is required.'}}
     },200,request,env);
   }
+  if(currentNearbyIntent?.explicitNearby&&!explicitRemoteIntent){
+    const quality=gpsQuality(location,env);
+    if(!quality.ok)return json(gpsRefreshPayload(quality),200,request,env);
+  }
   try {
     const foodKnowledge=await loadFoodKnowledge(env);
     const plan=await planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge);
+    if(plan.scopeRedirect||(plan.travelIntent==='LOCAL_GUIDE'&&!plan.tools.length)){
+      const text=navigationScopeAnswer(userMessage);
+      return json({text,travelos:{version:3,travelIntent:'LOCAL_GUIDE',plan,sources:[]}},200,request,env);
+    }
     if(plan.needsClarification) {
       return json({text:plan.clarificationQuestion||'Bạn cho Pipi thêm địa điểm hoặc thời gian cụ thể để kiểm tra chính xác nhé.',travelos:{version:3,plan,sources:[]}},200,request,env);
+    }
+    if(planNeedsCurrentGps(plan,userMessage)){
+      if(!hasGps(location))return json({
+        text:'Pipi chưa lấy được GPS hiện tại nên chưa thể chỉ đường. Bạn bật quyền Vị trí rồi thử lại nhé.',
+        error:{code:'GPS_REQUIRED'},travelos:{version:3,plan,nearbyError:{code:'GPS_REQUIRED',message:'Current GPS is required as route origin.'}}
+      },200,request,env);
+      const quality=gpsQuality(location,env);
+      if(!quality.ok){
+        const refresh=gpsRefreshPayload(quality);
+        refresh.travelos.plan=plan;
+        return json(refresh,200,request,env);
+      }
     }
     const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env,foodKnowledge);
     const requestedLive=plan.tools.length>0;
@@ -3472,7 +3691,9 @@ async function handleAiV3(request, env) {
       const target=state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại';
       text=deterministicWeatherAdvice(state.weather,target);
     } else if(state.nearby&&!(state.nearby.pois||[]).length) {
-      text=deterministicNearbyText(state.nearby);
+      text=plan.travelIntent==='SAFETY_HEALTH'?deterministicSafetyAnswer(state):deterministicNearbyText(state.nearby);
+    } else if(plan.travelIntent==='SAFETY_HEALTH'&&state.nearby) {
+      text=deterministicSafetyAnswer(state);
     } else if(state.namedPlaceSearch) {
       // A named-place lookup already has verified provider evidence. Avoid two
       // extra Gemini calls (localization + prose) after AMap/Google succeeds.
@@ -3494,15 +3715,14 @@ async function handleAiV3(request, env) {
           const target=state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại';
           text=deterministicWeatherAdvice(state.weather,target);
         }else{
-          text=deterministicEvidenceAnswer(state);
-          if(!text)text=deterministicUnsupportedAnswer(plan.unsupportedNeeds);
-          if(!text)throw error;
+          text=deterministicGroundedAnswer(plan,state,userMessage);
+          if(!text)text=navigationScopeAnswer(userMessage);
         }
       }
     }
     if(!text&&state.nearby) text=deterministicNearbyText(state.nearby);
     if(!text&&state.weather) text=deterministicWeatherAdvice(state.weather,state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại');
-    return json({text:normalizePipiVoice(text||'Pipi chưa tạo được câu trả lời phù hợp.'),travelos:{version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,remoteSearch:state.remoteSearch||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,reviewSummary:state.reviewSummary||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined,missingApiSuggestions:missingApiSuggestions(plan.unsupportedNeeds)}},200,request,env);
+    return json({text:normalizePipiVoice(text||deterministicGroundedAnswer(plan,state,userMessage)||navigationScopeAnswer(userMessage)),travelos:{version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,remoteSearch:state.remoteSearch||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,reviewSummary:state.reviewSummary||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined,missingApiSuggestions:missingApiSuggestions(plan.unsupportedNeeds)}},200,request,env);
   } catch(error) {
     console.error('AI V3 ERROR:',error);
     return json({text:'Pipi đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',error:{code:'AI_TEMPORARILY_UNAVAILABLE'},travelos:{version:3}},200,request,env);
@@ -3535,12 +3755,34 @@ async function handleVoiceV1(request, env) {
             : 'Pipi chưa lấy được vị trí hiện tại. Bạn bật quyền vị trí rồi thử lại nhé.';
           emit('spoken',{text});emit('detail',{text,travelos:{version:3}});return;
         }
+        if(nearbyIntent?.explicitNearby&&!remote){
+          const quality=gpsQuality(location,env);
+          if(!quality.ok){
+            const refresh=gpsRefreshPayload(quality);
+            emit('location_refresh_required',{error:refresh.error,travelos:refresh.travelos});return;
+          }
+        }
         emit('phase',{phase:'planning'});
         const foodKnowledge=await loadFoodKnowledge(env);
         const plan=await planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge);
+        if(plan.scopeRedirect||(plan.travelIntent==='LOCAL_GUIDE'&&!plan.tools.length)){
+          const text=navigationScopeAnswer(userMessage);
+          emit('spoken',{text});emit('detail',{text,travelos:{version:3,travelIntent:'LOCAL_GUIDE',plan,sources:[]}});return;
+        }
         if(plan.needsClarification){
           const text=normalizePipiVoice(plan.clarificationQuestion||'Bạn cho Pipi thêm thông tin để tìm chính xác nhé.');
           emit('spoken',{text});emit('detail',{text,travelos:{version:3,plan,sources:[]}});return;
+        }
+        if(planNeedsCurrentGps(plan,userMessage)){
+          if(!hasGps(location)){
+            const error={code:'GPS_REQUIRED',action:'REFRESH_LOCATION',maxAccuracyMeters:DEFAULT_GPS_MAX_ACCURACY_METERS};
+            emit('location_refresh_required',{error,travelos:{version:3,plan,nearbyError:error}});return;
+          }
+          const quality=gpsQuality(location,env);
+          if(!quality.ok){
+            const refresh=gpsRefreshPayload(quality);
+            emit('location_refresh_required',{error:refresh.error,travelos:{...refresh.travelos,plan}});return;
+          }
         }
         emit('phase',{phase:'searching'});
         const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env,foodKnowledge);
@@ -3555,7 +3797,7 @@ async function handleVoiceV1(request, env) {
             const prompt='Bạn là Pipi. Trả lời bằng tiếng Việt, xưng Pipi và gọi người dùng là bạn. Viết tối đa 2 câu và 30 từ, dễ đọc thành tiếng. Chỉ dùng thông tin trong EVIDENCE; nếu không có dữ liệu live thì không khẳng định dữ kiện live. Không dùng Markdown, URL, tọa độ hay danh sách.';
             const payload=JSON.stringify({question:userMessage,intent:plan.travelIntent,evidence:evidenceForModel(evidence),previousContext});
             brief=normalizePipiVoice(modelText(await callTextModel(prompt,buildContents(history,payload),env,null,false)));
-          }catch{brief=deterministicEvidenceAnswer(state)||'Pipi đang hoàn tất câu trả lời ở phần chat bên dưới.';}
+          }catch{brief=deterministicGroundedAnswer(plan,state,userMessage)||'Pipi đang hoàn tất câu trả lời ở phần chat bên dưới.';}
         }
         if(state.nearby?.pois?.length){
           brief=`Pipi đã tìm được ${state.nearby.pois.length} địa điểm phù hợp. Hãy bấm vào nút Chi tiết ở bên dưới để xem danh sách Pipi đã tìm được.`;
@@ -3565,12 +3807,13 @@ async function handleVoiceV1(request, env) {
         let detail='';
         if(requestedLive&&!successful.length)detail=brief;
         else if(plan.travelIntent==='WEATHER_OUTDOOR'&&state.weather)detail=deterministicWeatherAdvice(state.weather,state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại');
-        else if(state.nearby&&!(state.nearby.pois||[]).length)detail=deterministicNearbyText(state.nearby);
+        else if(state.nearby&&!(state.nearby.pois||[]).length)detail=plan.travelIntent==='SAFETY_HEALTH'?deterministicSafetyAnswer(state):deterministicNearbyText(state.nearby);
+        else if(plan.travelIntent==='SAFETY_HEALTH'&&state.nearby)detail=deterministicSafetyAnswer(state);
         else if(state.namedPlaceSearch)detail=deterministicEvidenceAnswer(state);
         else if(state.nearby?.query?.sortBy==='review_quality'||state.nearby?.provider==='amap')detail=deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
         else {
           try{detail=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env);}
-          catch{detail=deterministicEvidenceAnswer(state)||deterministicUnsupportedAnswer(plan.unsupportedNeeds)||brief;}
+          catch{detail=deterministicGroundedAnswer(plan,state,userMessage)||brief;}
         }
         const travelos={version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,remoteSearch:state.remoteSearch||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,reviewSummary:state.reviewSummary||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined,missingApiSuggestions:missingApiSuggestions(plan.unsupportedNeeds)};
         emit('detail',{text:normalizePipiVoice(detail||brief),travelos});

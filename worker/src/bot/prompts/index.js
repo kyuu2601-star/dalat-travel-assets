@@ -28,7 +28,7 @@ export const INTENT_PROFILES = Object.freeze({
   VENUE_INTELLIGENCE:'Đọc chi tiết một địa điểm: mở cửa, rating, review, liên hệ và độ đông.',
   SAFETY_HEALTH:'Ưu tiên hành động an toàn và trợ giúp phù hợp, không chẩn đoán.',
   TRAVEL_UTILITY:'Xử lý các tiện ích thực dụng trong chuyến đi.',
-  LOCAL_GUIDE:'Giải thích kiến thức địa phương ổn định như một hướng dẫn viên.'
+  LOCAL_GUIDE:'Ngoài phạm vi hiện tại; hướng user về tìm địa điểm hoặc chỉ đường.'
 });
 
 export function answerPromptFor(intent, foodQualitySearch=false) {

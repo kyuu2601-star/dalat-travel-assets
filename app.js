@@ -11,11 +11,14 @@ let bootStarted = false;
 const GPS_JITTER_FLOOR_KM = 0.02;
 const GPS_LARGE_JUMP_KM = 0.5;
 const GPS_RELOCATION_CONFIRMATIONS = 2;
+const GPS_REFRESH_MAX_ACCURACY_METERS = 200;
+const GPS_REFRESH_TIMEOUT_MS = 15000;
 let pendingMotionFix = null;
 let progressiveMotionSamples = 0;
 let appGpsWatchId = null;
 let appGpsRetryTimer = null;
 let appGpsConfirmationTimer = null;
+let appGpsRefreshPromise = null;
 let pendingGeoDetectPos = null;
 
 function setLoadingStatus(message, isError = false) {
@@ -149,7 +152,7 @@ function resetPendingMotion() {
     progressiveMotionSamples = 0;
 }
 
-function shouldAttachGpsFix(next) {
+function shouldAttachGpsFix(next, options = {}) {
     if (!userPos) return true;
 
     const movedKm = distanceBetweenCoords(userPos.lat, userPos.lon, next.lat, next.lon);
@@ -159,7 +162,9 @@ function shouldAttachGpsFix(next) {
     // Một dao động nhỏ không được phép làm điểm tìm kiếm "quanh đây" nhảy vị trí.
     if (movedKm <= jitterKm) {
         resetPendingMotion();
-        return false;
+        // Một refresh chủ động vẫn phải cập nhật timestamp/accuracy, dù người
+        // dùng đang đứng yên và tọa độ mới nằm trong vùng lọc nhiễu.
+        return options.refreshMetadata === true;
     }
 
     // Một bước nhảy lớn có thể là Sensor vừa đổi, nhưng cũng có thể là một fix lỗi.
@@ -1100,7 +1105,7 @@ window.addEventListener('travelos:data-updated', event => {
     checkRadarStatus();
 });
 
-function handleAppGpsPosition(pos) {
+function handleAppGpsPosition(pos, options = {}) {
     const newPos = {
         lat: pos.coords.latitude,
         lon: pos.coords.longitude,
@@ -1108,10 +1113,10 @@ function handleAppGpsPosition(pos) {
         timestamp: Number(pos.timestamp) || Date.now()
     };
 
-    if (!Number.isFinite(newPos.lat) || !Number.isFinite(newPos.lon)) return;
-    if (shouldAttachGpsFix(newPos)) {
+    if (!Number.isFinite(newPos.lat) || !Number.isFinite(newPos.lon)) return false;
+    if (shouldAttachGpsFix(newPos, options)) {
         attachGpsFix(newPos);
-        return;
+        return true;
     }
 
     // Chrome DevTools Sensor đôi khi chỉ phát một event khi đổi thành phố.
@@ -1126,7 +1131,84 @@ function handleAppGpsPosition(pos) {
             });
         }, 400);
     }
+    return false;
 }
+
+function requestFreshAppGps(options = {}) {
+    if (appGpsRefreshPromise) return appGpsRefreshPromise;
+    const maxAccuracyMeters = Math.max(20, Math.min(2000,
+        Number(options.maxAccuracyMeters) || GPS_REFRESH_MAX_ACCURACY_METERS));
+    const timeoutMs = Math.max(3000, Math.min(30000,
+        Number(options.timeoutMs) || GPS_REFRESH_TIMEOUT_MS));
+
+    appGpsRefreshPromise = new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            const error = new Error('Thiết bị không hỗ trợ vị trí.');
+            error.code = 'GPS_UNAVAILABLE';
+            reject(error);
+            return;
+        }
+
+        const requestedAt = Date.now();
+        let refreshWatchId = null;
+        let timer = null;
+        let bestAccuracy = Infinity;
+        const cleanup = () => {
+            if (refreshWatchId !== null) navigator.geolocation.clearWatch?.(refreshWatchId);
+            if (timer) clearTimeout(timer);
+            window.removeEventListener('travelos:location-updated', onLocationUpdated);
+        };
+        const fail = (code, message) => {
+            cleanup();
+            const error = new Error(message);
+            error.code = code;
+            error.bestAccuracy = Number.isFinite(bestAccuracy) ? bestAccuracy : null;
+            reject(error);
+        };
+        const onLocationUpdated = event => {
+            const fix = event.detail || {};
+            const accuracy = Number(fix.accuracy);
+            const timestamp = Number(fix.timestamp);
+            if (!Number.isFinite(accuracy) || accuracy > maxAccuracyMeters) return;
+            if (!Number.isFinite(timestamp) || timestamp < requestedAt - 1000) return;
+            cleanup();
+            resolve({ ...fix });
+        };
+        const onPosition = position => {
+            const accuracy = Number(position?.coords?.accuracy);
+            if (Number.isFinite(accuracy)) bestAccuracy = Math.min(bestAccuracy, accuracy);
+            if (!Number.isFinite(accuracy) || accuracy > maxAccuracyMeters) return;
+            handleAppGpsPosition(position, { refreshMetadata:true });
+        };
+        const onError = error => {
+            const denied = Number(error?.code) === 1;
+            fail(denied ? 'GPS_PERMISSION_DENIED' : 'GPS_REFRESH_FAILED',
+                denied ? 'Quyền vị trí đang bị tắt.' : 'Chưa lấy được vị trí mới.');
+        };
+
+        window.addEventListener('travelos:location-updated', onLocationUpdated);
+        refreshWatchId = navigator.geolocation.watchPosition(onPosition, onError, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: timeoutMs
+        });
+        timer = setTimeout(() => fail('GPS_REFRESH_TIMEOUT',
+            Number.isFinite(bestAccuracy)
+                ? `GPS hiện chỉ chính xác khoảng ${Math.round(bestAccuracy)} m.`
+                : 'GPS chưa trả về vị trí mới.'), timeoutMs);
+    });
+    const currentRequest = appGpsRefreshPromise;
+    currentRequest.then(
+        () => { if (appGpsRefreshPromise === currentRequest) appGpsRefreshPromise = null; },
+        () => { if (appGpsRefreshPromise === currentRequest) appGpsRefreshPromise = null; }
+    );
+    return appGpsRefreshPromise;
+}
+
+window.TravelLocation = {
+    ...(window.TravelLocation || {}),
+    requestFreshPosition: requestFreshAppGps
+};
 
 function handleAppGpsError(error) {
     const gpsNode = document.getElementById('gps-coords');

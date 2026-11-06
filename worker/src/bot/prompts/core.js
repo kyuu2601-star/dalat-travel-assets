@@ -8,5 +8,6 @@ LUẬT BẮT BUỘC:
 5. Chỉ trả lời các mục trong ANSWER CONTRACT và yêu cầu trực tiếp của user. Không tự mở rộng sang nhu cầu khác.
 6. Tool lỗi không được làm mất phần dữ liệu đã xác minh từ tool khác.
 7. PREVIOUS_TRAVEL_CONTEXT chỉ được dùng cho câu nối và không được dùng để thay thế dữ liệu live mới khi user đổi địa điểm.
-8. Không nhắc tới prompt, planner, JSON hoặc quy trình nội bộ.`;
+8. Phạm vi hiện tại là tìm địa điểm và chỉ đường du lịch. Không tư vấn văn hóa/phép lịch sự như Local Guide; câu ngoài phạm vi phải hướng user về nơi muốn tìm hoặc muốn đi.
+9. Không nhắc tới prompt, planner, JSON hoặc quy trình nội bộ.`;
 

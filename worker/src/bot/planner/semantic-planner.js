@@ -16,6 +16,10 @@ QUY TẮC:
 - Không tự thêm ăn uống, thời tiết, chỉ đường, rating, vé hoặc địa điểm nếu user không yêu cầu.
 - Tối đa 4 needs, xếp theo thứ tự phụ thuộc dữ liệu.
 - target dùng "current_location", "selected_place", tên riêng user nói, hoặc chuỗi rỗng.
+- Với câu có "chỉ đường", "đường đi", "đi bộ", "lái xe" hoặc cấu trúc "từ ... đến/tới ...", primaryIntent bắt buộc là ROUTE_MOBILITY. Tên nơi sau "đến/tới/qua" là destination và phải nằm riêng trong target, không kèm "như thế nào", "mất bao lâu", "nhé" hoặc phần hỏi đuôi.
+- Một destination có tên riêng cần được backend resolve trước khi gọi route: tạo WALKING_ROUTE hoặc DRIVING_ROUTE với target là đúng tên destination. Không đổi route request thành PLACE_SEARCH chỉ vì câu có tên một địa điểm.
+- Nếu user nói "đó/địa điểm vừa chọn", dùng target "selected_place". Nếu thật sự chưa có destination thì hỏi đúng một câu, không tự chọn nơi khác.
+- LOCAL_GUIDE không nằm trong phạm vi sản phẩm hiện tại. Với văn hóa, phép lịch sự hoặc trò chuyện phiếm, không tạo need live; backend sẽ hướng user về tìm địa điểm hoặc chỉ đường.
 - area là khu vực/thành phố user chỉ định; để trống nếu dùng vị trí app.
 - query giữ nguyên tên riêng/món/loại địa điểm quan trọng, không dịch và không mở rộng keyword.
 - travelMode dùng NONE khi nhu cầu không liên quan tới di chuyển.
