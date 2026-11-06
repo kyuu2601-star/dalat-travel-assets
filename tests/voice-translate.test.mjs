@@ -291,6 +291,7 @@ test('Held interpreter plays one direction after release while text completes se
     onSegment:segment=>segments.push(segment),onTextPending:item=>pending.push(item),onTextDone:item=>done.push(item)
   });
   await translator.prepare();await translator.startContinuous();
+  assert.equal(translator.capture.stream.getTracks().length,1);
   processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
   const emit=(target,spoken,translated,sourceLanguage)=>{
     sockets.find(item=>item.url.includes(`access_token=${target}`)).onmessage({data:JSON.stringify({serverContent:{
@@ -317,5 +318,53 @@ test('Held interpreter plays one direction after release while text completes se
   assert.equal(segments.length,1);
   assert.equal(segments[0].translatedText,'你好');
   assert.equal(done.length,1);
+  translator.close();
+});
+
+test('Text fallback can start speech promptly when Live audio is silent', async () => {
+  const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
+  class Socket {
+    static OPEN=1;
+    readyState=1;
+    constructor(){setTimeout(()=>this.onopen?.(),0);}
+    send(raw){if(JSON.parse(raw).setup)setTimeout(()=>this.onmessage?.({data:JSON.stringify({setupComplete:{}})}),0);}
+    close(){this.readyState=3;}
+  }
+  const processor={connect(){},disconnect(){},onaudioprocess:null};
+  class AudioContext {
+    sampleRate=16000;destination={};started=Date.now();
+    get currentTime(){return (Date.now()-this.started)/1000;}
+    resume(){return Promise.resolve();}
+    createMediaStreamSource(){return {connect(){},disconnect(){}};}
+    createScriptProcessor(){return processor;}
+    close(){return Promise.resolve();}
+  }
+  let captureOptions,spokenAt=0,segmentAt=0;
+  const context=vm.createContext({
+    window:{AudioContext},navigator:{mediaDevices:{getUserMedia:async options=>{
+      captureOptions=options;return {getTracks:()=>[{stop(){}}]};
+    }}},
+    fetch:async(url,options)=>url.endsWith('/voice-live-token')
+      ? new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode}))
+      : new Response(JSON.stringify({sourceLanguage:'vi',targetLanguage:'zh-Hans',sourceText:'Xin chào',translatedText:'你好'})),
+    WebSocket:Socket,Response,Uint8Array,Float32Array,DataView,Buffer,AbortController,
+    atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
+  });
+  vm.runInContext(source,context);
+  const translator=new context.window.PipiContinuousTranslate('https://pipi.test',{
+    onVoiceFallback:()=>{spokenAt=Date.now();},
+    onSegment:()=>{segmentAt=Date.now();}
+  });
+  await translator.prepare();await translator.startContinuous();
+  assert.equal(captureOptions.audio.noiseSuppression,true);
+  assert.equal(captureOptions.audio.echoCancellation,true);
+  assert.equal(captureOptions.audio.autoGainControl,true);
+  processor.onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(4096)}});
+  const releasedAt=Date.now();
+  const stopping=translator.stopContinuous();
+  for(let i=0;i<40&&!spokenAt;i++)await new Promise(resolve=>setTimeout(resolve,50));
+  assert.ok(spokenAt && spokenAt-releasedAt<1500,'speech fallback does not wait for the Live timeout');
+  assert.ok(segmentAt && segmentAt<=spokenAt,'text is delivered on its own path');
+  await stopping;
   translator.close();
 });

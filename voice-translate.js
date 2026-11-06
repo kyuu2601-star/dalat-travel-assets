@@ -106,7 +106,7 @@
       try {
         this.audioContext=this.audioContext || new Context();
         await this.audioContext.resume();
-        const audio={echoCancellation:true,noiseSuppression:true,channelCount:1};
+        const audio={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1};
         if (deviceId && deviceId !== 'default') audio.deviceId={exact:deviceId};
         const stream=await navigator.mediaDevices.getUserMedia({audio});
         if (this.generation!==epoch || !this.turn || this.turn.released) {stream.getTracks().forEach(track=>track.stop());return;}
@@ -152,9 +152,10 @@
     }
     stopCapture() {
       if (!this.capture) return;
-      const {stream,source,processor}=this.capture;
+      const {stream,source,processor,filters=[]}=this.capture;
       processor.onaudioprocess=null;
       processor.disconnect();source.disconnect();
+      for(const filter of filters)filter.disconnect();
       stream.getTracks().forEach(track=>track.stop());
       this.capture=null;
     }
@@ -331,15 +332,22 @@
       if(!Context || !navigator.mediaDevices?.getUserMedia)throw new Error('MICROPHONE_CAPTURE_UNAVAILABLE');
       this.audioContext=this.audioContext || new Context();
       await this.audioContext.resume();
-      const audio={echoCancellation:true,noiseSuppression:true,channelCount:1};
+      const audio={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1};
       if(deviceId && deviceId!=='default')audio.deviceId={exact:deviceId};
       const stream=await navigator.mediaDevices.getUserMedia({audio});
       if(this.closed || epoch!==this.generation){stream.getTracks().forEach(track=>track.stop());return;}
       try{
         const source=this.audioContext.createMediaStreamSource(stream);
         const processor=this.audioContext.createScriptProcessor(4096,1,1);
-        source.connect(processor);processor.connect(this.audioContext.destination);
-        this.capture={stream,source,processor};
+        // Trim rumble and hiss before streaming; the browser handles broader noise suppression.
+        const filters=[];
+        if(typeof this.audioContext.createBiquadFilter==='function'){
+          const high=this.audioContext.createBiquadFilter();high.type='highpass';high.frequency.value=100;
+          const low=this.audioContext.createBiquadFilter();low.type='lowpass';low.frequency.value=4200;
+          source.connect(high);high.connect(low);low.connect(processor);filters.push(high,low);
+        }else source.connect(processor);
+        processor.connect(this.audioContext.destination);
+        this.capture={stream,source,processor,filters};
         this.source='';this.listening=true;this.stopping=false;this.lastResponseAt=Date.now();
         this.capturePcm=[];this.captureBytes=0;this.queuedAudio=[];
         this.liveSegments=[];this.currentSequence=++this.sequence;
@@ -386,7 +394,13 @@
         if(!bytes.length)continue;
         // Hold-to-talk keeps the mic clear of its own translated speaker audio.
         if(this.listening)this.queuedAudio.push({target,bytes});
-        else if(this.source && target!==this.source){this.playPcm(bytes);const turn=this.voiceTurns.get(this.currentSequence);if(turn)turn.played=true;this.callbacks.onSpeech?.();}
+        else if(this.source && target!==this.source){
+          const turn=this.voiceTurns.get(this.currentSequence);
+          if(turn?.fallbackSent)continue;
+          this.playPcm(bytes);
+          if(turn){turn.played=true;clearTimeout(turn.fallbackTimer);}
+          this.callbacks.onSpeech?.();
+        }
       }
       if(segment.source || segment.output)this.scheduleSegment(target,content.generationComplete||content.turnComplete?250:1100);
     }
@@ -430,17 +444,31 @@
     }
     offerVoiceFallback(sequence) {
       const turn=this.voiceTurns.get(sequence);
-      if(turn?.finished && !turn.played && turn.result && !turn.fallbackSent){
+      if(turn && !turn.played && turn.result && !turn.fallbackSent){
         turn.fallbackSent=true;
         this.callbacks.onVoiceFallback?.(turn.result);
+        if(turn.finished && turn.textDone)this.voiceTurns.delete(sequence);
       }
+    }
+    scheduleVoiceFallback(sequence) {
+      const turn=this.voiceTurns.get(sequence);
+      if(!turn || turn.played || turn.fallbackSent || turn.fallbackTimer)return;
+      turn.fallbackTimer=setTimeout(()=>{
+        turn.fallbackTimer=null;
+        this.offerVoiceFallback(sequence);
+      },650);
     }
     async stopContinuous() {
       if(this.stopping)return;
       if(!this.listening)return;
       this.listening=false;this.stopping=true;this.stopCapture();
       for(const {target,bytes} of this.queuedAudio){
-        if(this.source && target!==this.source){this.playPcm(bytes);const turn=this.voiceTurns.get(this.currentSequence);if(turn)turn.played=true;this.callbacks.onSpeech?.();}
+        if(this.source && target!==this.source){
+          this.playPcm(bytes);
+          const turn=this.voiceTurns.get(this.currentSequence);
+          if(turn){turn.played=true;clearTimeout(turn.fallbackTimer);}
+          this.callbacks.onSpeech?.();
+        }
       }
       this.queuedAudio=[];
       const sequence=this.currentSequence,frames=this.capturePcm,size=this.captureBytes,liveSegments=this.liveSegments;
@@ -451,7 +479,7 @@
       this.callbacks.onTextPending?.({sequence});
       const textTimeout=setTimeout(()=>controller.abort(),25_000);
       const textTask=this.requestCompleteText(frames,size,controller).then(result=>{
-        const turn=this.voiceTurns.get(sequence);if(turn){turn.result=result;this.offerVoiceFallback(sequence);}
+        const turn=this.voiceTurns.get(sequence);if(turn){turn.result=result;this.scheduleVoiceFallback(sequence);}
         if(!this.closed)this.callbacks.onSegment?.({...result,sequence});
       }).catch(async error=>{
         await voiceDone;
@@ -462,24 +490,27 @@
       }).finally(()=>{
         clearTimeout(textTimeout);this.textControllers.delete(controller);this.textTasks.delete(textTask);
         this.callbacks.onTextDone?.({sequence});
-        const turn=this.voiceTurns.get(sequence);if(turn){turn.textDone=true;if(turn.finished)this.voiceTurns.delete(sequence);}
+        const turn=this.voiceTurns.get(sequence);
+        if(turn){turn.textDone=true;if(turn.finished && (turn.played || turn.fallbackSent))this.voiceTurns.delete(sequence);}
       });
       this.textTasks.add(textTask);
       const stopAt=Date.now();
       const lastTarget=this.source==='vi'?'zh-Hans':this.source==='zh-Hans'?'vi':'';
       this.callbacks.onState?.('Pipi đang hoàn tất bản dịch cuối…');
-      for(let i=0;i<5 && !this.closed;i++){
+      for(let i=0;i<3 && !this.closed;i++){
         this.sendAudio(SILENCE_FRAME);
         await new Promise(resolve=>setTimeout(resolve,100));
       }
       for(const socket of this.sessions.values())if(socket.readyState===WebSocket.OPEN)
         socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
-      const deadline=Date.now()+12000;
+      const deadline=Date.now()+5500;
       while(!this.closed && Date.now()<deadline){
         const voiceRemaining=Math.max(0,(this.playAt-this.audioContext.currentTime)*1000);
         const quietFor=Date.now()-this.lastResponseAt;
         const completed=lastTarget && this.lastCompleteAt.get(lastTarget)>=stopAt-600;
-        if(voiceRemaining<100 && quietFor>=1200 && (completed || Date.now()-stopAt>=3500))break;
+        const turn=this.voiceTurns.get(sequence);
+        if(turn?.fallbackSent && voiceRemaining<100)break;
+        if(voiceRemaining<100 && quietFor>=700 && (completed || Date.now()-stopAt>=2200))break;
         await new Promise(resolve=>setTimeout(resolve,100));
       }
       this.flushSegments();
@@ -489,8 +520,8 @@
       }
       this.source='';this.stopping=false;
       const turn=this.voiceTurns.get(sequence);if(turn)turn.finished=true;
-      this.offerVoiceFallback(sequence);
-      if(turn?.textDone)this.voiceTurns.delete(sequence);
+      this.scheduleVoiceFallback(sequence);
+      if(turn?.textDone && (turn.played || turn.fallbackSent))this.voiceTurns.delete(sequence);
       if(!this.closed)this.refreshSessions();
       finishVoice();
     }
@@ -498,6 +529,7 @@
       this.listening=false;this.stopping=false;
       for(const controller of this.textControllers)controller.abort();
       for(const segment of this.segments.values())clearTimeout(segment.timer);
+      for(const turn of this.voiceTurns.values())clearTimeout(turn.fallbackTimer);
       super.close();
     }
   }
