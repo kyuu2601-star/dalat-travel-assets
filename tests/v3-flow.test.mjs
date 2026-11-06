@@ -495,6 +495,27 @@ test('Map Worker translates Vietnamese China aliases before AMap geocoding', asy
   }finally{globalThis.fetch=originalFetch;}
 });
 
+test('Map Worker tries official Chinese landmark aliases before raw Vietnamese resolve text', async () => {
+  const {default:worker}=await importWorker('../map-worker/src/index.js');
+  const originalFetch=globalThis.fetch,keywords=[];
+  globalThis.fetch=async url=>{
+    const keyword=new URL(String(url)).searchParams.get('keywords');keywords.push(keyword);
+    const poi=keyword==='洪崖洞民俗风貌区'
+      ?{id:'hongyadong',name:'洪崖洞民俗风貌区',address:'嘉陵江滨江路88号',location:'106.579,29.563'}
+      :{id:'jiefangbei',name:'解放碑步行街',address:'民族路177号',location:'106.577,29.557'};
+    return new Response(JSON.stringify({status:'1',info:'OK',pois:[poi]}),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    for(const [query,expected] of [['Hồng Nhai Động','洪崖洞民俗风貌区'],['Giải Phóng Bi','解放碑']]){
+      const response=await worker.fetch(new Request('https://map.test/place/resolve',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({country:'Trung Quốc',query,limit:3})}),{AMAP_WEB_KEY:'amap-test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io'});
+      const data=await response.json();
+      assert.equal(response.status,200);
+      assert.equal(data.meta.resolvedQuery,expected);
+    }
+    assert.deepEqual(keywords,['洪崖洞民俗风貌区','解放碑']);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('Map Worker geocodes weather locations before Google Places POI search', async () => {
   const {default:worker}=await importWorker('../map-worker/src/index.js');
   const originalFetch=globalThis.fetch,urls=[];
@@ -1111,6 +1132,86 @@ test('Explicit route intent and destination win over a wrong semantic place sear
     assert.equal(mapCalls[1].body.origin.lat,10.7769);
     assert.equal(mapCalls[1].body.destination.lat,10.777);
   }finally{globalThis.fetch=originalFetch;}
+});
+
+test('China route resolves the Vietnamese destination through official Chinese aliases', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve'){
+      assert.equal(body.query,'洪崖洞民俗风貌区');
+      assert.ok(body.queryVariants.includes('洪崖洞'));
+      assert.ok(body.queryVariants.includes('Hồng Nhai Động'));
+      assert.equal(body.translationSource,'official-alias');
+      return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',provider:'amap',places:[{id:'hongyadong',name:'洪崖洞民俗风貌区',lat:29.563,lng:106.579,country:'Trung Quốc',provider:'amap'}]}),{headers:{'Content-Type':'application/json'}});
+    }
+    assert.equal(path,'/route/walking');
+    assert.equal(body.origin.lat,29.563);
+    assert.equal(body.destination.lng,106.579);
+    return new Response(JSON.stringify({ok:true,source:'amap-route-v2',provider:'amap',routes:[{distance:2400,duration:1800,steps:[]}]}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Cho tôi route tới Hồng Nhai Động',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.5516}})}),env);
+  const data=await response.json();
+  assert.equal(data.travelos.travelIntent,'ROUTE_MOBILITY');
+  assert.equal(data.travelos.routes.length,1);
+  assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/route/walking']);
+});
+
+test('China route translates an unknown Vietnamese destination before AMap resolve', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const originalFetch=globalThis.fetch,mapCalls=[];
+  globalThis.fetch=async (_url,init={})=>{
+    const payload=JSON.parse(String(init.body||'{}'));
+    if(payload.generationConfig?.responseMimeType==='application/json')return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({primary:'重庆湖广会馆',variants:['湖广会馆']})}]}}]}),{headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Pipi đã tạo tuyến đến Hội quán Hồ Quảng.'}]}}]}),{headers:{'Content-Type':'application/json'}});
+  };
+  const env={GEMINI_API_KEY:'test',ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();mapCalls.push({path,body});
+    if(path==='/place/resolve'){
+      assert.equal(body.query,'重庆湖广会馆');
+      assert.ok(body.queryVariants.includes('湖广会馆'));
+      assert.ok(body.queryVariants.includes('Hội quán Hồ Quảng'));
+      assert.equal(body.translationSource,'gemini-zh-query');
+      return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',provider:'amap',places:[{id:'huguang',name:'重庆湖广会馆',lat:29.558,lng:106.581,country:'Trung Quốc',provider:'amap'}]}),{headers:{'Content-Type':'application/json'}});
+    }
+    return new Response(JSON.stringify({ok:true,source:'amap-route-v2',provider:'amap',routes:[{distance:3100,duration:2200,steps:[]}]}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  try{
+    const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Chỉ đường đến Hội quán Hồ Quảng',userLocation:{country:'Trung Quốc',city:'Trùng Khánh',latitude:29.563,longitude:106.5516}})}),env);
+    const data=await response.json();
+    assert.equal(data.travelos.routes.length,1);
+    assert.deepEqual(mapCalls.map(call=>call.path),['/place/resolve','/route/walking']);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('Explicit China A to B route resolves and keeps both endpoints instead of using device GPS', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  const calls=[];
+  const places={
+    '洪崖洞民俗风貌区':{id:'hongyadong',name:'洪崖洞民俗风貌区',lat:29.563,lng:106.579,country:'Trung Quốc',provider:'amap'},
+    '解放碑':{id:'jiefangbei',name:'解放碑步行街',lat:29.557,lng:106.577,country:'Trung Quốc',provider:'amap'}
+  };
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname,body=await request.json();calls.push({path,body});
+    if(path==='/place/resolve')return new Response(JSON.stringify({ok:true,source:'amap-place-text-v5',provider:'amap',places:[places[body.query]]}),{headers:{'Content-Type':'application/json'}});
+    assert.equal(path,'/route/walking');
+    assert.equal(body.origin.lat,29.563);
+    assert.equal(body.origin.lng,106.579);
+    assert.equal(body.origin.country,'Trung Quốc');
+    assert.equal(body.destination.lat,29.557);
+    assert.equal(body.destination.lng,106.577);
+    assert.equal(body.destination.country,'Trung Quốc');
+    return new Response(JSON.stringify({ok:true,source:'amap-route-v2',provider:'amap',routes:[{distance:900,duration:720,steps:[]}]}),{headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userMessage:'Từ Hồng Nhai Động tới Giải Phóng Bi',userLocation:{country:'Trung Quốc',city:'Trùng Khánh'}})}),env);
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['resolve_place','resolve_place','walking_route']);
+  assert.equal(data.travelos.plan.tools[0].routeEndpoint,'origin');
+  assert.equal(data.travelos.plan.tools[1].routeEndpoint,'destination');
+  assert.equal(data.travelos.routes.length,1);
+  assert.deepEqual(calls.map(call=>call.path),['/place/resolve','/place/resolve','/route/walking']);
 });
 
 test('Local-guide and casual questions do not call models or live tools', async () => {

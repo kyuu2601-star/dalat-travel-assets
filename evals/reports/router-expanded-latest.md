@@ -1,20 +1,20 @@
 # TravelOS expanded router eval
 
-- Thời điểm: 2026-11-06T18:54:18.510Z
+- Thời điểm: 2026-11-06T19:15:29.525Z
 - Tổng case: **120**
-- Đạt: **73**
-- Lỗi: **47**
-- Điểm: **60.8%**
+- Đạt: **76**
+- Lỗi: **44**
+- Điểm: **63.3%**
 - Gate: **FAIL**
 
 | Nhóm | Case | Đạt | Lỗi | Điểm |
 |---|---:|---:|---:|---:|
 | place-current | 15 | 11 | 4 | 73.3% |
 | place-remote | 15 | 11 | 4 | 73.3% |
-| route-current | 15 | 7 | 8 | 46.7% |
-| route-two-point | 15 | 13 | 2 | 86.7% |
+| route-current | 15 | 9 | 6 | 60% |
+| route-two-point | 15 | 15 | 0 | 100% |
 | weather | 15 | 10 | 5 | 66.7% |
-| safety-health | 15 | 3 | 12 | 20% |
+| safety-health | 15 | 2 | 13 | 13.3% |
 | itinerary | 15 | 10 | 5 | 66.7% |
 | guided-chat | 15 | 8 | 7 | 53.3% |
 
@@ -76,26 +76,12 @@
 - Planner: PLACE_DISCOVERY / resolve_place → search_places
 - Lỗi: router decision: MODEL_ANSWER vs API_TOOLS; router intent: TRAVEL_UTILITY vs PLACE_DISCOVERY; shadow agreement: false vs true; actual API_TOOLS
 
-### R037 — route-current
-
-- Câu: Cho tôi route tới Hồng Nhai Động
-- Router: API_TOOLS / ROUTE_MOBILITY / GPS=true
-- Planner: VENUE_INTELLIGENCE / search_places → place_details → place_busyness
-- Lỗi: planner intent: VENUE_INTELLIGENCE vs ROUTE_MOBILITY; planner tools: search_places → place_details → place_busyness; need resolve_place
-
-### R039 — route-current
-
-- Câu: Cách đi đến Quảng trường Nhân Dân
-- Router: API_TOOLS / ROUTE_MOBILITY / GPS=true
-- Planner: LOCAL_GUIDE / none
-- Lỗi: planner intent: LOCAL_GUIDE vs ROUTE_MOBILITY; planner tools: none; need resolve_place; shadow agreement: false vs true; actual GUIDED_CHAT
-
 ### R040 — route-current
 
 - Câu: Đưa tôi tới nhà thuốc gần nhất
 - Router: API_TOOLS / PLACE_DISCOVERY / GPS=true
-- Planner: PLACE_DISCOVERY / search_places
-- Lỗi: router intent: PLACE_DISCOVERY vs ROUTE_MOBILITY; planner intent: PLACE_DISCOVERY vs ROUTE_MOBILITY; planner tools: search_places; need resolve_place
+- Planner: ROUTE_MOBILITY / search_places → walking_route
+- Lỗi: router intent: PLACE_DISCOVERY vs ROUTE_MOBILITY; planner tools: search_places → walking_route; need resolve_place
 
 ### R041 — route-current
 
@@ -131,20 +117,6 @@
 - Router: API_TOOLS / PLACE_DISCOVERY / GPS=false
 - Planner: PLACE_DISCOVERY / search_places
 - Lỗi: router intent: PLACE_DISCOVERY vs ROUTE_MOBILITY; fresh GPS policy: false vs true; planner intent: PLACE_DISCOVERY vs ROUTE_MOBILITY; planner tools: search_places; need resolve_place
-
-### R053 — route-two-point
-
-- Câu: Từ ga Trùng Khánh Bắc tới Giải Phóng Bi
-- Router: MODEL_ANSWER / TRAVEL_UTILITY / GPS=false
-- Planner: ROUTE_MOBILITY / resolve_place → walking_route
-- Lỗi: router decision: MODEL_ANSWER vs API_TOOLS; router intent: TRAVEL_UTILITY vs ROUTE_MOBILITY; shadow agreement: false vs true; actual API_TOOLS
-
-### R059 — route-two-point
-
-- Câu: Chỉ đường từ khách sạn đến bảo tàng
-- Router: API_TOOLS / ROUTE_MOBILITY / GPS=false
-- Planner: ROUTE_MOBILITY / search_places → walking_route
-- Lỗi: planner tools: search_places → walking_route; need resolve_place
 
 ### R064 — weather
 
@@ -187,6 +159,13 @@
 - Router: API_TOOLS / SAFETY_HEALTH / GPS=false
 - Planner: PLACE_DISCOVERY / search_places
 - Lỗi: fresh GPS policy: false vs true; planner intent: PLACE_DISCOVERY vs SAFETY_HEALTH
+
+### R079 — safety-health
+
+- Câu: Tôi khó thở, đưa tôi tới bệnh viện
+- Router: API_TOOLS / SAFETY_HEALTH / GPS=true
+- Planner: ROUTE_MOBILITY / search_places → walking_route
+- Lỗi: planner intent: ROUTE_MOBILITY vs SAFETY_HEALTH
 
 ### R080 — safety-health
 

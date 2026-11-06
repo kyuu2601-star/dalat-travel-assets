@@ -14,7 +14,7 @@ test('shadow router sends current-origin directions to API tools and requires fr
 });
 
 test('shadow router does not require current GPS for an explicit two-point route',()=>{
-  const route=shadowRouteTravelRequest({userMessage:'Chỉ đường từ Chợ Bến Thành đến Dinh Độc Lập'});
+  const route=shadowRouteTravelRequest({userMessage:'Chỉ đường từ Chợ Bến Thành tới Dinh Độc Lập'});
   assert.equal(route.decision,ROUTER_DECISIONS.API_TOOLS);
   assert.equal(route.requiresFreshGps,false);
 });

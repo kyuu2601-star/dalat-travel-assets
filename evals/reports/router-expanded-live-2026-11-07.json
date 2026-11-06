@@ -1,23 +1,20 @@
 {
-  "generatedAt": "2026-11-06T19:01:35.066Z",
+  "generatedAt": "2026-11-06T19:20:15.336Z",
   "baseUrl": "https://ai-test.kyuu2601.workers.dev",
   "origin": "https://kyuu2601-star.github.io",
-  "timeoutMs": 45000,
+  "timeoutMs": 60000,
   "summary": {
     "cases": 30,
-    "passed": 17,
-    "failed": 13,
+    "passed": 20,
+    "failed": 10,
     "infraErrors": 0,
-    "structuralScore": 89.7,
+    "structuralScore": 93.4,
     "criticalFailures": [
-      "L19",
-      "L20",
-      "L21",
       "L24",
       "L25",
       "L26"
     ],
-    "p95LatencyMs": 14310,
+    "p95LatencyMs": 15320,
     "manualReviewCases": [
       "L01",
       "L02",
@@ -37,7 +34,7 @@
       "category": "location-provider",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 8723,
+      "latencyMs": 15320,
       "infraError": "",
       "checks": [
         {
@@ -62,7 +59,7 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T18:59:17.341Z\",\"durationMs\":1354,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:17:21.267Z\",\"durationMs\":1365,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
@@ -98,7 +95,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 8723,
+          "latencyMs": 15320,
           "checks": [
             {
               "name": "intent",
@@ -122,7 +119,7 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T18:59:17.341Z\",\"durationMs\":1354,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:17:21.267Z\",\"durationMs\":1365,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
@@ -156,8 +153,8 @@
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi gửi bạn danh sách các cửa hàng tiện lợi ở quanh đây nhé: 1. **Circle K** - Khoảng cách: Khoảng 234m - Địa chỉ: Đường Lý Tự Trọng, Phường Sài Gòn, Thành phố Hồ Chí Minh 2. **7-Eleven** - Khoảng cách: Khoảng 243m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 3. **7-Eleven** - Khoảng cách: Khoảng 251m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 4. **Shop&Go!** - Khoảng cách: Khoảng 262m - Địa chỉ: Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 5. **Circle K** - Khoảng cách: Khoảng 264m - Địa chỉ: Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 6. **Circle K** - Khoảng cách: Khoảng 290m - Địa chỉ: Đường Nguyễn Huệ, Phường ",
-            "traceId": "tr_72dcc95f-d024-4fdb-a931-6798e1602796",
+            "text": "Chào bạn, Pipi gửi bạn danh sách các cửa hàng tiện lợi ở gần vị trí của bạn nhé: 1. **Circle K** - Khoảng cách: ~234m - Địa chỉ: Đường Lý Tự Trọng, Phường Sài Gòn, Thành phố Hồ Chí Minh - Giờ mở cửa: 24/7 2. **7-Eleven** - Khoảng cách: ~243m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 3. **7-Eleven** - Khoảng cách: ~251m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 4. **Shop&Go!** - Khoảng cách: ~262m - Địa chỉ: Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 5. **Circle K** - Khoảng cách: ~264m - Địa chỉ: Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 6. **Circle K** - Khoảng cách: ~290m - Địa chỉ: Đường Nguyễn Huệ, Phường Sài Gòn,",
+            "traceId": "tr_31c1d555-0016-4e1c-8586-ab710203c6fe",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -168,8 +165,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "geoapify-places-v2",
-                "fetchedAt": "2026-11-06T18:59:17.341Z",
-                "durationMs": 1354,
+                "fetchedAt": "2026-11-06T19:17:21.267Z",
+                "durationMs": 1365,
                 "error": ""
               }
             ],
@@ -223,7 +220,7 @@
       "category": "location-provider",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 7359,
+      "latencyMs": 15100,
       "infraError": "",
       "checks": [
         {
@@ -248,7 +245,7 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-06T18:59:22.048Z\",\"durationMs\":5919,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-06T19:17:33.583Z\",\"durationMs\":6035,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
@@ -290,7 +287,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 7359,
+          "latencyMs": 15100,
           "checks": [
             {
               "name": "intent",
@@ -314,7 +311,7 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-06T18:59:22.048Z\",\"durationMs\":5919,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-06T19:17:33.583Z\",\"durationMs\":6035,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
@@ -355,7 +352,7 @@
           ],
           "response": {
             "text": "Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Jianzhijia Pharmacy (Chongqing Zaozilan Ya) (健之佳健康药房 · 重庆枣子岚垭店) — 92 m · Quận Du Trung, Trùng Khánh (嘉和苑东门旁 · 大礼堂地铁站1号口步行300米). - 2. Nhà thuốc Chân Thiện Mỹ (Zaozilan Ya) (真善美药房 · 渝中区枣子岚垭店) — 110 m · Quận Du Trung, Trùng Khánh (枣子岚垭正街120-附3号附近). - 3. Vạn Hòa (Nhân Hòa) (万和医药连锁 · 人和街店) — 110 m · Quận Du Trung, Trùng Khánh (人和街42号菜市场 · 大礼堂地铁站2号口步行50米). - 4. Nhà thuốc Đường Thị (Chi nhánh Tòa nhà Khoa Phổ, ngõ Hoa Phúc) (唐氏大药房 · 华福巷科普大厦店) — 140 m · Quận Du Trung, Trùng Khánh (人和街140号 · 大礼堂地铁站2号口步行100米). - 5. Hòa Bình Pharmacy (Zaozi Lanya) (和平药房 · 枣子岚垭店) — 178 m · Quận Du Trung, Trùng Khánh (枣子岚垭正街55号 · 大礼堂地铁站1号口步行430米). Bạn bấm vào danh sách/bản đồ b",
-            "traceId": "tr_9df02aec-b5e8-4d2e-ab3d-6a73350acb91",
+            "traceId": "tr_ad7eb49c-1725-4d74-a878-1ae11390a58f",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -366,8 +363,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "amap-place-v5",
-                "fetchedAt": "2026-11-06T18:59:22.048Z",
-                "durationMs": 5919,
+                "fetchedAt": "2026-11-06T19:17:33.583Z",
+                "durationMs": 6035,
                 "error": ""
               }
             ],
@@ -421,7 +418,7 @@
       "category": "remote-location",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 3559,
+      "latencyMs": 3829,
       "infraError": "",
       "checks": [
         {
@@ -440,25 +437,25 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T18:59:29.602Z\",\"durationMs\":777,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-06T18:59:30.379Z\",\"durationMs\":1153,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T19:17:41.491Z\",\"durationMs\":708,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-06T19:17:42.199Z\",\"durationMs\":1242,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "180 chars"
+          "details": "184 chars"
         },
         {
           "name": "text excludes /TP\\.?HCM/i",
           "pass": true,
           "critical": true,
-          "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+          "details": "Ở Đà Lạt, hiện tại Có mây rải rác, 16°C. Nhìn 8 giờ tới (16–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
         },
         {
           "name": "text excludes /Hồ Chí Minh/i",
           "pass": true,
           "critical": true,
-          "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+          "details": "Ở Đà Lạt, hiện tại Có mây rải rác, 16°C. Nhìn 8 giờ tới (16–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
         },
         {
           "name": "weather target coordinates",
@@ -470,7 +467,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 3559,
+          "latencyMs": 3829,
           "checks": [
             {
               "name": "intent",
@@ -488,25 +485,25 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T18:59:29.602Z\",\"durationMs\":777,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-06T18:59:30.379Z\",\"durationMs\":1153,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T19:17:41.491Z\",\"durationMs\":708,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-06T19:17:42.199Z\",\"durationMs\":1242,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "180 chars"
+              "details": "184 chars"
             },
             {
               "name": "text excludes /TP\\.?HCM/i",
               "pass": true,
               "critical": true,
-              "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+              "details": "Ở Đà Lạt, hiện tại Có mây rải rác, 16°C. Nhìn 8 giờ tới (16–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
             },
             {
               "name": "text excludes /Hồ Chí Minh/i",
               "pass": true,
               "critical": true,
-              "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+              "details": "Ở Đà Lạt, hiện tại Có mây rải rác, 16°C. Nhìn 8 giờ tới (16–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
             },
             {
               "name": "weather target coordinates",
@@ -516,8 +513,8 @@
             }
           ],
           "response": {
-            "text": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở.",
-            "traceId": "tr_46f9d2a2-f4bb-4ed8-81be-71d2cc5869fa",
+            "text": "Ở Đà Lạt, hiện tại Có mây rải rác, 16°C. Nhìn 8 giờ tới (16–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở.",
+            "traceId": "tr_11359c3d-84f1-4171-bafa-27bf688312cf",
             "intent": "WEATHER_OUTDOOR",
             "tools": [
               "resolve_place",
@@ -529,8 +526,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "geoapify-geocoding-v1",
-                "fetchedAt": "2026-11-06T18:59:29.602Z",
-                "durationMs": 777,
+                "fetchedAt": "2026-11-06T19:17:41.491Z",
+                "durationMs": 708,
                 "error": ""
               },
               {
@@ -538,8 +535,8 @@
                 "tool": "weather",
                 "ok": true,
                 "source": "open-meteo-coverage-fallback",
-                "fetchedAt": "2026-11-06T18:59:30.379Z",
-                "durationMs": 1153,
+                "fetchedAt": "2026-11-06T19:17:42.199Z",
+                "durationMs": 1242,
                 "error": ""
               }
             ],
@@ -551,7 +548,7 @@
                 "lng": 108.4375758
               },
               "timezone": "Asia/Ho_Chi_Minh",
-              "condition": "Trời quang"
+              "condition": "Có mây rải rác"
             },
             "routes": 0,
             "hotelAreaStatus": "",
@@ -586,7 +583,7 @@
       "category": "clarification",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 97,
+      "latencyMs": 120,
       "infraError": "",
       "checks": [
         {
@@ -617,7 +614,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 97,
+          "latencyMs": 120,
           "checks": [
             {
               "name": "no successful live source",
@@ -646,7 +643,7 @@
           ],
           "response": {
             "text": "Pipi chưa lấy được GPS hiện tại nên chưa thể tìm địa điểm “quanh đây”. Bạn bật quyền Vị trí hoặc kiểm tra Sensor rồi gửi lại câu hỏi nhé.",
-            "traceId": "tr_c0a7d760-7291-4766-b888-4389c2876764",
+            "traceId": "tr_7d8fea1e-6ae3-4745-85b8-2f868067f86c",
             "intent": "",
             "tools": [],
             "sources": [],
@@ -730,7 +727,7 @@
           ],
           "response": {
             "text": "Vị trí trong app đang đồng bộ: nhãn khu vực và tọa độ GPS chưa trùng nhau. Pipi chưa tìm “quanh đây” để tránh trả địa điểm sai. Bạn chờ vài giây để GPS cập nhật rồi gửi lại nhé.",
-            "traceId": "tr_c86d767b-3e04-4cd5-9f73-970fe0bea7a5",
+            "traceId": "tr_567b45a0-9942-433f-a5e9-6d0185ffd602",
             "intent": "",
             "tools": [],
             "sources": [],
@@ -754,7 +751,7 @@
       "category": "grounding",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 106,
+      "latencyMs": 108,
       "infraError": "",
       "checks": [
         {
@@ -791,7 +788,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 106,
+          "latencyMs": 108,
           "checks": [
             {
               "name": "intent",
@@ -826,7 +823,7 @@
           ],
           "response": {
             "text": "Pipi chưa thể hỗ trợ câu hỏi này.",
-            "traceId": "tr_fcd6fee1-5362-4955-a0ad-a6669b8f8f73",
+            "traceId": "tr_b4a9db2d-ed52-4c38-87fa-ae97533f930c",
             "intent": "TRAVEL_UTILITY",
             "tools": [],
             "sources": [],
@@ -852,7 +849,7 @@
       "category": "route",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 8383,
+      "latencyMs": 5292,
       "infraError": "",
       "checks": [
         {
@@ -871,13 +868,13 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T18:59:37.907Z\",\"durationMs\":617,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-06T18:59:38.524Z\",\"durationMs\":58,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T19:17:46.973Z\",\"durationMs\":710,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-06T19:17:47.683Z\",\"durationMs\":61,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "805 chars"
+          "details": "723 chars"
         },
         {
           "name": "route returned",
@@ -895,7 +892,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 8383,
+          "latencyMs": 5292,
           "checks": [
             {
               "name": "intent",
@@ -913,13 +910,13 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T18:59:37.907Z\",\"durationMs\":617,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-06T18:59:38.524Z\",\"durationMs\":58,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T19:17:46.973Z\",\"durationMs\":710,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-06T19:17:47.683Z\",\"durationMs\":61,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "805 chars"
+              "details": "723 chars"
             },
             {
               "name": "route returned",
@@ -935,8 +932,8 @@
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi xin gửi thông tin hướng dẫn đi bộ đến Dinh Độc Lập cho bạn đây ạ: - **Phương tiện:** Đi bộ - **Quãng đường:** 959 mét - **Thời gian di chuyển ước tính:** Khoảng 13 phút (800 giây) - **Tình trạng giao thông / Lưu ý:** Tuyến đường này có đoạn bị giới hạn sử dụng hoặc là đường riêng. - **Chi tiết tuyến đường:** 1. Đi về hướng Đông Bắc về phía Đồng Khởi (qua khu vực Ceci Cela - Vincom Đồng Khởi). 2. Rẽ trái vào đường Đồng Khởi. 3. Rẽ trái vào đường Nguyễn Du. 4. Rẽ phải tại khu vực bán vé của Dinh Độc Lập. 5. Tiếp tục rẽ trái rồi rẽ phải tại Dinh Design Store - Independence Palace Souvenir Shop để đến điểm đến bên phải. Điểm đến của bạn là Dinh Độc Lập (địa chỉ tham khảo tại 135 N",
-            "traceId": "tr_10d155d3-3b60-409e-a0b5-fb3d53e4b6f8",
+            "text": "Chào bạn, Pipi xin gửi thông tin chi tiết về tuyến đường đi bộ đến Dinh Độc Lập cho bạn nhé: - **Phương tiện:** Đi bộ - **Quãng đường:** 959 mét - **Thời gian di chuyển ước tính:** Khoảng 13 phút (800 giây) - **Chi tiết tuyến đường:** 1. Đi về hướng Đông Bắc về phía Đồng Khởi (51 mét). 2. Rẽ trái tại Cyber Real - Văn Phòng Cho Thuê TPHCM vào Đồng Khởi (243 mét). 3. Rẽ trái tại Nhà trọ Nhân Nghĩa vào Nguyễn Du (386 mét). 4. Rẽ phải tại Ticket office of the independence palace (196 mét). 5. Rẽ trái (32 mét). 6. Rẽ phải tại Dinh Design Store - Independence Palace Souvenir Shop để tới Dinh Độc Lập ở bên phải (52 mét). - **Điểm đến:** Dinh Độc Lập (135, Đường Nam Kỳ Khởi Nghĩa, Phường Bến Thành, ",
+            "traceId": "tr_a4390689-76a4-4422-bca1-3a7e89e91cca",
             "intent": "ROUTE_MOBILITY",
             "tools": [
               "resolve_place",
@@ -948,8 +945,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "geoapify-geocoding-v1",
-                "fetchedAt": "2026-11-06T18:59:37.907Z",
-                "durationMs": 617,
+                "fetchedAt": "2026-11-06T19:17:46.973Z",
+                "durationMs": 710,
                 "error": ""
               },
               {
@@ -957,8 +954,8 @@
                 "tool": "walking_route",
                 "ok": true,
                 "source": "google-routes-v2",
-                "fetchedAt": "2026-11-06T18:59:38.524Z",
-                "durationMs": 58,
+                "fetchedAt": "2026-11-06T19:17:47.683Z",
+                "durationMs": 61,
                 "error": ""
               }
             ],
@@ -998,7 +995,7 @@
       "category": "safety-navigation",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 12008,
+      "latencyMs": 9132,
       "infraError": "",
       "checks": [
         {
@@ -1017,7 +1014,7 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:59:48.090Z\",\"durationMs\":4061,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:17:54.136Z\",\"durationMs\":4086,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
@@ -1065,7 +1062,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 12008,
+          "latencyMs": 9132,
           "checks": [
             {
               "name": "intent",
@@ -1083,7 +1080,7 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:59:48.090Z\",\"durationMs\":4061,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:17:54.136Z\",\"durationMs\":4086,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
@@ -1130,7 +1127,7 @@
           ],
           "response": {
             "text": "Pipi không chẩn đoán hoặc chọn thuốc thay cho nhân viên y tế. Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Nhà thuốc Pasteur — ⭐ 3.9 (67 đánh giá) · 119 m · 156 Pasteur, Sài Gòn, Hồ Chí Minh, Việt Nam. - 2. Nhà thuốc Pharmacity — ⭐ 3.9 (254 đánh giá) · 349 m · 97 Hai Bà Trưng, Quận 1, Hồ Chí Minh 71000, Việt Nam. - 3. Nhà Thuốc Tư Nhân Bến Nghé — ⭐ 3.3 (4 đánh giá) · 352 m · 124 Pasteur, Sài Gòn, Hồ Chí Minh, Việt Nam. - 4. Công Ty TNHH Nhà Thuốc Tốt — ⭐ 4.7 (16 đánh giá) · 354 m · Lầu 9, 68 Nguyễn Huệ, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 5. Công Ty Tnhh Quốc Tế Khánh Linh - Nhà Thuốc Khánh Linh 1 — 378 m · 64 Hai Bà Trưng, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. Bạn bấm vào danh sách/b",
-            "traceId": "tr_0a0b0aa0-a2cd-460a-9c16-96277d8499a6",
+            "traceId": "tr_bd0046be-46a0-4b4c-bd24-025fc1e1ea18",
             "intent": "SAFETY_HEALTH",
             "tools": [
               "search_places"
@@ -1141,8 +1138,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T18:59:48.090Z",
-                "durationMs": 4061,
+                "fetchedAt": "2026-11-06T19:17:54.136Z",
+                "durationMs": 4086,
                 "error": ""
               }
             ],
@@ -1195,7 +1192,7 @@
       "category": "scope",
       "critical": false,
       "status": "PASS",
-      "latencyMs": 118,
+      "latencyMs": 120,
       "infraError": "",
       "checks": [
         {
@@ -1232,7 +1229,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 118,
+          "latencyMs": 120,
           "checks": [
             {
               "name": "intent",
@@ -1267,7 +1264,7 @@
           ],
           "response": {
             "text": "Pipi hiện tập trung tìm địa điểm và chỉ đường cho chuyến đi. Bạn muốn đi đâu, hoặc cần tìm gì gần vị trí hiện tại?",
-            "traceId": "tr_eadc0af0-8b90-4c7f-b59e-ed9ce3404c84",
+            "traceId": "tr_5293719e-ba39-40bd-a9f4-be868262af4b",
             "intent": "LOCAL_GUIDE",
             "tools": [],
             "sources": [],
@@ -1304,7 +1301,7 @@
       "category": "itinerary",
       "critical": false,
       "status": "PASS",
-      "latencyMs": 4493,
+      "latencyMs": 13604,
       "infraError": "",
       "checks": [
         {
@@ -1323,19 +1320,19 @@
           "name": "required sources ok",
           "pass": true,
           "critical": false,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-06T18:59:54.172Z\",\"durationMs\":37,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-06T19:18:09.775Z\",\"durationMs\":25,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "1524 chars"
+          "details": "1357 chars"
         },
         {
           "name": "text matches /buổi sáng|buổi trưa|buổi chiều|buổi tối|\\b\\d{1,2}(?::|h)\\d{0,2}\\b/i",
           "pass": true,
           "critical": false,
-          "details": "Chào bạn, Pipi gửi bạn gợi ý lịch trình tham quan Đà Lạt trong 1 ngày được sắp xếp theo các cụm điểm gần nhau, hợp lý và không quá dày đặc để bạn thoải mái tận hưởng chuyến đi nhé: ### Gợi ý lịch trình tham quan Đà Lạt trong 1 ngày **Buổi sáng: Khám phá trung tâm và thưởng thức bánh ngọt, kem bơ** -"
+          "details": "Chào bạn, Pipi xin gợi ý lịch trình một ngày khám phá Đà Lạt thật nhẹ nhàng, thoải mái và ưu tiên các điểm gần khu vực trung tâm để bạn không phải di chuyển quá nhiều: **Buổi sáng: Thưởng thức bánh ngọt và cà phê thư thái** - **09:00 - 10:30:** Ghé tiệm **Canelés Dalat – since 2020** (tọa lạc trên đ"
         },
         {
           "name": "curated places returned",
@@ -1347,7 +1344,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 4493,
+          "latencyMs": 13604,
           "checks": [
             {
               "name": "intent",
@@ -1365,19 +1362,19 @@
               "name": "required sources ok",
               "pass": true,
               "critical": false,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-06T18:59:54.172Z\",\"durationMs\":37,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-06T19:18:09.775Z\",\"durationMs\":25,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "1524 chars"
+              "details": "1357 chars"
             },
             {
               "name": "text matches /buổi sáng|buổi trưa|buổi chiều|buổi tối|\\b\\d{1,2}(?::|h)\\d{0,2}\\b/i",
               "pass": true,
               "critical": false,
-              "details": "Chào bạn, Pipi gửi bạn gợi ý lịch trình tham quan Đà Lạt trong 1 ngày được sắp xếp theo các cụm điểm gần nhau, hợp lý và không quá dày đặc để bạn thoải mái tận hưởng chuyến đi nhé: ### Gợi ý lịch trình tham quan Đà Lạt trong 1 ngày **Buổi sáng: Khám phá trung tâm và thưởng thức bánh ngọt, kem bơ** -"
+              "details": "Chào bạn, Pipi xin gợi ý lịch trình một ngày khám phá Đà Lạt thật nhẹ nhàng, thoải mái và ưu tiên các điểm gần khu vực trung tâm để bạn không phải di chuyển quá nhiều: **Buổi sáng: Thưởng thức bánh ngọt và cà phê thư thái** - **09:00 - 10:30:** Ghé tiệm **Canelés Dalat – since 2020** (tọa lạc trên đ"
             },
             {
               "name": "curated places returned",
@@ -1387,8 +1384,8 @@
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi gửi bạn gợi ý lịch trình tham quan Đà Lạt trong 1 ngày được sắp xếp theo các cụm điểm gần nhau, hợp lý và không quá dày đặc để bạn thoải mái tận hưởng chuyến đi nhé: ### Gợi ý lịch trình tham quan Đà Lạt trong 1 ngày **Buổi sáng: Khám phá trung tâm và thưởng thức bánh ngọt, kem bơ** - **09:00 - 10:30:** Ghé **Canelés Dalat – since 2020** (Mở cửa: 9:00 - 19:00) để thưởng thức các món bánh canelé và matcha thơm ngon. *Lưu ý: Đường lên dốc khá cao và hẹp, bạn có thể đi bộ từ đầu hẻm để xếp hàng.* - **10:30 - 12:00:** Di chuyển sang **Kem bơ Phụng chợ Đà Lạt** (Mở cửa: 09:00 - 22:30) ngay khu vực trung tâm để thưởng thức món kem bơ đặc trưng nổi tiếng. **Buổi trưa & Chiều: Thư giã",
-            "traceId": "tr_ca1cb1e9-1baa-481d-b0d7-c0a215b9630c",
+            "text": "Chào bạn, Pipi xin gợi ý lịch trình một ngày khám phá Đà Lạt thật nhẹ nhàng, thoải mái và ưu tiên các điểm gần khu vực trung tâm để bạn không phải di chuyển quá nhiều: **Buổi sáng: Thưởng thức bánh ngọt và cà phê thư thái** - **09:00 - 10:30:** Ghé tiệm **Canelés Dalat – since 2020** (tọa lạc trên đường có dốc nhỏ, bạn có thể đi bộ đoạn ngắn từ đầu hẻm) để thưởng thức các loại bánh canelé giòn thơm, đậm vị. - **10:30 - 12:00:** Di chuyển sang **Cala Lily Dalat** để tận hưởng không gian rộng rãi, ngắm ao cá, chơi đùa cùng thú cưng và nhâm nhi một ly cold brew hoặc bánh ngọt handmade. **Buổi trưa & Chiều: Ăn trưa và ghé chợ Đà Lạt** - **12:00 - 13:30:** Bạn có thể chọn thưởng thức món Ý chỉn c",
+            "traceId": "tr_597d3cc3-3ecd-4494-a924-2519a8213a3a",
             "intent": "ITINERARY_PLANNING",
             "tools": [
               "curated_places"
@@ -1399,8 +1396,8 @@
                 "tool": "curated_places",
                 "ok": true,
                 "source": "travelos-d1",
-                "fetchedAt": "2026-11-06T18:59:54.172Z",
-                "durationMs": 37,
+                "fetchedAt": "2026-11-06T19:18:09.775Z",
+                "durationMs": 25,
                 "error": ""
               }
             ],
@@ -1440,7 +1437,7 @@
       "category": "multi-turn",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 19168,
+      "latencyMs": 20043,
       "infraError": "",
       "checks": [
         {
@@ -1453,7 +1450,7 @@
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "736 chars"
+          "details": "783 chars"
         },
         {
           "name": "hotel confirmation state",
@@ -1465,7 +1462,7 @@
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "1056 chars"
+          "details": "1078 chars"
         },
         {
           "name": "place details returned",
@@ -1489,7 +1486,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 4618,
+          "latencyMs": 13082,
           "checks": [
             {
               "name": "no nearby result",
@@ -1501,7 +1498,7 @@
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "736 chars"
+              "details": "783 chars"
             },
             {
               "name": "hotel confirmation state",
@@ -1511,8 +1508,8 @@
             }
           ],
           "response": {
-            "text": "Pipi tìm thấy khách sạn này: **Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店))** — Số 30 đường Lâm Giang Chi, quận Du Trung (cách cửa số 1 ga tàu điện ngầm Lâm Giang Môn 450 mét) (临江支路30号(临江门地铁站1号口步行450米)). Đây có đúng chỗ bạn nói không? Các chi nhánh khác: 2. Khách sạn Yitel (Trùng Khánh Nam Bình - Quảng trường Vạn Đạt) (和颐酒店(重庆南坪万达广场轻轨站店)) — Số 186 đường Huệ Công, quận Nam Ngạn (南坪惠工路186号) 3. Khách sạn Yitel (Trùng Khánh - Ga tàu điện nhẹ Song Bi) (和颐酒店(重庆双碑轻轨站店)) — Số 34 đường Song Bi, phụ số 10-1, quận Sa Bình Bá (双碑街34号附10号-1) Bạn có thể trả lời “đúng số 2” nếu là chi nhánh khác. Nếu chưa đúng, bạn gửi link bản đồ hoặc mô tả nó gần đâu nhé. Pipi ",
-            "traceId": "tr_9f306eb0-12c6-46a1-b5e5-936c59ce5b2f",
+            "text": "Pipi tìm thấy khách sạn này: **Yitel Premium Hotel (Chí Hòa Chí Thượng Tửu Điếm - Trùng Khánh Giải Phóng Bi Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店))** — Số 30 đường nhánh Lâm Giang (cách lối ra số 1 ga tàu điện ngầm Lâm Giang Môn đi bộ 450m) (临江支路30号(临江门地铁站1号口步行450米)). Đây có đúng chỗ bạn nói không? Các chi nhánh khác: 2. Yitel Hotel (Hòa Y Tửu Điếm - Trùng Khánh Nam Bình Vạn Đạt Quảng Trường Khinh Quỹ Trạm Điếm) (和颐酒店(重庆南坪万达广场轻轨站店)) — Số 186 đường Huệ Công, Nam Bình (南坪惠工路186号) 3. Yitel Hotel (Hòa Y Tửu Điếm - Trùng Khánh Song Bi Khinh Quỹ Trạm Điếm) (和颐酒店(重庆双碑轻轨站店)) — Số 34, ngách 10, số nhà 1, phố Song Bi (双碑街34号附10号-1) Bạn có thể trả lời “đúng số 2” nếu là chi nhánh khác. Nếu chưa đúng, bạn g",
+            "traceId": "tr_9f684c0e-21c4-430a-b2a1-fb0862f32f2f",
             "intent": "PLACE_DISCOVERY",
             "tools": [],
             "sources": [],
@@ -1529,13 +1526,13 @@
         },
         {
           "step": 2,
-          "latencyMs": 14550,
+          "latencyMs": 6961,
           "checks": [
             {
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "1056 chars"
+              "details": "1078 chars"
             },
             {
               "name": "place details returned",
@@ -1557,8 +1554,8 @@
             }
           ],
           "response": {
-            "text": "Pipi đã lấy Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店)) (Số 30 đường Lâm Giang Chi, quận Du Trung (cách cửa số 1 ga tàu điện ngầm Lâm Giang Môn 450 mét) (临江支路30号(临江门地铁站1号口步行450米))) làm điểm tìm. Đây là 10 nơi gần khách sạn nhất: - 1. Du thuyền cảnh đêm Lưỡng Giang Trùng Khánh (重庆两江夜景游船) — 32 m. - 2. Trùng Khánh Hồ Điệp Tập (重庆蝴蝶集) — 59 m. - 3. Du thuyền đêm Lưỡng Giang Tứ Ngạn (两江四岸夜景游船) — 59 m. - 4. Đài tưởng niệm liệt sĩ Trương Bồi Tước (张培爵烈士纪念碑) — 86 m. - 5. Tâm Nguyện Đình (心愿亭) — 88 m. - 6. Tham quan trên cao Hồng Nhai Động (洪崖洞高空观光) — 91 m. - 7. Hải Đạo Nhai (海盗街 · 洪崖洞异国美食街店) — 96 m. - 8. Hồng Nhai Tích Thúy (洪崖滴翠) — 96 m. - 9. Trải nghiệm ",
-            "traceId": "tr_1b2b4c45-a15e-40d0-9d74-f6ad65d2a72b",
+            "text": "Pipi đã lấy Yitel Premium Hotel (Chí Hòa Chí Thượng Tửu Điếm - Trùng Khánh Giải Phóng Bi Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店)) (Số 30 đường nhánh Lâm Giang (cách lối ra số 1 ga tàu điện ngầm Lâm Giang Môn đi bộ 450m) (临江支路30号(临江门地铁站1号口步行450米))) làm điểm tìm. Đây là 10 nơi gần khách sạn nhất: - 1. Du thuyền cảnh đêm Lưỡng Giang Trùng Khánh (重庆两江夜景游船) — 32 m. - 2. Trùng Khánh Hồ Điệp Tập (重庆蝴蝶集) — 59 m. - 3. Du thuyền đêm Lưỡng Giang Tứ Ngạn (两江四岸夜景游船) — 59 m. - 4. Đài tưởng niệm liệt sĩ Trương Bồi Tước (张培爵烈士纪念碑) — 86 m. - 5. Tâm Nguyện Đình (心愿亭) — 88 m. - 6. Tham quan trên cao Hồng Nhai Động (洪崖洞高空观光) — 91 m. - 7. Hải Đạo Nhai (海盗街 · 洪崖洞异国美食街店) — 96 m. - 8. Hồng Nhai Tích Thúy (洪崖滴翠) — 96 m. ",
+            "traceId": "tr_54e1d485-82fb-47b3-947a-d422b0bf259d",
             "intent": "PLACE_DISCOVERY",
             "tools": [],
             "sources": [],
@@ -1581,7 +1578,7 @@
             "weather": null,
             "routes": 0,
             "hotelAreaStatus": "",
-            "place": "Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店))",
+            "place": "Yitel Premium Hotel (Chí Hòa Chí Thượng Tửu Điếm - Trùng Khánh Giải Phóng Bi Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店))",
             "curatedCount": 0,
             "missingApiNeeds": [],
             "router": null
@@ -1598,7 +1595,7 @@
       "category": "location-freshness",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 93,
+      "latencyMs": 92,
       "infraError": "",
       "checks": [
         {
@@ -1623,7 +1620,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 93,
+          "latencyMs": 92,
           "checks": [
             {
               "name": "no successful live source",
@@ -1646,7 +1643,7 @@
           ],
           "response": {
             "text": "Pipi cần cập nhật lại vị trí GPS trước khi tìm kiếm hoặc chỉ đường. Bạn chờ một chút nhé.",
-            "traceId": "tr_0cae5220-ef80-4302-87cc-8cc9f954cea8",
+            "traceId": "tr_94e282fb-e5f6-4968-9c6e-ff19b03b9d42",
             "intent": "",
             "tools": [],
             "sources": [],
@@ -1672,7 +1669,7 @@
       "category": "guardrail",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 110,
+      "latencyMs": 102,
       "infraError": "",
       "checks": [
         {
@@ -1691,7 +1688,7 @@
           "name": "trace id present",
           "pass": true,
           "critical": true,
-          "details": "tr_e823be2d-e3b8-4766-aa64-2a1ce61a0571"
+          "details": "tr_e7a9b206-592a-4c81-ad90-4379e0d4dd88"
         },
         {
           "name": "no nearby result",
@@ -1709,7 +1706,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 110,
+          "latencyMs": 102,
           "checks": [
             {
               "name": "no successful live source",
@@ -1727,7 +1724,7 @@
               "name": "trace id present",
               "pass": true,
               "critical": true,
-              "details": "tr_e823be2d-e3b8-4766-aa64-2a1ce61a0571"
+              "details": "tr_e7a9b206-592a-4c81-ad90-4379e0d4dd88"
             },
             {
               "name": "no nearby result",
@@ -1744,7 +1741,7 @@
           ],
           "response": {
             "text": "Pipi chỉ hỗ trợ tìm địa điểm và chỉ đường du lịch. Bạn nói nơi muốn tìm hoặc muốn đi nhé.",
-            "traceId": "tr_e823be2d-e3b8-4766-aa64-2a1ce61a0571",
+            "traceId": "tr_e7a9b206-592a-4c81-ad90-4379e0d4dd88",
             "intent": "LOCAL_GUIDE",
             "tools": [],
             "sources": [],
@@ -1768,7 +1765,7 @@
       "category": "guardrail",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 14310,
+      "latencyMs": 4514,
       "infraError": "",
       "checks": [
         {
@@ -1787,19 +1784,19 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:00:27.742Z\",\"durationMs\":897,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:18:33.907Z\",\"durationMs\":960,\"error\":\"\"}]"
         },
         {
           "name": "trace id present",
           "pass": true,
           "critical": true,
-          "details": "tr_83f49aa4-e790-4da4-afd0-dcb1baf7d59c"
+          "details": "tr_4b784424-d30a-4637-b827-6d52f490a6f8"
         },
         {
           "name": "source durations present",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:00:27.742Z\",\"durationMs\":897,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:18:33.907Z\",\"durationMs\":960,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
@@ -1829,7 +1826,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 14310,
+          "latencyMs": 4514,
           "checks": [
             {
               "name": "intent",
@@ -1847,19 +1844,19 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:00:27.742Z\",\"durationMs\":897,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:18:33.907Z\",\"durationMs\":960,\"error\":\"\"}]"
             },
             {
               "name": "trace id present",
               "pass": true,
               "critical": true,
-              "details": "tr_83f49aa4-e790-4da4-afd0-dcb1baf7d59c"
+              "details": "tr_4b784424-d30a-4637-b827-6d52f490a6f8"
             },
             {
               "name": "source durations present",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:00:27.742Z\",\"durationMs\":897,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T19:18:33.907Z\",\"durationMs\":960,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
@@ -1887,8 +1884,8 @@
             }
           ],
           "response": {
-            "text": "Pipi gửi bạn danh sách các cửa hàng tiện lợi ở gần bạn nhé: 1. **Circle K** - **Khoảng cách:** Khoảng 234 mét - **Địa chỉ:** Đường Lý Tự Trọng, Phường Sài Gòn, Thành phố Hồ Chí Minh 2. **7-Eleven** - **Khoảng cách:** Khoảng 243 mét - **Địa chỉ:** Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 3. **7-Eleven** - **Khoảng cách:** Khoảng 251 mét - **Địa chỉ:** Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 4. **Shop&Go!** - **Khoảng cách:** Khoảng 262 mét - **Địa chỉ:** Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 5. **Circle K** - **Khoảng cách:** Khoảng 264 mét - **Địa chỉ:** Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh 6. **Circle K** - **Khoảng cách:** K",
-            "traceId": "tr_83f49aa4-e790-4da4-afd0-dcb1baf7d59c",
+            "text": "Chào bạn, Pipi gửi bạn danh sách các cửa hàng tiện lợi quanh đây nhé: 1. **Circle K** - Khoảng cách: Khoảng 234m - Địa chỉ: Đường Lý Tự Trọng, Phường Sài Gòn, Thành phố Hồ Chí Minh - Giờ mở cửa: 24/7 2. **7-Eleven** - Khoảng cách: Khoảng 243m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh - Giờ mở cửa: Chưa xác minh được 3. **7-Eleven** - Khoảng cách: Khoảng 251m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh - Giờ mở cửa: Chưa xác minh được 4. **Shop&Go!** - Khoảng cách: Khoảng 262m - Địa chỉ: Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh - Giờ mở cửa: Chưa xác minh được 5. **Circle K** - Khoảng cách: Khoảng 264m - Địa chỉ: Hẻm 59 Nguyễn Du, P",
+            "traceId": "tr_4b784424-d30a-4637-b827-6d52f490a6f8",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -1899,8 +1896,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "geoapify-places-v2",
-                "fetchedAt": "2026-11-06T19:00:27.742Z",
-                "durationMs": 897,
+                "fetchedAt": "2026-11-06T19:18:33.907Z",
+                "durationMs": 960,
                 "error": ""
               }
             ],
@@ -1952,7 +1949,7 @@
       "category": "guardrail",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 108,
+      "latencyMs": 95,
       "infraError": "",
       "checks": [
         {
@@ -1971,7 +1968,7 @@
           "name": "trace id present",
           "pass": true,
           "critical": true,
-          "details": "tr_60a09f80-ed8c-49c0-ad3a-7b3baf11318f"
+          "details": "tr_715dc7ba-9d9f-4737-a3eb-35231ab18b05"
         },
         {
           "name": "no nearby result",
@@ -1983,7 +1980,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 108,
+          "latencyMs": 95,
           "checks": [
             {
               "name": "no successful live source",
@@ -2001,7 +1998,7 @@
               "name": "trace id present",
               "pass": true,
               "critical": true,
-              "details": "tr_60a09f80-ed8c-49c0-ad3a-7b3baf11318f"
+              "details": "tr_715dc7ba-9d9f-4737-a3eb-35231ab18b05"
             },
             {
               "name": "no nearby result",
@@ -2012,7 +2009,7 @@
           ],
           "response": {
             "text": "Câu hỏi hơi dài. Bạn rút gọn còn dưới 4.000 ký tự và nói rõ nơi muốn tìm hoặc muốn đi nhé.",
-            "traceId": "tr_60a09f80-ed8c-49c0-ad3a-7b3baf11318f",
+            "traceId": "tr_715dc7ba-9d9f-4737-a3eb-35231ab18b05",
             "intent": "LOCAL_GUIDE",
             "tools": [],
             "sources": [],
@@ -2036,7 +2033,7 @@
       "category": "monitoring",
       "critical": false,
       "status": "PASS",
-      "latencyMs": 7878,
+      "latencyMs": 7775,
       "infraError": "",
       "checks": [
         {
@@ -2055,19 +2052,19 @@
           "name": "required sources ok",
           "pass": true,
           "critical": false,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:00:34.673Z\",\"durationMs\":1253,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:18:38.254Z\",\"durationMs\":4093,\"error\":\"\"}]"
         },
         {
           "name": "trace id present",
           "pass": true,
           "critical": false,
-          "details": "tr_bbfc50b7-0ce1-4cc1-9a47-b32236d1f103"
+          "details": "tr_16bc3551-053a-4759-a66f-0f20174bf2fe"
         },
         {
           "name": "source durations present",
           "pass": true,
           "critical": false,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:00:34.673Z\",\"durationMs\":1253,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:18:38.254Z\",\"durationMs\":4093,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
@@ -2079,7 +2076,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 7878,
+          "latencyMs": 7775,
           "checks": [
             {
               "name": "intent",
@@ -2097,19 +2094,19 @@
               "name": "required sources ok",
               "pass": true,
               "critical": false,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:00:34.673Z\",\"durationMs\":1253,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:18:38.254Z\",\"durationMs\":4093,\"error\":\"\"}]"
             },
             {
               "name": "trace id present",
               "pass": true,
               "critical": false,
-              "details": "tr_bbfc50b7-0ce1-4cc1-9a47-b32236d1f103"
+              "details": "tr_16bc3551-053a-4759-a66f-0f20174bf2fe"
             },
             {
               "name": "source durations present",
               "pass": true,
               "critical": false,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:00:34.673Z\",\"durationMs\":1253,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T19:18:38.254Z\",\"durationMs\":4093,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
@@ -2119,8 +2116,8 @@
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi gửi bạn danh sách các nhà thuốc ở quanh đây nhé: 1. **Nhà thuốc Pasteur** - Khoảng cách: Khoảng 119m - Địa chỉ: 156 Pasteur, Sài Gòn, Hồ Chí Minh - Trạng thái hoạt động: Đang đóng cửa (Giờ mở cửa hôm nay: 08:00–20:00) 2. **Can Gio Pharmaceutical Joint Stock Co.** - Khoảng cách: Khoảng 305m - Địa chỉ: Mondial Centre 203 Dong Khoi Street, Ben Nghe Ward, District 1, Sài Gòn, Hồ Chí Minh - Trạng thái hoạt động: Chưa xác minh được 3. **Nhà thuốc Pharmacity** - Khoảng cách: Khoảng 349m - Địa chỉ: 97 Hai Bà Trưng, Quận 1, Hồ Chí Minh - Trạng thái hoạt động: Đang mở cửa (Giờ mở cửa hôm nay: 00:00–23:59) 4. **Nhà Thuốc Tư Nhân Bến Nghé** - Khoảng cách: Khoảng 352m - Địa chỉ: 124 Pasteu",
-            "traceId": "tr_bbfc50b7-0ce1-4cc1-9a47-b32236d1f103",
+            "text": "Chào bạn, Pipi gửi bạn danh sách các nhà thuốc ở quanh đây nhé: 1. **Nhà thuốc Pasteur** - **Địa chỉ:** 156 Pasteur, Sài Gòn, Hồ Chí Minh - **Khoảng cách:** Khoảng 119 mét - **Trạng thái hoạt động:** Đang đóng cửa (Giờ mở cửa hôm nay: 08:00–20:00) 2. **Can Gio Pharmaceutical Joint Stock Co.** - **Địa chỉ:** Mondial Centre 203 Dong Khoi Street, Ben Nghe Ward, District 1, Sài Gòn, Hồ Chí Minh - **Khoảng cách:** Khoảng 305 mét - **Trạng thái hoạt động:** Chưa xác minh được 3. **Nhà thuốc Pharmacity** - **Địa chỉ:** 97 Hai Bà Trưng, Quận 1, Hồ Chí Minh - **Khoảng cách:** Khoảng 349 mét - **Trạng thái hoạt động:** Đang mở cửa (Giờ mở cửa hôm nay: 00:00–23:59) 4. **Nhà Thuốc Tư Nhân Bến Nghé** - *",
+            "traceId": "tr_16bc3551-053a-4759-a66f-0f20174bf2fe",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -2131,8 +2128,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T19:00:34.673Z",
-                "durationMs": 1253,
+                "fetchedAt": "2026-11-06T19:18:38.254Z",
+                "durationMs": 4093,
                 "error": ""
               }
             ],
@@ -2184,7 +2181,7 @@
       "category": "router-place",
       "critical": false,
       "status": "FAIL",
-      "latencyMs": 5846,
+      "latencyMs": 5955,
       "infraError": "",
       "checks": [
         {
@@ -2233,13 +2230,13 @@
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "793 chars"
+          "details": "1318 chars"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 5846,
+          "latencyMs": 5955,
           "checks": [
             {
               "name": "intent",
@@ -2287,12 +2284,12 @@
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "793 chars"
+              "details": "1318 chars"
             }
           ],
           "response": {
-            "text": "Pipi gửi bạn danh sách các nhà thuốc tại Đà Nẵng: 1. **Nhà thuốc Blue Pharmacy** - Địa chỉ: Kiot 26-27, chợ Hàn, Hùng Vương, Hải Châu, Đà Nẵng 2. **DAPHARCOBLU+ PHARMACY** - Địa chỉ: 110 Trần Phú, Hải Châu, Đà Nẵng 3. **Nhà thuốc Blue Pharmacy** - Địa chỉ: 23 Nguyễn Thái Học, Hải Châu, Đà Nẵng 4. **Han Pharmacy** - Địa chỉ: 27 Nguyễn Thái Học, Hải Châu, Đà Nẵng 5. **Nhà thuốc Blu+ Pharmacy** - Địa chỉ: 112 Bạch Đằng, Hải Châu, Đà Nẵng 6. **NAVER Pharmacy** - Địa chỉ: 10 Nguyễn Thái Học, Hải Châu, Đà Nẵng 7. **SOC PHARMACY** - Địa chỉ: 127 Trần Phú, Hải Châu, Đà Nẵng 8. **Sông Hàn pharmacy** - Địa chỉ: 53 Nguyễn Thái Học, Hải Châu, Đà Nẵng 9. **Hana Pharmacy** - Địa chỉ: 149 Trần Phú, Hải Châ",
-            "traceId": "tr_70cc46e6-f1cd-4d86-a46b-5929b8357a45",
+            "text": "Pipi gửi bạn một số nhà thuốc tại Đà Nẵng nhé: 1. **Nhà thuốc Blue Pharmacy** - Địa chỉ: Kiot 26-27, chợ Hàn, Hùng Vương, Hải Châu, Đà Nẵng - Khoảng cách: Cách trung tâm khoảng 25.6m 2. **DAPHARCOBLU+ PHARMACY** - Địa chỉ: 110 Trần Phú, Hải Châu, Đà Nẵng - Khoảng cách: Cách trung tâm khoảng 55.7m 3. **Nhà thuốc Blue Pharmacy** - Địa chỉ: 한시장 스케어, 23 Nguyễn Thái Học, Hải Châu, Đà Nẵng - Khoảng cách: Cách trung tâm khoảng 73.3m 4. **Han Pharmacy** - Địa chỉ: 27 Nguyễn Thái Học, Hải Châu, Đà Nẵng - Khoảng cách: Cách trung tâm khoảng 73.6m 5. **Nhà thuốc Blu+ Pharmacy** - Địa chỉ: 112 Bạch Đằng, Hải Châu, Đà Nẵng - Khoảng cách: Cách trung tâm khoảng 79.9m 6. **NAVER Pharmacy** - Địa chỉ: 10 Nguy",
+            "traceId": "tr_adc7e11b-56f8-4b5c-9eee-20c4f0437a28",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "resolve_place",
@@ -2304,8 +2301,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "geoapify-geocoding-v1",
-                "fetchedAt": "2026-11-06T19:00:40.018Z",
-                "durationMs": 673,
+                "fetchedAt": "2026-11-06T19:18:46.192Z",
+                "durationMs": 954,
                 "error": ""
               },
               {
@@ -2313,8 +2310,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T19:00:40.691Z",
-                "durationMs": 1334,
+                "fetchedAt": "2026-11-06T19:18:47.146Z",
+                "durationMs": 1415,
                 "error": ""
               }
             ],
@@ -2366,7 +2363,7 @@
       "category": "router-place",
       "critical": false,
       "status": "FAIL",
-      "latencyMs": 8695,
+      "latencyMs": 4029,
       "infraError": "",
       "checks": [
         {
@@ -2415,13 +2412,13 @@
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "1285 chars"
+          "details": "1503 chars"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 8695,
+          "latencyMs": 4029,
           "checks": [
             {
               "name": "intent",
@@ -2469,12 +2466,12 @@
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "1285 chars"
+              "details": "1503 chars"
             }
           ],
           "response": {
-            "text": "Pipi gửi bạn danh sách các bảo tàng ở TP.HCM: 1. **Bảo tàng Tôn Đức Thắng** - Địa chỉ: 5 Tôn Đức Thắng, Sài Gòn, Hồ Chí Minh (Cách khoảng 1.17 km) - Mô tả: Nơi lưu giữ và trưng bày các tư liệu, hiện vật về cuộc đời và sự nghiệp của Chủ tịch Tôn Đức Thắng. 2. **Bến Nhà Rồng - Bảo tàng Hồ Chí Minh** - Địa chỉ: 1 Đ. Nguyễn Tất Thành, Xóm Chiếu, Hồ Chí Minh (Cách khoảng 1.23 km) - Mô tả: Di tích lịch sử quan trọng nơi Chủ tịch Hồ Chí Minh đã ra đi tìm đường cứu nước, nay trưng bày nhiều tư liệu về Người. 3. **Flyover Starry Sky Art Museum** - Địa chỉ: Tầng 4, Tòa nhà tài chính Bitexco, 2 Đ. Hải Triều, Sài Gòn, Hồ Chí Minh (Cách khoảng 1.35 km) - Mô tả: Bảo tàng nghệ thuật không gian sao trời man",
-            "traceId": "tr_d9973fa7-7256-436f-9b09-3068109090bd",
+            "text": "Chào bạn, Pipi gửi bạn danh sách các bảo tàng tại TP.HCM dựa trên dữ liệu hiện có nhé: 1. **Bảo tàng Tôn Đức Thắng** - **Địa chỉ:** 5 Tôn Đức Thắng, Sài Gòn, Hồ Chí Minh (Cách trung tâm khoảng 1.17 km) - **Mô tả:** Bảo tàng trưng bày các tư liệu, hiện vật về cuộc đời và sự nghiệp của Chủ tịch Tôn Đức Thắng. 2. **Bến Nhà Rồng - Bảo tàng Hồ Chí Minh** - **Địa chỉ:** 1 Đ. Nguyễn Tất Thành, Xóm Chiếu, Hồ Chí Minh (Cách trung tâm khoảng 1.23 km) - **Mô tả:** Nơi lưu giữ các di tích, hiện vật lịch sử gắn liền với sự kiện Chủ tịch Hồ Chí Minh ra đi tìm đường cứu nước. 3. **Flyover Starry Sky Art Museum** - **Địa chỉ:** Tầng 4, Tòa nhà tài chính Bitexco, 2 Đ. Hải Triều, Sài Gòn, Hồ Chí Minh (Cách tr",
+            "traceId": "tr_b33a7230-c532-4036-9651-428c1d132caf",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "resolve_place",
@@ -2486,8 +2483,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "geoapify-geocoding-v1",
-                "fetchedAt": "2026-11-06T19:00:50.021Z",
-                "durationMs": 1004,
+                "fetchedAt": "2026-11-06T19:18:52.130Z",
+                "durationMs": 466,
                 "error": ""
               },
               {
@@ -2495,8 +2492,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T19:00:51.025Z",
-                "durationMs": 73,
+                "fetchedAt": "2026-11-06T19:18:52.596Z",
+                "durationMs": 62,
                 "error": ""
               }
             ],
@@ -2547,8 +2544,8 @@
       "title": "Route tiếng Anh vẫn tạo chỉ đường",
       "category": "router-route",
       "critical": true,
-      "status": "FAIL",
-      "latencyMs": 2654,
+      "status": "PASS",
+      "latencyMs": 6308,
       "infraError": "",
       "checks": [
         {
@@ -2597,19 +2594,19 @@
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "96 chars"
+          "details": "705 chars"
         },
         {
           "name": "route returned",
-          "pass": false,
+          "pass": true,
           "critical": true,
-          "details": "0 routes"
+          "details": "3 routes"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 2654,
+          "latencyMs": 6308,
           "checks": [
             {
               "name": "intent",
@@ -2657,18 +2654,18 @@
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "96 chars"
+              "details": "705 chars"
             },
             {
               "name": "route returned",
-              "pass": false,
+              "pass": true,
               "critical": true,
-              "details": "0 routes"
+              "details": "3 routes"
             }
           ],
           "response": {
-            "text": "Pipi chưa có đủ vị trí để kiểm tra chính xác. Bạn bật Location hoặc nói rõ địa điểm cần tìm nhé.",
-            "traceId": "tr_2c342d99-f4e9-494f-b8dc-5b05a31625ac",
+            "text": "Chào bạn, Pipi gửi bạn thông tin di chuyển tới **Hồng Nhai Động** nhé: - **Điểm đến:** Hồng Nhai Động (洪崖洞民俗风貌区 - Quận Du Trung, Trùng Khánh). - **Phương tiện:** Đi bộ. - **Quãng đường:** Khoảng 2.82 km (tuyến đường ngắn nhất). - **Thời gian di chuyển:** Khoảng 38 phút (khoảng 2259 giây). - **Tình trạng giao thông:** Chưa xác minh được. - **Hướng dẫn chi tiết:** 1. Xuất phát từ khu vực 枣子岚垭正街, đi hướng Đông Bắc theo đường 枣子岚垭正街 rồi rẽ phải đi khoảng 15 mét. 2. Tiếp tục di chuyển qua các tuyến đường Nhân Hòa Giới (人和街), Bắc Khu Lộ (北区路) và Gia Lăng Giang Tân Giang Lộ (嘉陵江滨江路). 3. Đi tiếp vào đường mòn chân thành đoạn Đới Gia Hạng (城墙步道戴家巷段) và Lâm Giang Lộ (临江路) để đến điểm đến là Hồng Nhai ",
+            "traceId": "tr_85fec64e-7c68-410c-8745-c5a1624e83d6",
             "intent": "ROUTE_MOBILITY",
             "tools": [
               "resolve_place",
@@ -2678,28 +2675,28 @@
               {
                 "id": "tool-1",
                 "tool": "resolve_place",
-                "ok": false,
-                "source": "amap",
-                "fetchedAt": "2026-11-06T19:00:54.649Z",
-                "durationMs": 1075,
-                "error": "AMap không trả địa điểm phù hợp."
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:18:58.616Z",
+                "durationMs": 425,
+                "error": ""
               },
               {
                 "id": "tool-2",
                 "tool": "walking_route",
-                "ok": false,
-                "source": "",
-                "fetchedAt": "2026-11-06T19:00:55.724Z",
-                "durationMs": 0,
-                "error": "ROUTE_ENDPOINT_REQUIRED"
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-06T19:18:59.041Z",
+                "durationMs": 350,
+                "error": ""
               }
             ],
             "errorCode": "",
             "nearby": null,
             "weather": null,
-            "routes": 0,
+            "routes": 3,
             "hotelAreaStatus": "",
-            "place": "",
+            "place": "Hồng Nhai Động (洪崖洞民俗风貌区)",
             "curatedCount": 0,
             "missingApiNeeds": [],
             "router": {
@@ -2727,8 +2724,8 @@
       "title": "Cách đi đến landmark được hiểu là route",
       "category": "router-route",
       "critical": true,
-      "status": "FAIL",
-      "latencyMs": 2977,
+      "status": "PASS",
+      "latencyMs": 3805,
       "infraError": "",
       "checks": [
         {
@@ -2777,19 +2774,19 @@
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "96 chars"
+          "details": "717 chars"
         },
         {
           "name": "route returned",
-          "pass": false,
+          "pass": true,
           "critical": true,
-          "details": "0 routes"
+          "details": "1 routes"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 2977,
+          "latencyMs": 3805,
           "checks": [
             {
               "name": "intent",
@@ -2837,18 +2834,18 @@
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "96 chars"
+              "details": "717 chars"
             },
             {
               "name": "route returned",
-              "pass": false,
+              "pass": true,
               "critical": true,
-              "details": "0 routes"
+              "details": "1 routes"
             }
           ],
           "response": {
-            "text": "Pipi chưa có đủ vị trí để kiểm tra chính xác. Bạn bật Location hoặc nói rõ địa điểm cần tìm nhé.",
-            "traceId": "tr_b336f42f-a538-4d19-a451-1ed5cf84a5fd",
+            "text": "Chào bạn, Pipi xin gửi thông tin hướng dẫn cách di chuyển đến Lễ Đường Nhân Dân (tên tiếng Trung: 重庆市人民大礼堂, địa chỉ: Số 173 đường Nhân Dân, Quận Du Trung, Trùng Khánh) như sau: - **Phương tiện và tuyến đường:** Bạn có thể đi bộ từ khu vực lân cận theo tuyến đường AMap với quãng đường khoảng **439 mét**, thời gian di chuyển khoảng **6 phút**. - **Chi tiết hướng đi bộ:** Từ đường Zaozilanya Zhengjie (枣子岚垭正街), bạn đi về hướng Tây khoảng 296 mét, sau đó rẽ phải đi tiếp hướng Đông Bắc khoảng 143 mét là đến nơi. - **Tình trạng giao thông:** Chưa xác minh được tình trạng giao thông thời gian thực cho tuyến đường này. Nếu bạn cần hỗ trợ thêm thông tin nào khác về chuyến đi Trùng Khánh, bạn hãy nói c",
+            "traceId": "tr_3acfc0e6-89be-4e96-aa22-59667a3ac624",
             "intent": "ROUTE_MOBILITY",
             "tools": [
               "resolve_place",
@@ -2858,28 +2855,28 @@
               {
                 "id": "tool-1",
                 "tool": "resolve_place",
-                "ok": false,
-                "source": "amap",
-                "fetchedAt": "2026-11-06T19:00:57.657Z",
-                "durationMs": 954,
-                "error": "AMap không trả địa điểm phù hợp."
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:19:02.370Z",
+                "durationMs": 492,
+                "error": ""
               },
               {
                 "id": "tool-2",
                 "tool": "walking_route",
-                "ok": false,
-                "source": "",
-                "fetchedAt": "2026-11-06T19:00:58.611Z",
-                "durationMs": 0,
-                "error": "ROUTE_ENDPOINT_REQUIRED"
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-06T19:19:02.862Z",
+                "durationMs": 378,
+                "error": ""
               }
             ],
             "errorCode": "",
             "nearby": null,
             "weather": null,
-            "routes": 0,
+            "routes": 1,
             "hotelAreaStatus": "",
-            "place": "",
+            "place": "Lễ Đường Nhân Dân (重庆市人民大礼堂)",
             "curatedCount": 0,
             "missingApiNeeds": [],
             "router": {
@@ -2907,8 +2904,8 @@
       "title": "Tuyến hai điểm dùng từ tới",
       "category": "router-route",
       "critical": true,
-      "status": "FAIL",
-      "latencyMs": 2940,
+      "status": "PASS",
+      "latencyMs": 7424,
       "infraError": "",
       "checks": [
         {
@@ -2921,19 +2918,19 @@
           "name": "tools contain",
           "pass": true,
           "critical": true,
-          "details": "resolve_place → walking_route; need resolve_place, walking_route"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place, walking_route"
         },
         {
           "name": "router decision",
-          "pass": false,
+          "pass": true,
           "critical": true,
-          "details": "MODEL_ANSWER vs API_TOOLS"
+          "details": "API_TOOLS vs API_TOOLS"
         },
         {
           "name": "router intent",
-          "pass": false,
+          "pass": true,
           "critical": true,
-          "details": "TRAVEL_UTILITY vs ROUTE_MOBILITY"
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "router GPS policy",
@@ -2943,9 +2940,9 @@
         },
         {
           "name": "router agreement",
-          "pass": false,
+          "pass": true,
           "critical": true,
-          "details": "false vs true; actual API_TOOLS"
+          "details": "true vs true; actual API_TOOLS"
         },
         {
           "name": "router apply mode",
@@ -2957,19 +2954,19 @@
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "96 chars"
+          "details": "699 chars"
         },
         {
           "name": "route returned",
-          "pass": false,
+          "pass": true,
           "critical": true,
-          "details": "0 routes"
+          "details": "3 routes"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 2940,
+          "latencyMs": 7424,
           "checks": [
             {
               "name": "intent",
@@ -2981,19 +2978,19 @@
               "name": "tools contain",
               "pass": true,
               "critical": true,
-              "details": "resolve_place → walking_route; need resolve_place, walking_route"
+              "details": "resolve_place → resolve_place → walking_route; need resolve_place, walking_route"
             },
             {
               "name": "router decision",
-              "pass": false,
+              "pass": true,
               "critical": true,
-              "details": "MODEL_ANSWER vs API_TOOLS"
+              "details": "API_TOOLS vs API_TOOLS"
             },
             {
               "name": "router intent",
-              "pass": false,
+              "pass": true,
               "critical": true,
-              "details": "TRAVEL_UTILITY vs ROUTE_MOBILITY"
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
             },
             {
               "name": "router GPS policy",
@@ -3003,9 +3000,9 @@
             },
             {
               "name": "router agreement",
-              "pass": false,
+              "pass": true,
               "critical": true,
-              "details": "false vs true; actual API_TOOLS"
+              "details": "true vs true; actual API_TOOLS"
             },
             {
               "name": "router apply mode",
@@ -3017,20 +3014,21 @@
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "96 chars"
+              "details": "699 chars"
             },
             {
               "name": "route returned",
-              "pass": false,
+              "pass": true,
               "critical": true,
-              "details": "0 routes"
+              "details": "3 routes"
             }
           ],
           "response": {
-            "text": "Pipi chưa có đủ vị trí để kiểm tra chính xác. Bạn bật Location hoặc nói rõ địa điểm cần tìm nhé.",
-            "traceId": "tr_40f99f4f-2b54-4ff6-830d-209aa5228510",
+            "text": "Chào bạn, Pipi xin chia sẻ thông tin di chuyển từ ga Trùng Khánh Bắc tới Giải Phóng Bi như sau ạ: - **Phương tiện gợi ý:** Bạn có thể đi bằng phương tiện giao thông công cộng hoặc taxi/xe ô tô để di chuyển quãng đường này cho thuận tiện. - **Quãng đường và thời gian:** Theo dữ liệu tuyến đường đi bộ, khoảng cách giữa hai điểm là khoảng gần 8 km và thời gian di chuyển đi bộ mất chừng hơn 1 tiếng rưỡi (khoảng 6.270 giây). Nếu bạn di chuyển bằng xe ô tô hoặc phương tiện công cộng, thời gian sẽ nhanh hơn đáng kể. - **Tình trạng giao thông:** Chưa có dữ liệu cụ thể về tình trạng ùn tắc giao thông trên tuyến đường này. Bạn cần Pipi hỗ trợ thêm thông tin gì cho chuyến đi tới Trùng Khánh không nhé?",
+            "traceId": "tr_37dbc7ae-d446-4840-8464-959143a4280e",
             "intent": "ROUTE_MOBILITY",
             "tools": [
+              "resolve_place",
               "resolve_place",
               "walking_route"
             ],
@@ -3038,43 +3036,53 @@
               {
                 "id": "tool-1",
                 "tool": "resolve_place",
-                "ok": false,
-                "source": "amap",
-                "fetchedAt": "2026-11-06T19:01:00.952Z",
-                "durationMs": 691,
-                "error": "AMap không trả địa điểm phù hợp."
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:19:07.539Z",
+                "durationMs": 1607,
+                "error": ""
               },
               {
                 "id": "tool-2",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:19:09.146Z",
+                "durationMs": 473,
+                "error": ""
+              },
+              {
+                "id": "tool-3",
                 "tool": "walking_route",
-                "ok": false,
-                "source": "",
-                "fetchedAt": "2026-11-06T19:01:01.643Z",
-                "durationMs": 0,
-                "error": "ROUTE_ENDPOINT_REQUIRED"
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-06T19:19:09.619Z",
+                "durationMs": 377,
+                "error": ""
               }
             ],
             "errorCode": "",
             "nearby": null,
             "weather": null,
-            "routes": 0,
+            "routes": 3,
             "hotelAreaStatus": "",
-            "place": "",
+            "place": "Giải Phóng Bi (解放碑步行街)",
             "curatedCount": 0,
             "missingApiNeeds": [],
             "router": {
               "version": 1,
               "mode": "shadow",
               "applied": false,
-              "decision": "MODEL_ANSWER",
-              "intentHint": "TRAVEL_UTILITY",
-              "confidence": 0.55,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
               "requiresFreshGps": false,
               "reasonCodes": [
-                "ambiguous-existing-flow"
+                "route-language",
+                "explicit-origin"
               ],
               "actualDecision": "API_TOOLS",
-              "matched": false
+              "matched": true
             }
           }
         }
@@ -3087,7 +3095,7 @@
       "category": "router-weather",
       "critical": false,
       "status": "FAIL",
-      "latencyMs": 3065,
+      "latencyMs": 11401,
       "infraError": "",
       "checks": [
         {
@@ -3142,7 +3150,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 3065,
+          "latencyMs": 11401,
           "checks": [
             {
               "name": "intent",
@@ -3194,8 +3202,8 @@
             }
           ],
           "response": {
-            "text": "Ở Thành phố Hồ Chí Minh, hiện tại Nhiều mây, 28°C, cảm giác như 33°C. Nhìn 8 giờ tới (26–32°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở.",
-            "traceId": "tr_e893315c-6c8b-42c0-be39-15f8bb0b4309",
+            "text": "Ở Thành phố Hồ Chí Minh, hiện tại Nhiều mây, 27°C, cảm giác như 32°C. Nhìn 8 giờ tới (25–33°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở.",
+            "traceId": "tr_4eeeb85b-f53b-4342-bd7e-fccf7b201e05",
             "intent": "WEATHER_OUTDOOR",
             "tools": [
               "resolve_place",
@@ -3207,8 +3215,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "geoapify-geocoding-v1",
-                "fetchedAt": "2026-11-06T19:01:03.274Z",
-                "durationMs": 385,
+                "fetchedAt": "2026-11-06T19:19:21.893Z",
+                "durationMs": 387,
                 "error": ""
               },
               {
@@ -3216,8 +3224,8 @@
                 "tool": "weather",
                 "ok": true,
                 "source": "open-meteo-coverage-fallback",
-                "fetchedAt": "2026-11-06T19:01:03.659Z",
-                "durationMs": 1047,
+                "fetchedAt": "2026-11-06T19:19:22.280Z",
+                "durationMs": 1172,
                 "error": ""
               }
             ],
@@ -3262,7 +3270,7 @@
       "category": "router-weather",
       "critical": false,
       "status": "FAIL",
-      "latencyMs": 4670,
+      "latencyMs": 3477,
       "infraError": "",
       "checks": [
         {
@@ -3311,13 +3319,13 @@
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "237 chars"
+          "details": "234 chars"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 4670,
+          "latencyMs": 3477,
           "checks": [
             {
               "name": "intent",
@@ -3365,12 +3373,12 @@
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "237 chars"
+              "details": "234 chars"
             }
           ],
           "response": {
-            "text": "Ở Thành phố Đà Nẵng, hiện tại Mưa phùn nhẹ, 25°C, cảm giác như 31°C. Nhìn 8 giờ tới (25–28°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển.",
-            "traceId": "tr_70a2cd2d-e3e8-4913-b3be-965d55119943",
+            "text": "Ở Thành phố Đà Nẵng, hiện tại Nhiều mây, 25°C, cảm giác như 31°C. Nhìn 8 giờ tới (25–29°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển.",
+            "traceId": "tr_7d5780e6-a14b-496f-9de2-61096cfa4d62",
             "intent": "WEATHER_OUTDOOR",
             "tools": [
               "resolve_place",
@@ -3382,8 +3390,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "geoapify-geocoding-v1",
-                "fetchedAt": "2026-11-06T19:01:08.030Z",
-                "durationMs": 1113,
+                "fetchedAt": "2026-11-06T19:19:25.222Z",
+                "durationMs": 690,
                 "error": ""
               },
               {
@@ -3391,8 +3399,8 @@
                 "tool": "weather",
                 "ok": true,
                 "source": "open-meteo-coverage-fallback",
-                "fetchedAt": "2026-11-06T19:01:09.143Z",
-                "durationMs": 236,
+                "fetchedAt": "2026-11-06T19:19:25.912Z",
+                "durationMs": 1055,
                 "error": ""
               }
             ],
@@ -3404,7 +3412,7 @@
                 "lng": 108.2240242
               },
               "timezone": "Asia/Ho_Chi_Minh",
-              "condition": "Mưa phùn nhẹ"
+              "condition": "Nhiều mây"
             },
             "routes": 0,
             "hotelAreaStatus": "",
@@ -3437,7 +3445,7 @@
       "category": "router-safety",
       "critical": true,
       "status": "FAIL",
-      "latencyMs": 6113,
+      "latencyMs": 10343,
       "infraError": "",
       "checks": [
         {
@@ -3492,7 +3500,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 6113,
+          "latencyMs": 10343,
           "checks": [
             {
               "name": "intent",
@@ -3545,7 +3553,7 @@
           ],
           "response": {
             "text": "Pipi tìm được 4 địa điểm gần bạn nhất: - 1. SIAN Skincare Laser Clinic — ⭐ 4.6 (210 đánh giá) · 386 m · 27 Nguyễn Trung Trực, Bến Thành, Hồ Chí Minh 700000, Việt Nam. - 2. Phòng Khám Đa Khoa Quốc Tế DYM Việt Nam — ⭐ 3.9 (695 đánh giá) · 498 m · Tầng hầm toà, Phòng B103, Kumho Asiana Plaza, 39 Lê Duẩn, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 3. Westcoast International Dental Clinic (Norfolk Mansion) — ⭐ 4.7 (252 đánh giá) · 562 m · 17-21 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 4. NP CLINIC BEAUTY & WELLNESS SPA — ⭐ 4.9 (164 đánh giá) · 745 m · 09 Lê Thánh Tôn, Phường, Sài Gòn, Hồ Chí Minh 710000, Việt Nam. Bạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường. Pip",
-            "traceId": "tr_7fa094ca-cb5e-4e0b-985c-2d79dc7336d5",
+            "traceId": "tr_78084cff-083e-47e0-8b57-cb16e0043a38",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -3556,8 +3564,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T19:01:11.823Z",
-                "durationMs": 1859,
+                "fetchedAt": "2026-11-06T19:19:29.843Z",
+                "durationMs": 4122,
                 "error": ""
               }
             ],
@@ -3608,7 +3616,7 @@
       "category": "router-safety",
       "critical": true,
       "status": "FAIL",
-      "latencyMs": 7730,
+      "latencyMs": 9216,
       "infraError": "",
       "checks": [
         {
@@ -3663,7 +3671,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 7730,
+          "latencyMs": 9216,
           "checks": [
             {
               "name": "intent",
@@ -3716,7 +3724,7 @@
           ],
           "response": {
             "text": "Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Sao Hàn Hospital — ⭐ 5.0 (4 đánh giá) · 363 m · 68 Nguyễn Huệ, Sài Gòn, Hồ Chí Minh 70000, Việt Nam. - 2. Bệnh viện Nhi Đồng 2 — ⭐ 3.4 (2.199 đánh giá) · 456 m · 14 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh, Việt Nam. - 3. BỆNH VIỆN MẮT Á CHÂU — ⭐ 5.0 (5 đánh giá) · 479 m · 141, Tôn Thất Đạm/30 Huỳnh Thúc Kháng, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 4. Bệnh Viện Thẩm Mỹ Sài Gòn Dr. Nguyễn Xuân Cương — 479 m · Adjacent to Independence Palace, 97B Nguyễn Du, Bến Thành, Hồ Chí Minh 71006, Việt Nam. - 5. Phòng khám Nam Khoa (Andrology clinic) - Bệnh viện Nhân Dân Gia Định cơ sở 2 — 518 m · 125 Lê Lai, Bến Thành, Hồ Chí Minh, Việt Nam. Bạn bấm vào danh sác",
-            "traceId": "tr_96e38e91-945b-4750-8d59-0df702c1576b",
+            "traceId": "tr_15c62e0f-1142-48eb-ba19-56125449f5a1",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -3727,8 +3735,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T19:01:18.879Z",
-                "durationMs": 2252,
+                "fetchedAt": "2026-11-06T19:19:39.038Z",
+                "durationMs": 1885,
                 "error": ""
               }
             ],
@@ -3780,7 +3788,7 @@
       "category": "router-safety",
       "critical": true,
       "status": "FAIL",
-      "latencyMs": 3850,
+      "latencyMs": 11467,
       "infraError": "",
       "checks": [
         {
@@ -3835,7 +3843,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 3850,
+          "latencyMs": 11467,
           "checks": [
             {
               "name": "intent",
@@ -3888,7 +3896,7 @@
           ],
           "response": {
             "text": "Pipi không chẩn đoán hoặc chọn thuốc thay cho nhân viên y tế. Pipi tìm được 4 địa điểm gần bạn nhất: - 1. SIAN Skincare Laser Clinic — ⭐ 4.6 (210 đánh giá) · 386 m · 27 Nguyễn Trung Trực, Bến Thành, Hồ Chí Minh 700000, Việt Nam. - 2. Phòng Khám Đa Khoa Quốc Tế DYM Việt Nam — ⭐ 3.9 (695 đánh giá) · 498 m · Tầng hầm toà, Phòng B103, Kumho Asiana Plaza, 39 Lê Duẩn, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 3. Westcoast International Dental Clinic (Norfolk Mansion) — ⭐ 4.7 (252 đánh giá) · 562 m · 17-21 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 4. NP CLINIC BEAUTY & WELLNESS SPA — ⭐ 4.9 (164 đánh giá) · 745 m · 09 Lê Thánh Tôn, Phường, Sài Gòn, Hồ Chí Minh 710000, Việt Nam. Bạn bấm và",
-            "traceId": "tr_deffa3b7-f422-4982-94ab-fd31d1178c7c",
+            "traceId": "tr_a1aee71b-b4af-4af6-a52c-6d9bc9545866",
             "intent": "SAFETY_HEALTH",
             "tools": [
               "search_places"
@@ -3899,8 +3907,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T19:01:24.952Z",
-                "durationMs": 2121,
+                "fetchedAt": "2026-11-06T19:19:55.889Z",
+                "durationMs": 2069,
                 "error": ""
               }
             ],
@@ -3950,7 +3958,7 @@
       "category": "router-itinerary",
       "critical": false,
       "status": "FAIL",
-      "latencyMs": 2652,
+      "latencyMs": 11170,
       "infraError": "",
       "checks": [
         {
@@ -3999,13 +4007,13 @@
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "463 chars"
+          "details": "504 chars"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 2652,
+          "latencyMs": 11170,
           "checks": [
             {
               "name": "intent",
@@ -4053,12 +4061,12 @@
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "463 chars"
+              "details": "504 chars"
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi xin gửi gợi ý lịch trình tham quan Thượng Hải trong 4 ngày và các địa điểm nổi bật dựa trên dữ liệu hiện có. Hiện tại, dữ liệu hệ thống chưa có thông tin chi tiết về các địa điểm tham quan cụ thể tại Thượng Hải (dữ liệu chỉ ghi nhận quán Bếp Nhà Tuly tại TP.HCM). Pipi chưa thể lên lịch trình chi tiết từng ngày cho bạn lúc này. Bạn hãy cho Pipi biết thêm các điểm bạn muốn ghé thăm tại Thượng Hải để Pipi hỗ trợ bạn sắp xếp lịch trình phù hợp nhé!",
-            "traceId": "tr_235d57db-3fb2-4f87-a5f6-6756fcf9e42d",
+            "text": "Chào bạn, Pipi gửi bạn lịch trình khám phá Thượng Hải trong 4 ngày dựa trên các địa điểm đã được xác thực nhé: **Ngày 1:** - Pipi gợi ý bạn ghé thăm quán Bếp Nhà Tuly để thưởng thức các món ăn hấp dẫn như chân gà xào cay Hội An (lưu ý quán có giờ mở cửa khung 17:00-19:00 và 21:00-23:00, bạn nên nhắn trước với chủ quán trước khi ghé qua nhé). *(Hiện tại hệ thống dữ liệu trực tiếp của Pipi chưa có thêm các điểm tham quan khác tại Thượng Hải, Pipi sẽ cập nhật thêm cho bạn ngay khi có dữ liệu mới nhé!)*",
+            "traceId": "tr_557a9a9f-a287-4f2b-a18f-5eba680548b7",
             "intent": "ITINERARY_PLANNING",
             "tools": [
               "curated_places"
@@ -4069,8 +4077,8 @@
                 "tool": "curated_places",
                 "ok": true,
                 "source": "travelos-d1",
-                "fetchedAt": "2026-11-06T19:01:28.561Z",
-                "durationMs": 16,
+                "fetchedAt": "2026-11-06T19:20:07.478Z",
+                "durationMs": 21,
                 "error": ""
               }
             ],
@@ -4107,7 +4115,7 @@
       "category": "router-itinerary",
       "critical": false,
       "status": "PASS",
-      "latencyMs": 2459,
+      "latencyMs": 4086,
       "infraError": "",
       "checks": [
         {
@@ -4156,13 +4164,13 @@
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "418 chars"
+          "details": "495 chars"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 2459,
+          "latencyMs": 4086,
           "checks": [
             {
               "name": "intent",
@@ -4210,12 +4218,12 @@
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "418 chars"
+              "details": "495 chars"
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi gửi đến bạn thông tin lịch trình cho chuyến đi gia đình. Hiện tại, dữ liệu kiểm chứng trực tiếp cho lịch trình 3 ngày tại Đà Nẵng chưa có sẵn trong hệ thống của Pipi. Do đó, Pipi chưa thể cung cấp chi tiết các địa điểm tham quan cụ thể và phân bổ thời gian tại Đà Nẵng cho gia đình bạn lúc này. Nếu bạn muốn tìm các địa điểm cụ thể khác, bạn hãy cho Pipi biết tên địa điểm hoặc khu vực bạn quan tâm nhé!",
-            "traceId": "tr_00cc94af-d9c9-4648-92de-59c02ab94809",
+            "text": "Chào bạn, Pipi gửi bạn gợi ý lịch trình chuyến đi gia đình. Hiện tại, dữ liệu hệ thống của Pipi chưa có sẵn danh sách các địa điểm vui chơi và tham quan chi tiết cho lịch trình gia đình tại Đà Nẵng trong 3 ngày. Pipi chỉ có thông tin về quán Bếp Nhà Tuly tại TP.HCM. Vì vậy, Pipi chưa thể lên chi tiết từng ngày và thứ tự tham quan các điểm tại Đà Nẵng cho bạn lúc này. Bạn có thể cho Pipi biết thêm các địa điểm cụ thể tại Đà Nẵng mà bạn muốn ghé thăm để Pipi hỗ trợ bạn sắp xếp lịch trình nhé!",
+            "traceId": "tr_857ac4f7-c52a-4b09-8926-eb05645ece00",
             "intent": "ITINERARY_PLANNING",
             "tools": [
               "curated_places"
@@ -4226,8 +4234,8 @@
                 "tool": "curated_places",
                 "ok": true,
                 "source": "travelos-d1",
-                "fetchedAt": "2026-11-06T19:01:31.163Z",
-                "durationMs": 19,
+                "fetchedAt": "2026-11-06T19:20:10.731Z",
+                "durationMs": 17,
                 "error": ""
               }
             ],
@@ -4264,7 +4272,7 @@
       "category": "router-itinerary",
       "critical": false,
       "status": "FAIL",
-      "latencyMs": 4914,
+      "latencyMs": 4198,
       "infraError": "",
       "checks": [
         {
@@ -4313,13 +4321,13 @@
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "522 chars"
+          "details": "787 chars"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 4914,
+          "latencyMs": 4198,
           "checks": [
             {
               "name": "intent",
@@ -4367,12 +4375,12 @@
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "522 chars"
+              "details": "787 chars"
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi gửi bạn các gợi ý bảo tàng và quán cà phê tại TP.HCM dựa trên dữ liệu hiện có nhé: **1. Danh sách bảo tàng tại TP.HCM:** * Pipi chưa xác minh được danh sách bảo tàng cụ thể từ hệ thống. **2. Danh sách quán cà phê tại TP.HCM:** * Pipi chưa xác minh được danh sách quán cà phê cụ thể từ hệ thống. **3. Lịch trình một ngày kết hợp bảo tàng và cà phê:** * Hiện tại dữ liệu chưa đủ để Pipi lên lịch trình chi tiết cho bạn. Bạn có muốn tìm kiếm thêm địa điểm cụ thể nào khác ở TP.HCM không, hãy cho Pipi biết nhé!",
-            "traceId": "tr_9e5dbebc-5d09-412c-8a42-7929b19e1705",
+            "text": "Chào bạn, Pipi gửi bạn thông tin lịch trình đi bảo tàng và cà phê tại TP.HCM nhé! **1. Danh sách bảo tàng tại TP.HCM** Hiện tại dữ liệu chưa có danh sách bảo tàng cụ thể để Pipi cung cấp cho bạn. **2. Danh sách quán cà phê tại TP.HCM** Pipi ghi nhận quán ăn uống gần khu vực Quận Gò Vấp: - **Bếp Nhà Tuly** (Quận Gò Vấp): Chuyên món ăn vặt như chân gà xào cay Hội An (giá khoảng 65k - 130k). Quán có giờ mở cửa chia làm hai khung giờ (17:00-19:00 và 21:00-23:00) và bạn nên nhắn trước với chị chủ trước khi ghé qua nhé. **3. Lịch trình một ngày kết hợp** Do dữ liệu hiện tại chưa có đầy đủ thông tin về các bảo tàng và quán cà phê cụ thể, Pipi chưa thể lên một lịch trình chi tiết trọn vẹn cho bạn. K",
+            "traceId": "tr_780766d4-0321-4919-bfa6-778dd4d65d7b",
             "intent": "ITINERARY_PLANNING",
             "tools": [
               "curated_places"
@@ -4383,8 +4391,8 @@
                 "tool": "curated_places",
                 "ok": true,
                 "source": "travelos-d1",
-                "fetchedAt": "2026-11-06T19:01:35.893Z",
-                "durationMs": 17,
+                "fetchedAt": "2026-11-06T19:20:15.101Z",
+                "durationMs": 20,
                 "error": ""
               }
             ],
@@ -4422,7 +4430,7 @@
       "category": "router-guided",
       "critical": false,
       "status": "FAIL",
-      "latencyMs": 132,
+      "latencyMs": 106,
       "infraError": "",
       "checks": [
         {
@@ -4483,7 +4491,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 132,
+          "latencyMs": 106,
           "checks": [
             {
               "name": "intent",
@@ -4542,7 +4550,7 @@
           ],
           "response": {
             "text": "Chào bạn! Pipi hiện tập trung tìm địa điểm và chỉ đường cho chuyến đi. Bạn muốn đi đâu, hoặc cần tìm gì gần vị trí hiện tại?",
-            "traceId": "tr_a1573369-7c72-4852-9192-1443f8804d9a",
+            "traceId": "tr_3c20eec6-e7d3-4e90-88c2-fe9f36697aa2",
             "intent": "LOCAL_GUIDE",
             "tools": [],
             "sources": [],

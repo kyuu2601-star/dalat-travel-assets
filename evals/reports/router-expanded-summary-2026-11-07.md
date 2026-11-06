@@ -5,9 +5,9 @@
 Chưa được bật Shadow Router thành Router điều khiển thật.
 
 - Tổng số case chuyên biệt: **150**.
-- Router + deterministic planner: **73/120 đạt**, **47 lỗi**, điểm **60,8%**.
-- Production live: **17/30 đạt**, **13 lỗi**, structural **89,7%**.
-- Critical live failures: **L19, L20, L21, L24, L25, L26**.
+- Router + deterministic planner: **76/120 đạt**, **44 lỗi**, điểm **63,3%**.
+- Production live: **20/30 đạt**, **10 lỗi**, structural **93,4%**.
+- Critical live failures còn lại: **L24, L25, L26**.
 - 16 case gốc: **16/16 đạt**. Các luồng đã kiểm trước đây không bị Shadow Router làm thay đổi.
 - Infra errors: **0**.
 
@@ -21,7 +21,7 @@ Chưa được bật Shadow Router thành Router điều khiển thật.
 
 ### 2. Router thiếu cách nói phổ biến
 
-- Chưa hiểu ổn định `tới`, `đưa tôi tới`, `cách đi đến`, `route` và một số tuyến A → B.
+- Các biến thể `tới`, `cách đi đến`, `route` và tuyến A → B đã được bổ sung; một số câu route tới loại địa điểm gần nhất vẫn còn lệch giữa planner và Router.
 - Chưa hiểu `Plan chuyến đi`, `lập lịch ... một ngày` là itinerary trong mọi biến thể.
 - Chưa đưa `Hello Pipi` và một số câu văn hóa/giao tiếp vào guided chat.
 - Chưa đánh dấu GPS hiện tại cho các cách nói như `gần tôi`, `chỗ tôi`, hoặc câu cần nơi trợ giúp nhưng không nói `quanh đây`.
@@ -30,17 +30,16 @@ Chưa được bật Shadow Router thành Router điều khiển thật.
 
 - `chóng mặt` và `dị ứng` vẫn bị planner/Router xem như tìm địa điểm thường.
 - `đau đầu dữ dội` vào đúng nhánh safety ở production, nhưng Router chưa yêu cầu GPS hiện tại.
-- Nhóm safety-health offline chỉ đạt **3/15**.
+- Nhóm safety-health offline hiện đạt **2/15** và vẫn là nhóm ưu tiên sửa tiếp theo.
 
-### 4. Route Trung Quốc có lỗi ngoài Router
+### 4. Route Trung Quốc đã được sửa
 
-Ba yêu cầu đã vào đúng `ROUTE_MOBILITY` và gọi đúng `resolve_place → walking_route`, nhưng AMap không resolve được tên tiếng Việt nên trả **0 tuyến**:
-
-- Hồng Nhai Động.
-- Quảng trường Nhân Dân.
-- Giải Phóng Bi trong câu tuyến hai điểm dùng từ `tới`.
-
-Đây là lỗi resolve destination/alias trước khi gọi route, không phải lỗi điều phối model.
+- Mọi `resolve_place` tại Trung Quốc đều đi qua official alias hoặc bản dịch cấu trúc trước khi gọi AMap.
+- Map Worker thử tuần tự nhiều query variant và vẫn giữ tên gốc làm fallback.
+- Giải Phóng Bi ưu tiên `解放碑`, sau đó mới thử các biến thể dài hơn.
+- Tuyến A → B resolve riêng origin và destination, không dùng GPS thay cho origin đã nêu.
+- Case kiểm thử đã dùng đúng tên `Lễ Đường Nhân Dân` thay cho `Quảng trường Nhân Dân`.
+- Live recheck L19–L21: **3/3 PASS**, structural **100%**, không có critical failure.
 
 ## Kết quả theo nhóm offline
 
@@ -48,10 +47,10 @@ Ba yêu cầu đã vào đúng `ROUTE_MOBILITY` và gọi đúng `resolve_place 
 |---|---:|---:|---:|
 | Tìm quanh vị trí hiện tại | 11 | 15 | 73,3% |
 | Tìm ở khu vực khác | 11 | 15 | 73,3% |
-| Route từ vị trí hiện tại | 7 | 15 | 46,7% |
-| Route hai điểm | 13 | 15 | 86,7% |
+| Route từ vị trí hiện tại | 9 | 15 | 60,0% |
+| Route hai điểm | 15 | 15 | 100,0% |
 | Thời tiết | 10 | 15 | 66,7% |
-| Safety/health | 3 | 15 | 20,0% |
+| Safety/health | 2 | 15 | 13,3% |
 | Lịch trình | 10 | 15 | 66,7% |
 | Guided chat | 8 | 15 | 53,3% |
 

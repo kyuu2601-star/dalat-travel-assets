@@ -22,7 +22,7 @@ function hasGps(location) {
 }
 
 function explicitTwoPointRoute(text) {
-  return /\btu\s+.{2,80}\s+den\s+.{2,80}\b/.test(text)&&!/\b(?:vi tri hien tai|day|o day)\b/.test(text);
+  return /\btu\s+.{2,80}\s+(?:den|toi|qua)\s+.{2,80}\b/.test(text)&&!/\b(?:vi tri hien tai|day|o day)\b/.test(text);
 }
 
 function currentOriginLanguage(text) {

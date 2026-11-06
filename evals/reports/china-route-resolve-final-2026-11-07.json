@@ -1,0 +1,569 @@
+{
+  "generatedAt": "2026-11-06T19:16:56.996Z",
+  "baseUrl": "https://ai-test.kyuu2601.workers.dev",
+  "origin": "https://kyuu2601-star.github.io",
+  "timeoutMs": 60000,
+  "summary": {
+    "cases": 3,
+    "passed": 3,
+    "failed": 0,
+    "infraErrors": 0,
+    "structuralScore": 100,
+    "criticalFailures": [],
+    "p95LatencyMs": 10514,
+    "manualReviewCases": [],
+    "gate": true
+  },
+  "results": [
+    {
+      "id": "L19",
+      "title": "Route tiếng Anh vẫn tạo chỉ đường",
+      "category": "router-route",
+      "critical": true,
+      "status": "PASS",
+      "latencyMs": 10514,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "resolve_place → walking_route; need resolve_place, walking_route"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "806 chars"
+        },
+        {
+          "name": "route returned",
+          "pass": true,
+          "critical": true,
+          "details": "3 routes"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 10514,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "resolve_place → walking_route; need resolve_place, walking_route"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "806 chars"
+            },
+            {
+              "name": "route returned",
+              "pass": true,
+              "critical": true,
+              "details": "3 routes"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi gửi bạn thông tin tuyến đường đi bộ tới Hồng Nhai Động (洪崖洞民俗风貌区) tại Quận Du Trung, Trùng Khánh nhé: - **Phương tiện:** Đi bộ - **Quãng đường:** Khoảng 2,8 km - **Thời gian di chuyển dự kiến:** Khoảng 38 phút - **Điểm đến:** Hồng Nhai Động (Địa chỉ: Số 88, đường Tân Giang Gi滨江路, Quận Du Trung, Trùng Khánh) **Hướng dẫn di chuyển chi tiết:** 1. Bạn bắt đầu đi từ khu vực đường Táo Tử Lam Á Chính Nhai (枣子岚垭正街), đi về hướng Đông Bắc, sau đó rẽ phải. 2. Tiếp tục di chuyển qua các tuyến đường Nhân Hòa Giới (人和街) và Bắc Khu Lộ (北区路). 3. Đi dọc theo đường Tương Lăng Giang Tân Giang Lộ (嘉陵江滨江路), rẽ vào đường mòn chân thành Đới Gia Hạng (城墙步道戴家巷段) và đường Lâm Giang Lộ (临江路) để đến điểm",
+            "traceId": "tr_24c30abc-9ecf-4a3a-b43f-98d184f01665",
+            "intent": "ROUTE_MOBILITY",
+            "tools": [
+              "resolve_place",
+              "walking_route"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:16:39.950Z",
+                "durationMs": 942,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "walking_route",
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-06T19:16:40.892Z",
+                "durationMs": 369,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 3,
+            "hotelAreaStatus": "",
+            "place": "Hồng Nhai Động (洪崖洞民俗风貌区)",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "route-language",
+                "current-origin"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L20",
+      "title": "Cách đi đến landmark được hiểu là route",
+      "category": "router-route",
+      "critical": true,
+      "status": "PASS",
+      "latencyMs": 8204,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "resolve_place → walking_route; need resolve_place, walking_route"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "403 chars"
+        },
+        {
+          "name": "route returned",
+          "pass": true,
+          "critical": true,
+          "details": "1 routes"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 8204,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "resolve_place → walking_route; need resolve_place, walking_route"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "403 chars"
+            },
+            {
+              "name": "route returned",
+              "pass": true,
+              "critical": true,
+              "details": "1 routes"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi xin chia sẻ thông tin di chuyển đến Lễ Đường Nhân Dân (Quận Du Trung, Trùng Khánh) như sau: - **Phương tiện:** Đi bộ - **Quãng đường:** 439 mét - **Thời gian di chuyển:** Khoảng 6 phút (351 giây) - **Tình trạng giao thông:** Chưa xác minh được - **Điểm đến:** Lễ Đường Nhân Dân (重庆市人民大礼堂, Quận Du Trung, Trùng Khánh) Nếu bạn cần Pipi hỗ trợ thêm thông tin nào khác, hãy cho Pipi biết nhé!",
+            "traceId": "tr_a26ee059-1d5a-44df-9a0e-25c2e1a53917",
+            "intent": "ROUTE_MOBILITY",
+            "tools": [
+              "resolve_place",
+              "walking_route"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:16:49.453Z",
+                "durationMs": 419,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "walking_route",
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-06T19:16:49.872Z",
+                "durationMs": 398,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 1,
+            "hotelAreaStatus": "",
+            "place": "Lễ Đường Nhân Dân (重庆市人民大礼堂)",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "route-language",
+                "current-origin"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L21",
+      "title": "Tuyến hai điểm dùng từ tới",
+      "category": "router-route",
+      "critical": true,
+      "status": "PASS",
+      "latencyMs": 7861,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place, walking_route"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "268 chars"
+        },
+        {
+          "name": "route returned",
+          "pass": true,
+          "critical": true,
+          "details": "3 routes"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 7861,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "resolve_place → resolve_place → walking_route; need resolve_place, walking_route"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "268 chars"
+            },
+            {
+              "name": "route returned",
+              "pass": true,
+              "critical": true,
+              "details": "3 routes"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi xin gửi thông tin di chuyển từ Ga Trùng Khánh Bắc tới Giải Phóng Bi cho bạn nhé: - **Phương tiện:** Đi bộ - **Quãng đường:** Khoảng 7.8 km - **Thời gian di chuyển dự kiến:** Khoảng 1 giờ 45 phút - **Điểm đến:** Giải Phóng Bi (Quận Du Trung, Trùng Khánh)",
+            "traceId": "tr_971cd0c7-0c1d-42de-a356-86a11e906f5c",
+            "intent": "ROUTE_MOBILITY",
+            "tools": [
+              "resolve_place",
+              "resolve_place",
+              "walking_route"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:16:52.807Z",
+                "durationMs": 4171,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-06T19:16:56.978Z",
+                "durationMs": 548,
+                "error": ""
+              },
+              {
+                "id": "tool-3",
+                "tool": "walking_route",
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-06T19:16:57.526Z",
+                "durationMs": 389,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 3,
+            "hotelAreaStatus": "",
+            "place": "Giải Phóng Bi (解放碑步行街)",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "route-language",
+                "explicit-origin"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    }
+  ]
+}

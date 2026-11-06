@@ -21,7 +21,7 @@ const groups=[
     category:'route-current',expected:{decision:'API_TOOLS',intentHint:'ROUTE_MOBILITY',requiresFreshGps:true,planIntent:'ROUTE_MOBILITY',toolsContain:['resolve_place'],matched:true},
     messages:[
       'Chỉ đường từ vị trí hiện tại đến Dinh Độc Lập','Đi bộ đến Chợ Bến Thành như thế nào?','Dẫn đường tới Bảo tàng Chứng tích Chiến tranh','Lái xe đến sân bay Tân Sơn Nhất','Đường đi tới Hồ Xuân Hương',
-      'Từ đây đi bộ đến Nhà thờ Đức Bà','Cho tôi route tới Hồng Nhai Động','Đi xe máy đến ga Trùng Khánh Bắc','Cách đi đến Quảng trường Nhân Dân','Đưa tôi tới nhà thuốc gần nhất',
+      'Từ đây đi bộ đến Nhà thờ Đức Bà','Cho tôi route tới Hồng Nhai Động','Đi xe máy đến ga Trùng Khánh Bắc','Cách đi đến Lễ Đường Nhân Dân','Đưa tôi tới nhà thuốc gần nhất',
       'Tìm đường đến khách sạn Yitel','Đi bộ tới ga metro gần nhất','Từ chỗ tôi đến trung tâm thương mại gần nhất','Chạy xe đến Bến xe Miền Đông','Dẫn tôi tới bệnh viện gần nhất'
     ]
   },

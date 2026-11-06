@@ -153,7 +153,7 @@ export const LIVE_EVAL_CASES = [
   },
   {
     id:'L20',title:'Cách đi đến landmark được hiểu là route',category:'router-route',critical:true,
-    steps:[{body:{userMessage:'Cách đi đến Quảng trường Nhân Dân',userLocation:CHONGQING},expect:{intent:'ROUTE_MOBILITY',toolsContain:['resolve_place','walking_route'],routerDecision:'API_TOOLS',routerIntent:'ROUTE_MOBILITY',routerFreshGps:true,routerMatched:true,routerApplied:false,routesMin:1,textMinLength:25}}]
+    steps:[{body:{userMessage:'Cách đi đến Lễ Đường Nhân Dân',userLocation:CHONGQING},expect:{intent:'ROUTE_MOBILITY',toolsContain:['resolve_place','walking_route'],routerDecision:'API_TOOLS',routerIntent:'ROUTE_MOBILITY',routerFreshGps:true,routerMatched:true,routerApplied:false,routesMin:1,textMinLength:25}}]
   },
   {
     id:'L21',title:'Tuyến hai điểm dùng từ tới',category:'router-route',critical:true,

@@ -1962,7 +1962,7 @@ const TRAVEL_INTENT_IDS = [
 
 function explicitRouteRequest(userMessage) {
   const text=fold(userMessage);
-  const routeCue=/\b(?:chi duong|dan duong|tim duong|duong di|di bo|lai xe|xe may|o to|taxi|di chuyen|traffic|giao thong|ket xe|bao xa|bao lau|mat bao nhieu phut)\b/.test(text);
+  const routeCue=/\b(?:chi duong|dan duong|tim duong|duong di|cach di|route|dua (?:toi|tui|minh) (?:den|toi)|di bo|lai xe|xe may|o to|taxi|di chuyen|traffic|giao thong|ket xe|bao xa|bao lau|mat bao nhieu phut)\b/.test(text);
   const endpoints=/\btu\s+.{2,160}\s+(?:den|toi|qua)\s+.{2,160}/.test(text);
   return routeCue||endpoints;
 }
@@ -2083,6 +2083,7 @@ function normalizeV3Plan(raw) {
       name, query:clean(item?.query,300), category:clean(item?.category,80), placeName:clean(item?.placeName,200),
       address:clean(item?.address,500), placeId:clean(item?.placeId,500), radius:clamp(item?.radius,100,50000,3000),
       limit:clamp(item?.limit,1,12,6), language:clean(item?.language,20)||'vi', latitude:num(item?.latitude), longitude:num(item?.longitude),
+      originQuery:clean(item?.originQuery,300),originLatitude:num(item?.originLatitude),originLongitude:num(item?.originLongitude),routeEndpoint:['origin','destination'].includes(item?.routeEndpoint)?item.routeEndpoint:'',
       destinationLatitude:num(item?.destinationLatitude), destinationLongitude:num(item?.destinationLongitude),
       travelMode:clean(item?.travelMode,30), curatedType:['itinerary','food','attraction','general'].includes(item?.curatedType)?item.curatedType:'general'
     };
@@ -2096,7 +2097,7 @@ function normalizeV3Plan(raw) {
 }
 
 function v3Tool(name, overrides={}) {
-  return {name,query:'',category:'',placeName:'',address:'',placeId:'',radius:3000,limit:10,language:'vi',latitude:null,longitude:null,destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'general',...overrides};
+  return {name,query:'',category:'',placeName:'',address:'',placeId:'',radius:3000,limit:10,language:'vi',latitude:null,longitude:null,originQuery:'',originLatitude:null,originLongitude:null,routeEndpoint:'',destinationLatitude:null,destinationLongitude:null,travelMode:'',curatedType:'general',...overrides};
 }
 
 function placeQueryFromMessage(userMessage) {
@@ -2204,6 +2205,24 @@ function routeDestinationQuery(userMessage) {
   return /^(?:đó|đây|chỗ\s+đó|địa\s+điểm\s+đó|nơi\s+đó)$/i.test(destination)?'':destination;
 }
 
+function cleanRouteEndpoint(value) {
+  return clean(value,300)
+    .replace(/^[,:;\-\s]+|[?!.:;\-\s]+$/g,'')
+    .replace(/\s+(?:như\s+thế\s+nào|thế\s+nào|ra\s+sao|bằng\s+(?:cách|đường)\s+nào|mất\s+bao\s+lâu|bao\s+xa|bao\s+nhiêu\s+phút)$/i,'')
+    .replace(/\s+(?:giúp(?:\s+(?:tôi|tui|mình))?|nhé|nha|ạ|với)$/i,'')
+    .trim();
+}
+
+function routeEndpointsFromMessage(userMessage) {
+  const text=clean(userMessage,500).replace(/[?!.]+$/,'').trim();
+  const match=text.match(/(?:^|\s)(?:từ|tu)\s+(.+?)\s+(?:đến|tới|den|toi|qua)\s+(.+)$/i);
+  if(!match)return null;
+  const origin=cleanRouteEndpoint(match[1]).replace(/\s+(?:đi\s+bộ|di\s+bo|lái\s+xe|lai\s+xe|đi\s+xe\s+máy|di\s+xe\s+may|bằng\s+ô\s+tô|bang\s+o\s+to)$/i,'').trim(),destination=cleanRouteEndpoint(match[2]);
+  if(!origin||!destination)return null;
+  const current=/^(?:vị trí hiện tại|vi tri hien tai|đây|day|ở đây|o day|chỗ tôi|cho toi|chỗ mình|cho minh)$/i.test(origin);
+  return {origin:current?'':origin,destination};
+}
+
 function previousRouteTarget(userMessage, previousContext) {
   const nearby=previousContext?.nearby,selected=contextPlaceForQuestion(userMessage,nearby);
   if(selected)return selected;
@@ -2213,19 +2232,20 @@ function previousRouteTarget(userMessage, previousContext) {
 }
 
 function routePlanForRequest(userMessage, location, previousContext) {
-  const destination=routeDestinationQuery(userMessage),previousTarget=destination?null:previousRouteTarget(userMessage,previousContext);
+  const endpoints=routeEndpointsFromMessage(userMessage),destination=endpoints?.destination||routeDestinationQuery(userMessage),previousTarget=destination?null:previousRouteTarget(userMessage,previousContext);
   const driving=/\b(?:lai xe|xe may|o to|taxi|traffic|giao thong|ket xe)\b/.test(fold(userMessage));
   const routeTool=driving?'traffic_route':'walking_route',travelMode=driving?'DRIVE':'WALK',tools=[];
+  if(endpoints?.origin)tools.push(v3Tool('resolve_place',{query:endpoints.origin,placeName:endpoints.origin,routeEndpoint:'origin',limit:3,language:isChinaTravelContext(location,endpoints.origin)?'zh':'vi'}));
   if(destination){
     const category=inferredPlaceCategory(destination),brand=placeBrandInQuery(destination);
     const generic=Boolean(category&&!brand&&(genericPlaceQuery(destination)||/\b(?:gần\s+nhất|quanh\s+đây|gần\s+(?:tôi|tui|mình))\b/i.test(destination)));
     if(generic){
       const query=clean(destination.replace(/\s+(?:gần\s+nhất|quanh\s+đây|gần\s+(?:tôi|tui|mình))$/i,''),300)||destination;
       tools.push(v3Tool('search_places',{query,category,radius:3000,limit:5,language:nearbyLanguage(location)}));
-    }else tools.push(v3Tool('resolve_place',{query:destination,placeName:destination,limit:3,language:isChinaTravelContext(location,destination)?'zh':'vi'}));
+    }else tools.push(v3Tool('resolve_place',{query:destination,placeName:destination,routeEndpoint:'destination',limit:3,language:isChinaTravelContext(location,destination)?'zh':'vi'}));
   }
   if(destination||previousTarget){
-    tools.push(v3Tool(routeTool,{travelMode,
+    tools.push(v3Tool(routeTool,{travelMode,originQuery:endpoints?.origin||'',
       destinationLatitude:previousTarget?.lat??previousTarget?.latitude??null,
       destinationLongitude:previousTarget?.lng??previousTarget?.longitude??null,
       placeName:clean(previousTarget?.localizedName||previousTarget?.name,200)}));
@@ -2737,7 +2757,7 @@ function knownChinaNamedPlaceQueries(query, location={}) {
     else variants.push('人民大礼堂');
   }
   if(/(?:hong nhai dong|hongyadong)/.test(q))variants.push('洪崖洞民俗风貌区','洪崖洞');
-  if(/(?:giai phong bi|jiefangbei)/.test(q))variants.push('解放碑步行街','解放碑');
+  if(/(?:giai phong bi|jiefangbei)/.test(q))variants.push('解放碑','重庆解放碑','解放碑步行街');
   if(/(?:tu khi khau|ciqikou)/.test(q))variants.push('磁器口古镇','磁器口');
   if(/(?:cap treo song duong tu|yangtze river cableway)/.test(q))variants.push('长江索道');
   if(/(?:bao tang tam hiep|three gorges museum)/.test(q))variants.push('重庆中国三峡博物馆','中国三峡博物馆');
@@ -3247,7 +3267,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
   const explicitWeatherQuery=plan.travelIntent==='WEATHER_OUTDOOR'?weatherLocationQuery(userMessage):'';
   const refersToPreviousPlace=/\b(?:o do|tai do|cho do|dia diem do|noi do)\b/.test(fold(userMessage));
   /** @type {any} */
-  const state={lastPlace:priorPlace,weatherTarget:refersToPreviousPlace?priorPlace:null,nearby:null,weather:null,busyness:null,routes:null,details:null,reviewSummary:'',namedPlaceSearch:plan.tools.some(tool=>tool.name==='search_places'&&tool.placeName),curated:null,remoteSearch:null};
+  const state={lastPlace:priorPlace,routeOrigin:null,weatherTarget:refersToPreviousPlace?priorPlace:null,nearby:null,weather:null,busyness:null,routes:null,details:null,reviewSummary:'',namedPlaceSearch:plan.tools.some(tool=>tool.name==='search_places'&&tool.placeName),curated:null,remoteSearch:null};
   const gps=Number.isFinite(location.latitude)&&Number.isFinite(location.longitude)?{lat:location.latitude,lng:location.longitude}:null;
   for(let index=0;index<plan.tools.length;index++) {
     const args=plan.tools[index],startedAt=Date.now(),started=new Date(startedAt).toISOString();
@@ -3332,7 +3352,9 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
         }
       } else if(args.name==='resolve_place') {
         const query=args.query||args.placeName||args.address,center=coordFrom(args),china=isChinaTravelContext({...location,latitude:center?.lat,longitude:center?.lng},userMessage,query);
-        result=await mapTool('/place/resolve',{...chinaProviderFields(china),query,center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit,resolveMode:plan.travelIntent==='WEATHER_OUTDOOR'||(china&&plan.tools[index+1]?.name==='search_places')?'geocode':''},env);
+        const translated=china?await chinaNamedPlaceSearch(query,{...location,city:location.city||state.lastPlace?.city,area:location.area},env):null;
+        const providerQuery=translated?.providerQuery||query,queryVariants=translated?[...new Set([...(translated.queryVariants||[]),query].filter(Boolean))]:[];
+        result=await mapTool('/place/resolve',{...chinaProviderFields(china),query:providerQuery,queryVariants,originalQuery:query,translationSource:translated?.translationSource||'original',center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit,resolveMode:plan.travelIntent==='WEATHER_OUTDOOR'||(china&&plan.tools[index+1]?.name==='search_places')?'geocode':''},env);
         if(!result.ok){
           const known=knownLocationCoordinate(query);
           if(known)result={ok:true,source:'travelos-known-location',data:{provider:'travelos-known-location',source:'travelos-known-location',places:[known]}};
@@ -3341,8 +3363,9 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
           const rawPlaces=(result.data?.places||[]).map(compactPoi);
           const places=china?await localizeChinaPlaces(rawPlaces,'Trung Quốc',env,{query}):rawPlaces;
           result={ok:true,source:result.data?.source||result.data?.provider,data:{...result.data,places}};
-          if(places[0]) state.lastPlace=places[0];
-          if(places[0]) state.weatherTarget=places[0];
+          if(places[0]&&args.routeEndpoint==='origin')state.routeOrigin=places[0];
+          else if(places[0])state.lastPlace=places[0];
+          if(places[0]&&args.routeEndpoint!=='origin')state.weatherTarget=places[0];
           if(places[0]&&plan.tools[index+1]?.name==='search_places')state.remoteSearch={requestedArea:query,resolvedArea:places[0]};
         }
       } else if(args.name==='place_details') {
@@ -3370,7 +3393,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
         result=await busynessTool(args,state.details||state.lastPlace||{},env);
         if(result.ok) state.busyness=result.data;
       } else if(args.name==='walking_route'||args.name==='traffic_route') {
-        const origin=gps,destination=coordFrom({lat:args.destinationLatitude,lng:args.destinationLongitude})||coordFrom(state.lastPlace);
+        const origin=coordFrom({lat:args.originLatitude,lng:args.originLongitude})||coordFrom(state.routeOrigin)||(args.originQuery?null:gps),destination=coordFrom({lat:args.destinationLatitude,lng:args.destinationLongitude})||coordFrom(state.lastPlace);
         if(!origin||!destination) result={ok:false,error:'ROUTE_ENDPOINT_REQUIRED'};
         else {
           const china=isChinaTravelContext({...location,latitude:destination.lat,longitude:destination.lng,country:state.lastPlace?.country||location.country},userMessage,state.lastPlace?.city);

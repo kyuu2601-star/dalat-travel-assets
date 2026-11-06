@@ -608,15 +608,20 @@ function amapQueryVariants(value) {
     .replace(/Tô\s*Châu|Suzhou/gi,'苏州')
     .replace(/Vũ\s*Hán|Wuhan/gi,'武汉')
     .trim();
-  const aliases=[];
+  const aliases=[],key=fold(coreName);
+  if(/(?:hong nhai dong|hongyadong)/.test(key))aliases.push('洪崖洞民俗风貌区','洪崖洞');
+  if(/(?:giai phong bi|jiefangbei)/.test(key))aliases.push('解放碑','重庆解放碑','解放碑步行街');
+  if(/(?:tu khi khau|ciqikou)/.test(key))aliases.push('磁器口古镇','磁器口');
+  if(/(?:cap treo song duong tu|yangtze river cableway)/.test(key))aliases.push('长江索道');
+  if(/(?:bao tang tam hiep|three gorges museum)/.test(key))aliases.push('重庆中国三峡博物馆','中国三峡博物馆');
   if(/\byitel\b|和颐/iu.test(coreName))aliases.push('Yitel','和颐酒店','和颐至尚酒店');
   if(/\b(?:le duong nhan dan|people s auditorium)\b/.test(fold(coreName))||/人民大礼堂/u.test(coreName))aliases.push('重庆市人民大礼堂','重庆人民大礼堂','人民大礼堂');
-  return uniqueSearchQueries(translated,coreName,aliases,original);
+  return uniqueSearchQueries(aliases,translated,coreName,original);
 }
 
 async function amapResolve(body, env, originHeader, query, center) {
   if(!env.AMAP_WEB_KEY)return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const limit=clampInt(body?.limit,1,10,5),queryCenter=center?toAmapPoint(center):null,queries=amapQueryVariants(query);
+  const limit=clampInt(body?.limit,1,10,5),queryCenter=center?toAmapPoint(center):null,queries=uniqueSearchQueries(amapQueryVariants(query),body?.queryVariants);
   let lastError='AMap không trả địa điểm phù hợp.';
   for(const keyword of queries){
     const params=new URLSearchParams({key:env.AMAP_WEB_KEY,keywords:keyword,page_size:String(limit),page_num:'1',show_fields:'business,navi',output:'json'});
@@ -631,14 +636,18 @@ async function amapResolve(body, env, originHeader, query, center) {
 
 async function amapGeocode(body, env, originHeader, query) {
   if(!env.AMAP_WEB_KEY)return json({error:'Worker chưa có secret AMAP_WEB_KEY.',provider:'amap'},500,originHeader);
-  const resolvedQuery=amapQueryVariants(query)[0]||query,params=new URLSearchParams({key:env.AMAP_WEB_KEY,address:resolvedQuery,output:'json'}),result=await fetchJson(`${AMAP_GEOCODING_URL}?${params.toString()}`);
-  if(!result.ok||String(result.data?.status)!=='1')return json({error:clean(result.data?.info||`AMap Geocoding HTTP ${result.status}`,500),provider:'amap'},502,originHeader);
-  const places=(Array.isArray(result.data?.geocodes)?result.data.geocodes:[]).map((item,index)=>{
-    const point=parseLngLat(item?.location);if(!point)return null;
-    return {id:`amap-geocode-${index}-${point.lat.toFixed(6)},${point.lng.toFixed(6)}`,poiId:'',name:query,address:clean(item?.formatted_address||query,1000),lat:point.lat,lng:point.lng,
-      city:clean(item?.city,200),district:clean(item?.district,200),province:clean(item?.province,200),country:'Trung Quốc',provider:'amap',coordSystem:'gcj02',resultType:clean(item?.level,100)};
-  }).filter(Boolean).slice(0,clampInt(body?.limit,1,10,5));
-  return places.length?json({ok:true,source:'amap-geocoding-v3',provider:'amap',query,places,meta:{resolvedQuery}},200,originHeader):json({error:'AMap không geocode được địa danh này.',provider:'amap'},404,originHeader);
+  const queries=uniqueSearchQueries(amapQueryVariants(query),body?.queryVariants);let lastError='AMap không geocode được địa danh này.';
+  for(const resolvedQuery of queries){
+    const params=new URLSearchParams({key:env.AMAP_WEB_KEY,address:resolvedQuery,output:'json'}),result=await fetchJson(`${AMAP_GEOCODING_URL}?${params.toString()}`);
+    if(!result.ok||String(result.data?.status)!=='1'){lastError=clean(result.data?.info||`AMap Geocoding HTTP ${result.status}`,500);continue;}
+    const places=(Array.isArray(result.data?.geocodes)?result.data.geocodes:[]).map((item,index)=>{
+      const point=parseLngLat(item?.location);if(!point)return null;
+      return {id:`amap-geocode-${index}-${point.lat.toFixed(6)},${point.lng.toFixed(6)}`,poiId:'',name:query,address:clean(item?.formatted_address||query,1000),lat:point.lat,lng:point.lng,
+        city:clean(item?.city,200),district:clean(item?.district,200),province:clean(item?.province,200),country:'Trung Quốc',provider:'amap',coordSystem:'gcj02',resultType:clean(item?.level,100)};
+    }).filter(Boolean).slice(0,clampInt(body?.limit,1,10,5));
+    if(places.length)return json({ok:true,source:'amap-geocoding-v3',provider:'amap',query,places,meta:{resolvedQuery}},200,originHeader);
+  }
+  return json({error:lastError,provider:'amap'},404,originHeader);
 }
 
 async function geoapifyResolve(body, env, originHeader, query, center) {

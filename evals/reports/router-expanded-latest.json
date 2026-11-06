@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-06T18:54:18.510Z",
+  "generatedAt": "2026-11-06T19:15:29.525Z",
   "summary": {
     "cases": 120,
-    "passed": 73,
-    "failed": 47,
-    "score": 60.8,
+    "passed": 76,
+    "failed": 44,
+    "score": 63.3,
     "gate": false
   },
   "categories": [
@@ -25,16 +25,16 @@
     {
       "category": "route-current",
       "cases": 15,
-      "passed": 7,
-      "failed": 8,
-      "score": 46.7
+      "passed": 9,
+      "failed": 6,
+      "score": 60
     },
     {
       "category": "route-two-point",
       "cases": 15,
-      "passed": 13,
-      "failed": 2,
-      "score": 86.7
+      "passed": 15,
+      "failed": 0,
+      "score": 100
     },
     {
       "category": "weather",
@@ -46,9 +46,9 @@
     {
       "category": "safety-health",
       "cases": 15,
-      "passed": 3,
-      "failed": 12,
-      "score": 20
+      "passed": 2,
+      "failed": 13,
+      "score": 13.3
     },
     {
       "category": "itinerary",
@@ -2431,7 +2431,7 @@
     {
       "id": "R037",
       "category": "route-current",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Cho tôi route tới Hồng Nhai Động",
       "router": {
         "version": 1,
@@ -2449,11 +2449,10 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "VENUE_INTELLIGENCE",
+        "travelIntent": "ROUTE_MOBILITY",
         "tools": [
-          "search_places",
-          "place_details",
-          "place_busyness"
+          "resolve_place",
+          "walking_route"
         ],
         "planner": "deterministic"
       },
@@ -2475,13 +2474,13 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "VENUE_INTELLIGENCE vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "search_places → place_details → place_busyness; need resolve_place"
+          "pass": true,
+          "details": "resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -2564,8 +2563,8 @@
     {
       "id": "R039",
       "category": "route-current",
-      "status": "FAIL",
-      "message": "Cách đi đến Quảng trường Nhân Dân",
+      "status": "PASS",
+      "message": "Cách đi đến Lễ Đường Nhân Dân",
       "router": {
         "version": 1,
         "mode": "shadow",
@@ -2578,12 +2577,15 @@
           "route-language",
           "current-origin"
         ],
-        "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "actualDecision": "API_TOOLS",
+        "matched": true
       },
       "plan": {
-        "travelIntent": "LOCAL_GUIDE",
-        "tools": [],
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "walking_route"
+        ],
         "planner": "deterministic"
       },
       "checks": [
@@ -2604,18 +2606,18 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "LOCAL_GUIDE vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "none; need resolve_place"
+          "pass": true,
+          "details": "resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
         },
         {
           "name": "shadow remains disabled",
@@ -2645,9 +2647,10 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "PLACE_DISCOVERY",
+        "travelIntent": "ROUTE_MOBILITY",
         "tools": [
-          "search_places"
+          "search_places",
+          "walking_route"
         ],
         "planner": "deterministic"
       },
@@ -2669,13 +2672,13 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "planner tools",
           "pass": false,
-          "details": "search_places; need resolve_place"
+          "details": "search_places → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3043,6 +3046,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3071,7 +3075,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3109,6 +3113,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3137,7 +3142,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3175,6 +3180,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3203,7 +3209,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3241,6 +3247,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3269,7 +3276,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3307,6 +3314,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3335,7 +3343,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3373,6 +3381,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "traffic_route"
         ],
         "planner": "deterministic"
@@ -3401,7 +3410,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → traffic_route; need resolve_place"
+          "details": "resolve_place → resolve_place → traffic_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3439,6 +3448,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3467,7 +3477,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3484,25 +3494,27 @@
     {
       "id": "R053",
       "category": "route-two-point",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Từ ga Trùng Khánh Bắc tới Giải Phóng Bi",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "route-language",
+          "explicit-origin"
         ],
         "actualDecision": "API_TOOLS",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
+          "resolve_place",
           "resolve_place",
           "walking_route"
         ],
@@ -3511,13 +3523,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs API_TOOLS"
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "fresh GPS policy",
@@ -3532,12 +3544,12 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual API_TOOLS"
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
         },
         {
           "name": "shadow remains disabled",
@@ -3570,6 +3582,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3598,7 +3611,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3636,6 +3649,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3664,7 +3678,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3702,6 +3716,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3730,7 +3745,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3768,6 +3783,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3796,7 +3812,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3834,6 +3850,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "traffic_route"
         ],
         "planner": "deterministic"
@@ -3862,7 +3879,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → traffic_route; need resolve_place"
+          "details": "resolve_place → resolve_place → traffic_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3879,7 +3896,7 @@
     {
       "id": "R059",
       "category": "route-two-point",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Chỉ đường từ khách sạn đến bảo tàng",
       "router": {
         "version": 1,
@@ -3899,6 +3916,7 @@
       "plan": {
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
+          "resolve_place",
           "search_places",
           "walking_route"
         ],
@@ -3927,8 +3945,8 @@
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "search_places → walking_route; need resolve_place"
+          "pass": true,
+          "details": "resolve_place → search_places → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -3966,6 +3984,7 @@
         "travelIntent": "ROUTE_MOBILITY",
         "tools": [
           "resolve_place",
+          "resolve_place",
           "walking_route"
         ],
         "planner": "deterministic"
@@ -3994,7 +4013,7 @@
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → walking_route; need resolve_place"
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -5185,7 +5204,7 @@
     {
       "id": "R079",
       "category": "safety-health",
-      "status": "PASS",
+      "status": "FAIL",
       "message": "Tôi khó thở, đưa tôi tới bệnh viện",
       "router": {
         "version": 1,
@@ -5202,9 +5221,10 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "SAFETY_HEALTH",
+        "travelIntent": "ROUTE_MOBILITY",
         "tools": [
-          "search_places"
+          "search_places",
+          "walking_route"
         ],
         "planner": "deterministic"
       },
@@ -5226,13 +5246,13 @@
         },
         {
           "name": "planner intent",
-          "pass": true,
-          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+          "pass": false,
+          "details": "ROUTE_MOBILITY vs SAFETY_HEALTH"
         },
         {
           "name": "planner tools",
           "pass": true,
-          "details": "search_places; need search_places"
+          "details": "search_places → walking_route; need search_places"
         },
         {
           "name": "shadow agreement",
