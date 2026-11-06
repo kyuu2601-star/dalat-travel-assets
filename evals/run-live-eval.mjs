@@ -36,6 +36,8 @@ function evaluate(data,expect={},caseCritical=false){
   if(expect.sourceToolsOk)add('required sources ok',expect.sourceToolsOk.every(tool=>sources.some(source=>source.tool===tool&&source.ok===true)),JSON.stringify(sources));
   if(expect.noSuccessfulSources)add('no successful live source',!sources.some(source=>source.ok===true),JSON.stringify(sources));
   if(expect.errorCode)add('error code',errorCodeOf(data)===expect.errorCode,`${errorCodeOf(data)||'missing'} vs ${expect.errorCode}`);
+  if(expect.traceIdRequired)add('trace id present',/^tr_[a-zA-Z0-9_.:-]+$/.test(String(data?.traceId||'')),data?.traceId||'missing');
+  if(expect.sourceDurations)add('source durations present',sources.length>0&&sources.every(source=>Number.isFinite(Number(source?.durationMs))&&Number(source.durationMs)>=0),JSON.stringify(sources));
   if(expect.noNearby)add('no nearby result',!data?.travelos?.nearby,'nearby present');
   if(expect.missingApiNeed)add('missing API declared',(data?.travelos?.missingApiSuggestions||[]).some(item=>item?.need===expect.missingApiNeed),JSON.stringify(data?.travelos?.missingApiSuggestions||[]));
   if(expect.textMinLength)add('answer present',text.length>=expect.textMinLength,`${text.length} chars`);
@@ -76,7 +78,7 @@ async function requestStep(body){
 function summarizeResponse(data){
   const nearby=data?.travelos?.nearby,weather=data?.travelos?.weather;
   return {
-    text:clean(data?.text).slice(0,700),intent:data?.travelos?.travelIntent||'',tools:toolsOf(data),sources:sourcesOf(data),errorCode:errorCodeOf(data),
+    text:clean(data?.text).slice(0,700),traceId:data?.traceId||'',intent:data?.travelos?.travelIntent||'',tools:toolsOf(data),sources:sourcesOf(data),errorCode:errorCodeOf(data),
     nearby:nearby?{provider:nearby.provider||'',center:point(nearby.center),count:(nearby.pois||[]).length,names:(nearby.pois||[]).slice(0,5).map(item=>item.localizedName||item.name)}:null,
     weather:weather?{coordinates:point(weather.coordinates),timezone:weather.timezone||'',condition:weather.current?.condition||''}:null,
     routes:(data?.travelos?.routes||[]).length,hotelAreaStatus:data?.travelos?.hotelArea?.status||'',place:data?.travelos?.placeDetails?.localizedName||data?.travelos?.placeDetails?.name||'',

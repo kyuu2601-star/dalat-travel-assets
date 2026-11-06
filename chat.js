@@ -155,7 +155,7 @@ function updateStoredMessageFeedback(sessionId, messageId, feedback) {
     const session = store.sessions.find(item => item.id === sessionId);
     const message = session?.messages.find(item => item.id === messageId);
     if (!message) return;
-    message.feedback = feedback;
+    message.feedback = { ...feedback, ...(message.traceId ? { traceId:message.traceId } : {}) };
     session.updatedAt = Date.now();
     writeSessionStore(store);
 }
@@ -583,7 +583,8 @@ async function handleChat(presetText = '') {
         const travelContext = mergeChatTopicContext(compactTravelContext(data?.travelos), conversationContext, text);
         const savedMessage = saveMessage('ai', aiMsg, {
             ...(nearby ? { nearby } : {}),
-            ...(travelContext ? { travelContext } : {})
+            ...(travelContext ? { travelContext } : {}),
+            ...(data?.traceId ? { traceId:data.traceId } : {})
         }, requestSessionId);
         if (messageElement && activeChatSessionId === requestSessionId) {
             messageElement.innerHTML = renderMarkdownSafe(aiMsg);
@@ -834,6 +835,7 @@ function saveMessage(role, content, extras = {}, sessionId = activeChatSessionId
         content,
         ...(extras.nearby ? { nearby:compactNearbySnapshot(extras.nearby) } : {}),
         ...(extras.travelContext ? { travelContext:compactTravelContext(extras.travelContext) } : {}),
+        ...(extras.traceId ? { traceId:String(extras.traceId).slice(0,120) } : {}),
         ...(extras.feedback ? { feedback:extras.feedback } : {})
     };
     session.messages.push(savedMessage);

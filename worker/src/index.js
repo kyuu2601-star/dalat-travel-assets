@@ -8,6 +8,8 @@ import { loadFoodKnowledge, starterKnowledge } from './bot/food-knowledge.js';
 import foodQueryPrompt from './bot/prompts/food-query.js';
 import { HOTEL_AREA_PROMPT, HOTEL_AREA_CHOICE_SCHEMA, parseHotelAreaRequest, hotelConfirmation } from './bot/hotel-area-discovery.js';
 import { parseNamedAreaRequest, namedAreaMatchScore } from './bot/named-area-discovery.js';
+import { inspectTravelRequest, neutralizeUntrustedText, sanitizeConversationHistory, sanitizeUntrustedData, validateGroundedAnswer } from './bot/guardrails.js';
+import { beginTravelTrace, completeTravelTrace, travelTraceId, updateTravelTrace } from './bot/monitoring.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_STABLE_MODEL = 'gemini-3.1-flash-lite';
@@ -28,6 +30,13 @@ const LEGACY_LOCATION_MAP = {
   'trung khanh': { country: 'Trung Quốc', city: 'Trùng Khánh', area: '' },
   'vu long': { country: 'Trung Quốc', city: 'Trùng Khánh', area: 'Vũ Long' },
   'ngoai o xa': { country: 'Việt Nam', city: 'Đà Lạt', area: 'Ngoại Ô Xa' }
+};
+
+const KNOWN_LOCATION_COORDINATES = {
+  'da lat':{id:'known:da-lat',name:'Đà Lạt',city:'Đà Lạt',country:'Việt Nam',lat:11.9404,lng:108.4583,provider:'travelos-known-location',coordSystem:'wgs84'},
+  'tp hcm':{id:'known:tp-hcm',name:'TP.HCM',city:'TP.HCM',country:'Việt Nam',lat:10.7769,lng:106.7009,provider:'travelos-known-location',coordSystem:'wgs84'},
+  'ho chi minh':{id:'known:tp-hcm',name:'TP.HCM',city:'TP.HCM',country:'Việt Nam',lat:10.7769,lng:106.7009,provider:'travelos-known-location',coordSystem:'wgs84'},
+  'trung khanh':{id:'known:chongqing',name:'Trùng Khánh',city:'Trùng Khánh',country:'Trung Quốc',lat:29.563,lng:106.5516,provider:'travelos-known-location',coordSystem:'gcj02'}
 };
 
 const STOP_WORDS = new Set([
@@ -63,6 +72,11 @@ const fold = v => clean(v)
 
 const normOrigin = v => clean(v, 500).replace(/\/$/, '');
 
+function knownLocationCoordinate(value) {
+  const key=fold(value).replace(/\b(?:hom nay|ngay mai|bay gio|hien tai)\b/g,'').trim();
+  return KNOWN_LOCATION_COORDINATES[key]?{...KNOWN_LOCATION_COORDINATES[key]}:null;
+}
+
 function allowedOrigins(env) {
   return new Set(clean(env.ALLOWED_ORIGINS || 'https://kyuu2601-star.github.io', 5000).split(',').map(normOrigin).filter(Boolean));
 }
@@ -85,9 +99,12 @@ function cors(request, env) {
 }
 
 function json(data, status, request, env) {
-  return new Response(JSON.stringify(data), {
+  const traceId=travelTraceId(request);
+  const payload=traceId&&data&&typeof data==='object'&&!Array.isArray(data)?{...data,traceId}:data;
+  if(traceId)completeTravelTrace(request,payload,status);
+  return new Response(JSON.stringify(payload), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...cors(request, env) }
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...(traceId?{'X-Trace-Id':traceId}:{}), ...cors(request, env) }
   });
 }
 
@@ -3041,6 +3058,21 @@ function deterministicSafetyAnswer(state) {
   return `Pipi không chẩn đoán hoặc chọn thuốc thay cho nhân viên y tế. ${list}`;
 }
 
+function deterministicItineraryAnswer(state) {
+  const places=Array.isArray(state?.curated?.places)?state.curated.places:[];
+  const selected=[],seen=new Set();
+  for(const place of places){
+    const name=clean(place?.name,200),key=fold(name);
+    if(!name||seen.has(key))continue;
+    seen.add(key);selected.push(name);
+    if(selected.length>=4)break;
+  }
+  if(!selected.length)return'';
+  const slots=['Buổi sáng 08:30','Buổi trưa 11:30','Buổi chiều 14:30','Buổi tối 18:30'];
+  const lines=selected.map((name,index)=>`${slots[index]} — ${name}.`).join('\n');
+  return `Lịch trình gợi ý từ các điểm Let's Go Pipi đã có:\n${lines}\nĐây là khung tham khảo; Pipi chưa xác minh tuyến đường và giờ mở cửa cho từng điểm.`;
+}
+
 function deterministicGroundedAnswer(plan,state,userMessage) {
   if(plan?.travelIntent==='ROUTE_MOBILITY'){
     const route=deterministicRouteAnswer(state,plan);
@@ -3049,6 +3081,10 @@ function deterministicGroundedAnswer(plan,state,userMessage) {
   if(plan?.travelIntent==='SAFETY_HEALTH'){
     const safety=deterministicSafetyAnswer(state);
     if(safety)return safety;
+  }
+  if(plan?.travelIntent==='ITINERARY_PLANNING'){
+    const itinerary=deterministicItineraryAnswer(state);
+    if(itinerary)return itinerary;
   }
   if(state?.nearby)return deterministicNearbyText(state.nearby,state.remoteSearch?.requestedArea);
   const evidence=deterministicEvidenceAnswer(state);
@@ -3213,7 +3249,7 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
   const state={lastPlace:priorPlace,weatherTarget:refersToPreviousPlace?priorPlace:null,nearby:null,weather:null,busyness:null,routes:null,details:null,reviewSummary:'',namedPlaceSearch:plan.tools.some(tool=>tool.name==='search_places'&&tool.placeName),curated:null,remoteSearch:null};
   const gps=Number.isFinite(location.latitude)&&Number.isFinite(location.longitude)?{lat:location.latitude,lng:location.longitude}:null;
   for(let index=0;index<plan.tools.length;index++) {
-    const args=plan.tools[index],started=new Date().toISOString();
+    const args=plan.tools[index],startedAt=Date.now(),started=new Date(startedAt).toISOString();
     /** @type {{ok:boolean,error?:string,code?:string,provider?:string,source?:string,data?:any}} */
     let result={ok:false,error:'UNKNOWN_TOOL'};
     try {
@@ -3296,6 +3332,10 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
       } else if(args.name==='resolve_place') {
         const query=args.query||args.placeName||args.address,center=coordFrom(args),china=isChinaTravelContext({...location,latitude:center?.lat,longitude:center?.lng},userMessage,query);
         result=await mapTool('/place/resolve',{...chinaProviderFields(china),query,center,country:china?'Trung Quốc':location.country,language:china?'zh':args.language,limit:args.limit,resolveMode:plan.travelIntent==='WEATHER_OUTDOOR'||(china&&plan.tools[index+1]?.name==='search_places')?'geocode':''},env);
+        if(!result.ok){
+          const known=knownLocationCoordinate(query);
+          if(known)result={ok:true,source:'travelos-known-location',data:{provider:'travelos-known-location',source:'travelos-known-location',places:[known]}};
+        }
         if(result.ok) {
           const rawPlaces=(result.data?.places||[]).map(compactPoi);
           const places=china?await localizeChinaPlaces(rawPlaces,'Trung Quốc',env,{query}):rawPlaces;
@@ -3348,17 +3388,17 @@ async function executeV3Tools(plan, userMessage, location, previousContext, env,
         state.curated=result.data;
       }
     } catch(error) { result={ok:false,error:errorText(error,'Tool failed',1000)}; }
-    evidence.push({id:`tool-${index+1}`,tool:args.name,requested:args,ok:result.ok===true,source:clean(result.source||result.provider,100),fetchedAt:started,error:result.ok?'':clean(result.error,1000),data:result.ok?result.data:null});
+    evidence.push({id:`tool-${index+1}`,tool:args.name,requested:args,ok:result.ok===true,source:clean(result.source||result.provider,100),fetchedAt:started,durationMs:Date.now()-startedAt,error:result.ok?'':clean(result.error,1000),data:result.ok?result.data:null});
   }
   return {evidence,state};
 }
 
 function evidenceForModel(evidence) {
-  return evidence.map(item=>({id:item.id,tool:item.tool,ok:item.ok,source:item.source,fetchedAt:item.fetchedAt,error:item.error,data:item.data}));
+  return evidence.map(item=>({id:item.id,tool:item.tool,ok:item.ok,source:item.source,fetchedAt:item.fetchedAt,durationMs:item.durationMs,error:item.error,data:sanitizeUntrustedData(item.data)}));
 }
 
 function v3Sources(evidence) {
-  return evidence.map(item=>({id:item.id,tool:item.tool,ok:item.ok,source:item.source,fetchedAt:item.fetchedAt,error:item.error}));
+  return evidence.map(item=>({id:item.id,tool:item.tool,ok:item.ok,source:item.source,fetchedAt:item.fetchedAt,durationMs:item.durationMs,error:item.error}));
 }
 
 async function synthesizeV3(userMessage, history, location, plan, evidence, previousContext, env) {
@@ -3719,15 +3759,20 @@ async function handleConversationTitle(request,env) {
 }
 
 async function handleAiV3(request, env) {
+  beginTravelTrace(request,{logging:env.TRAVELOS_TRACE_LOGGING==='true'});
   if(!(await rateLimit(request,env))) return json({text:"⚠️ Let's Go Pipi đang nhận quá nhiều yêu cầu. Bạn thử lại sau khoảng 1 phút nhé.",error:{message:'Rate limit exceeded'}},200,request,env);
   let body; try{body=await request.json();}catch{return json({error:'Invalid JSON body'},400,request,env);}
-  const userMessage=clean(body?.userMessage,10000);
-  if(!userMessage) return json({error:'userMessage is required'},400,request,env);
+  const inspection=inspectTravelRequest(body?.userMessage);
+  if(!inspection.allowed){
+    updateTravelTrace(request,{fallback:'guardrail',guardrail:inspection.code});
+    return json({text:inspection.message,error:{code:inspection.code},travelos:{version:3,travelIntent:'LOCAL_GUIDE',sources:[]}},200,request,env);
+  }
+  const userMessage=inspection.value;
   const unsupportedKind=explicitlyUnsupportedTravelQuestion(userMessage);
   if(unsupportedKind)return json(unsupportedTravelResponse(unsupportedKind),200,request,env);
-  const history=Array.isArray(body?.chatHistory)?body.chatHistory.slice(-8):[];
-  const priorContext=compactConversationContext(body?.conversationContext);
-  const summary=clean(body?.conversationSummary,1700);
+  const history=sanitizeConversationHistory(body?.chatHistory);
+  const priorContext=sanitizeUntrustedData(compactConversationContext(body?.conversationContext));
+  const summary=neutralizeUntrustedText(body?.conversationSummary,1700);
   const previousContext=summary?{...(priorContext||{}),summary}:priorContext;
   const listFollowup=listFollowupResponse(userMessage,previousContext);
   if(listFollowup)return json(listFollowup,200,request,env);
@@ -3762,7 +3807,9 @@ async function handleAiV3(request, env) {
   }
   try {
     const foodKnowledge=await loadFoodKnowledge(env);
+    const plannerStarted=Date.now();
     const plan=await planRequestV3(userMessage,history,location,previousContext,env,foodKnowledge);
+    updateTravelTrace(request,{intent:plan.travelIntent,planner:plan.planner,timings:{plannerMs:Date.now()-plannerStarted},fallback:String(plan.planner||'').includes('fallback')?'planner-fallback':''});
     if(plan.scopeRedirect||(plan.travelIntent==='LOCAL_GUIDE'&&!plan.tools.length)){
       const text=navigationScopeAnswer(userMessage);
       return json({text,travelos:{version:3,travelIntent:'LOCAL_GUIDE',plan,sources:[]}},200,request,env);
@@ -3782,7 +3829,10 @@ async function handleAiV3(request, env) {
         return json(refresh,200,request,env);
       }
     }
+    const toolsStarted=Date.now();
     const {evidence,state}=await executeV3Tools(plan,userMessage,location,previousContext,env,foodKnowledge);
+    updateTravelTrace(request,{timings:{toolsMs:Date.now()-toolsStarted}});
+    const answerStarted=Date.now();
     const requestedLive=plan.tools.length>0;
     const successful=evidence.filter(item=>item.ok);
     let text;
@@ -3813,6 +3863,7 @@ async function handleAiV3(request, env) {
     } else {
       try { text=await synthesizeV3(userMessage,history,location,plan,evidence,previousContext,env); }
       catch(error) {
+        updateTravelTrace(request,{fallback:'deterministic-answer'});
         if(state.weather){
           const target=state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại';
           text=deterministicWeatherAdvice(state.weather,target);
@@ -3824,8 +3875,15 @@ async function handleAiV3(request, env) {
     }
     if(!text&&state.nearby) text=deterministicNearbyText(state.nearby);
     if(!text&&state.weather) text=deterministicWeatherAdvice(state.weather,state.weatherTarget?.localizedName||state.weatherTarget?.name||'vị trí hiện tại');
+    const grounding=validateGroundedAnswer(text,evidence);
+    if(!grounding.ok){
+      updateTravelTrace(request,{fallback:`grounding:${grounding.reasons.join(',')}`});
+      text=deterministicGroundedAnswer(plan,state,userMessage)||navigationScopeAnswer(userMessage);
+    }
+    updateTravelTrace(request,{timings:{answerMs:Date.now()-answerStarted}});
     return json({text:normalizePipiVoice(text||deterministicGroundedAnswer(plan,state,userMessage)||navigationScopeAnswer(userMessage)),travelos:{version:3,travelIntent:plan.travelIntent,plan,sources:v3Sources(evidence),nearby:state.nearby||undefined,remoteSearch:state.remoteSearch||undefined,weather:state.weather||undefined,busyness:state.busyness||undefined,reviewSummary:state.reviewSummary||undefined,routes:state.routes||undefined,placeDetails:state.details||state.lastPlace||undefined,curated:state.curated||undefined,missingApiSuggestions:missingApiSuggestions(plan.unsupportedNeeds)}},200,request,env);
   } catch(error) {
+    updateTravelTrace(request,{fallback:'request-error'});
     console.error('AI V3 ERROR:',error);
     return json({text:'Pipi đang hơi quá tải nên chưa trả lời trọn vẹn được. Bạn thử gửi lại câu hỏi sau vài giây nhé.',error:{code:'AI_TEMPORARILY_UNAVAILABLE'},travelos:{version:3}},200,request,env);
   }

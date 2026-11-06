@@ -10,7 +10,7 @@
     "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
     "snapshot": "node scripts/fetch-data-snapshot.mjs",
-    "test": "node --test tests/v3-flow.test.mjs tests/mobile-data.test.mjs tests/voice-quality.test.mjs tests/voice-mode-flow.test.mjs tests/voice-translate.test.mjs tests/voice-translation-history.test.mjs tests/food-discovery.test.mjs tests/hotel-area-discovery.test.mjs tests/named-area-discovery.test.mjs",
+    "test": "node --test tests/guardrails.test.mjs tests/v3-flow.test.mjs tests/mobile-data.test.mjs tests/voice-quality.test.mjs tests/voice-mode-flow.test.mjs tests/voice-translate.test.mjs tests/voice-translation-history.test.mjs tests/food-discovery.test.mjs tests/hotel-area-discovery.test.mjs tests/named-area-discovery.test.mjs",
     "eval:offline": "npm test",
     "eval:live": "node evals/run-live-eval.mjs",
     "eval:baseline": "npm run eval:offline && npm run eval:live"

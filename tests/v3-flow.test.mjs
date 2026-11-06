@@ -900,7 +900,7 @@ test('Pipi consistently self-identifies by name and calls the user bạn', async
   assert.doesNotMatch(worker,/Fen thử|Fen cho|Tui chưa/);
   assert.match(index,/<title>Let's Go Pipi<\/title>/);
   assert.match(index,/class="brand-pipi-shadow" aria-hidden="true">PIPI<\/span><span class="brand-pipi-text">PIPI<\/span>/);
-  assert.match(index,/chat\.js\?v=20261106-3/);
+  assert.match(index,/chat\.js\?v=20261106-4/);
   assert.match(style,/font-family: "Lilita One"/);
   assert.match(style,/font-size: 1\.16em/);
   assert.match(style,/margin-left: 3px/);
@@ -1298,6 +1298,24 @@ test('AI v3 resolves remote weather instead of searching for a POI named weather
   assert.deepEqual(data.travelos.plan.tools.map(tool=>tool.name),['resolve_place','weather']);
   assert.equal(data.travelos.weather.coordinates.lat,29.563);
   assert.match(data.text,/Trùng Khánh/);
+});
+
+test('AI v3 uses a known city center for weather when geocoding is temporarily unavailable', async () => {
+  const {default:worker}=await importWorker('../worker/src/index.js');
+  let weatherBody;
+  const env={ALLOWED_ORIGINS:'https://kyuu2601-star.github.io',MAP_WORKER:{fetch:async request=>{
+    const path=new URL(request.url).pathname;
+    if(path==='/place/resolve')return new Response(JSON.stringify({error:'GEOCODER_TEMPORARILY_UNAVAILABLE'}),{status:503,headers:{'Content-Type':'application/json'}});
+    assert.equal(path,'/weather/current');weatherBody=await request.json();
+    return new Response(JSON.stringify({ok:true,source:'google-weather-v1',provider:'google_weather',weather:{coordinates:{lat:11.9404,lng:108.4583},timezone:'Asia/Ho_Chi_Minh',current:{time:'2026-11-06T10:00:00Z',temperature:18,apparentTemperature:18,precipitation:0,weatherCode:'MOSTLY_CLOUDY',condition:'Nhiều mây',windSpeed:7},hourly:{time:['2026-11-06T10:00:00Z'],temperature:[18],precipitationProbability:[20],precipitation:[0],weatherCode:['MOSTLY_CLOUDY'],windSpeed:[7]}}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}};
+  const response=await worker.fetch(new Request('https://ai.test/ai-v3',{method:'POST',headers:{Origin:'https://kyuu2601-star.github.io','Content-Type':'application/json'},body:JSON.stringify({userMessage:'Thời tiết ở Đà Lạt hôm nay có tiện đi chơi không?',userLocation:{country:'Việt Nam',city:'TP.HCM',latitude:10.77,longitude:106.69}})}),env);
+  const data=await response.json();
+  assert.equal(weatherBody.location.lat,11.9404);
+  assert.equal(weatherBody.location.lng,108.4583);
+  assert.equal(data.travelos.sources.find(source=>source.tool==='resolve_place').source,'travelos-known-location');
+  assert.equal(data.travelos.sources.find(source=>source.tool==='weather').ok,true);
+  assert.match(data.text,/Đà Lạt/);
 });
 
 test('AI v3 ignores stale TP.HCM chat prose after resolving live weather for Đà Lạt', async () => {

@@ -40,6 +40,8 @@ Report mới nhất được ghi vào `evals/reports/live-latest.md` và `evals/
 - GPS dùng làm tâm tìm kiếm, điểm xuất phát hoặc vị trí thời tiết phải mới không quá 120 giây và có sai số không quá 200 m; client chỉ tự refresh/retry một lần.
 - Khi model lỗi nhưng API đã có evidence, câu trả lời phải fallback deterministic thay vì `AI_TEMPORARILY_UNAVAILABLE`.
 - Local Guide nằm ngoài scope release hiện tại; câu hỏi văn hóa/trò chuyện phiếm chỉ được hướng về tìm địa điểm hoặc chỉ đường và không gọi map thừa.
+- Prompt injection phải bị chặn trước planner/tool; lịch sử, review và dữ liệu provider không được phép thay đổi policy hệ thống.
+- Mỗi phản hồi `/ai-v3` phải có `traceId`; source của tool phải có thời gian chạy để đối chiếu latency mà không ghi câu hỏi hoặc GPS vào log.
 - Infra error được tách riêng khỏi quality failure.
 - Các tiêu chí ngữ nghĩa trong `manualRubric` phải được người kiểm tra xác nhận trước chuyến đi; vòng đầu chưa dùng LLM-as-judge để tránh tốn tiền và kết quả thiếu ổn định.
 
