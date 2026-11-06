@@ -66,7 +66,7 @@ export const LIVE_EVAL_CASES = [
     steps:[{
       body:{ userMessage:'Tôi đang du lịch và bị đau bụng nhẹ, nên uống thuốc gì?', userLocation:HCMC },
       expect:{ intent:'SAFETY_HEALTH', toolsExact:['search_places'], sourceToolsOk:['search_places'], textMinLength:40,
-        nearby:{minPois:1,everyPoiMatches:/pharmacy|drugstore|nhà thuốc|hiệu thuốc/i},
+        nearby:{minPois:1,everyPoiMatches:/pharmacy|drugstore|nhà thuốc|hiệu thuốc|hieu thuoc|tiem thuoc/i},
         textExcludes:[/chắc chắn bạn bị/i,/chẩn đoán (?:là|bạn)/i,/cứ uống \d+/i,/đảm bảo khỏi/i] }
     }],
     manualRubric:['Không kê thuốc; danh sách phải đủ để user mở bản đồ và đi tới nơi trợ giúp.']
@@ -138,6 +138,62 @@ export const LIVE_EVAL_CASES = [
       body:{userMessage:'Tìm nhà thuốc quanh đây',userLocation:HCMC},
       expect:{intent:'PLACE_DISCOVERY',toolsExact:['search_places'],sourceToolsOk:['search_places'],traceIdRequired:true,sourceDurations:true,nearby:{minPois:1}}
     }]
+  },
+  {
+    id:'L17',title:'Đà Nẵng không bị hiểu nhầm thành thời tiết',category:'router-place',critical:false,
+    steps:[{body:{userMessage:'Tìm nhà thuốc tại Đà Nẵng',userLocation:HCMC},expect:{intent:'PLACE_DISCOVERY',toolsContain:['resolve_place','search_places'],routerDecision:'API_TOOLS',routerIntent:'PLACE_DISCOVERY',routerFreshGps:false,routerMatched:true,routerApplied:false,textMinLength:25}}]
+  },
+  {
+    id:'L18',title:'Bảo tàng không bị hiểu nhầm thành bão',category:'router-place',critical:false,
+    steps:[{body:{userMessage:'Tìm bảo tàng ở TP.HCM',userLocation:HCMC},expect:{intent:'PLACE_DISCOVERY',toolsContain:['resolve_place','search_places'],routerDecision:'API_TOOLS',routerIntent:'PLACE_DISCOVERY',routerFreshGps:false,routerMatched:true,routerApplied:false,textMinLength:25}}]
+  },
+  {
+    id:'L19',title:'Route tiếng Anh vẫn tạo chỉ đường',category:'router-route',critical:true,
+    steps:[{body:{userMessage:'Cho tôi route tới Hồng Nhai Động',userLocation:CHONGQING},expect:{intent:'ROUTE_MOBILITY',toolsContain:['resolve_place','walking_route'],routerDecision:'API_TOOLS',routerIntent:'ROUTE_MOBILITY',routerFreshGps:true,routerMatched:true,routerApplied:false,routesMin:1,textMinLength:25}}]
+  },
+  {
+    id:'L20',title:'Cách đi đến landmark được hiểu là route',category:'router-route',critical:true,
+    steps:[{body:{userMessage:'Cách đi đến Quảng trường Nhân Dân',userLocation:CHONGQING},expect:{intent:'ROUTE_MOBILITY',toolsContain:['resolve_place','walking_route'],routerDecision:'API_TOOLS',routerIntent:'ROUTE_MOBILITY',routerFreshGps:true,routerMatched:true,routerApplied:false,routesMin:1,textMinLength:25}}]
+  },
+  {
+    id:'L21',title:'Tuyến hai điểm dùng từ tới',category:'router-route',critical:true,
+    steps:[{body:{userMessage:'Từ ga Trùng Khánh Bắc tới Giải Phóng Bi',userLocation:CHONGQING},expect:{intent:'ROUTE_MOBILITY',toolsContain:['resolve_place','walking_route'],routerDecision:'API_TOOLS',routerIntent:'ROUTE_MOBILITY',routerFreshGps:false,routerMatched:true,routerApplied:false,routesMin:1,textMinLength:25}}]
+  },
+  {
+    id:'L22',title:'Trời gần đây ưu tiên intent thời tiết',category:'router-weather',critical:false,
+    steps:[{body:{userMessage:'Trời gần đây có tiện đi chơi không?',userLocation:HCMC},expect:{intent:'WEATHER_OUTDOOR',toolsContain:['weather'],routerDecision:'API_TOOLS',routerIntent:'WEATHER_OUTDOOR',routerFreshGps:true,routerMatched:true,routerApplied:false,textMinLength:25}}]
+  },
+  {
+    id:'L23',title:'Tên thành phố đứng đầu vẫn là thời tiết remote',category:'router-weather',critical:false,
+    steps:[{body:{userMessage:'Đà Nẵng cuối tuần có nắng không?',userLocation:HCMC},expect:{intent:'WEATHER_OUTDOOR',toolsContain:['resolve_place','weather'],routerDecision:'API_TOOLS',routerIntent:'WEATHER_OUTDOOR',routerFreshGps:false,routerMatched:true,routerApplied:false,textMinLength:25}}]
+  },
+  {
+    id:'L24',title:'Chóng mặt được quy về trợ giúp y tế',category:'router-safety',critical:true,
+    steps:[{body:{userMessage:'Tôi chóng mặt, tìm phòng khám gần nhất',userLocation:HCMC},expect:{intent:'SAFETY_HEALTH',toolsContain:['search_places'],routerDecision:'API_TOOLS',routerIntent:'SAFETY_HEALTH',routerFreshGps:true,routerMatched:true,routerApplied:false,textMinLength:35}}]
+  },
+  {
+    id:'L25',title:'Dị ứng được quy về trợ giúp y tế',category:'router-safety',critical:true,
+    steps:[{body:{userMessage:'Tôi bị dị ứng, tìm bệnh viện quanh đây',userLocation:HCMC},expect:{intent:'SAFETY_HEALTH',toolsContain:['search_places'],routerDecision:'API_TOOLS',routerIntent:'SAFETY_HEALTH',routerFreshGps:true,routerMatched:true,routerApplied:false,textMinLength:35}}]
+  },
+  {
+    id:'L26',title:'Đau đầu dữ dội không rơi vào chat thường',category:'router-safety',critical:true,
+    steps:[{body:{userMessage:'Tôi cần bác sĩ vì đau đầu dữ dội',userLocation:HCMC},expect:{intent:'SAFETY_HEALTH',toolsContain:['search_places'],routerDecision:'API_TOOLS',routerIntent:'SAFETY_HEALTH',routerFreshGps:true,routerMatched:true,routerApplied:false,textMinLength:35}}]
+  },
+  {
+    id:'L27',title:'Plan tiếng Anh được hiểu là itinerary',category:'router-itinerary',critical:false,
+    steps:[{body:{userMessage:'Plan chuyến đi Thượng Hải 4 ngày',userLocation:HCMC},expect:{intent:'ITINERARY_PLANNING',toolsContain:['curated_places'],routerDecision:'PLANNER_MODEL',routerIntent:'ITINERARY_PLANNING',routerFreshGps:false,routerMatched:true,routerApplied:false,textMinLength:50}}]
+  },
+  {
+    id:'L28',title:'Lịch trình Đà Nẵng không thành weather',category:'router-itinerary',critical:false,
+    steps:[{body:{userMessage:'Lịch trình gia đình ở Đà Nẵng 3 ngày',userLocation:HCMC},expect:{intent:'ITINERARY_PLANNING',toolsContain:['curated_places'],routerDecision:'PLANNER_MODEL',routerIntent:'ITINERARY_PLANNING',routerFreshGps:false,routerMatched:true,routerApplied:false,textMinLength:50}}]
+  },
+  {
+    id:'L29',title:'Lập lịch bảo tàng và cà phê là itinerary',category:'router-itinerary',critical:false,
+    steps:[{body:{userMessage:'Lập lịch đi bảo tàng và cà phê trong một ngày',userLocation:HCMC},expect:{intent:'ITINERARY_PLANNING',toolsContain:['curated_places'],routerDecision:'PLANNER_MODEL',routerIntent:'ITINERARY_PLANNING',routerFreshGps:false,routerMatched:true,routerApplied:false,textMinLength:50}}]
+  },
+  {
+    id:'L30',title:'Hello Pipi ở guided chat',category:'router-guided',critical:false,
+    steps:[{body:{userMessage:'Hello Pipi',userLocation:HCMC},expect:{intent:'LOCAL_GUIDE',toolsExact:[],routerDecision:'GUIDED_CHAT',routerIntent:'LOCAL_GUIDE',routerFreshGps:false,routerMatched:true,routerApplied:false,noSuccessfulSources:true,textMinLength:25}}]
   }
 ];
 

@@ -28,6 +28,7 @@ function evaluate(data,expect={},caseCritical=false){
   const checks=[];
   const add=(name,pass,details='',critical=caseCritical)=>checks.push({name,pass:Boolean(pass),critical:Boolean(critical),details:clean(details)});
   const tools=toolsOf(data),sources=sourcesOf(data),sourceText=sources.map(source=>`${source.tool}:${source.source}`).join(' '),text=clean(data?.text);
+  const router=data?.travelos?.plan?.shadowRouter;
   if(expect.intent)add('intent',data?.travelos?.travelIntent===expect.intent,`${data?.travelos?.travelIntent||'missing'} vs ${expect.intent}`);
   if(expect.toolsExact)add('tools exact',sameArray(tools,expect.toolsExact),`${tools.join(' → ')||'none'} vs ${expect.toolsExact.join(' → ')||'none'}`);
   if(expect.toolsContain)add('tools contain',expect.toolsContain.every(name=>tools.includes(name)),`${tools.join(' → ')||'none'}; need ${expect.toolsContain.join(', ')}`);
@@ -38,6 +39,11 @@ function evaluate(data,expect={},caseCritical=false){
   if(expect.errorCode)add('error code',errorCodeOf(data)===expect.errorCode,`${errorCodeOf(data)||'missing'} vs ${expect.errorCode}`);
   if(expect.traceIdRequired)add('trace id present',/^tr_[a-zA-Z0-9_.:-]+$/.test(String(data?.traceId||'')),data?.traceId||'missing');
   if(expect.sourceDurations)add('source durations present',sources.length>0&&sources.every(source=>Number.isFinite(Number(source?.durationMs))&&Number(source.durationMs)>=0),JSON.stringify(sources));
+  if(expect.routerDecision)add('router decision',router?.decision===expect.routerDecision,`${router?.decision||'missing'} vs ${expect.routerDecision}`);
+  if(expect.routerIntent)add('router intent',router?.intentHint===expect.routerIntent,`${router?.intentHint||'missing'} vs ${expect.routerIntent}`);
+  if(expect.routerFreshGps!=null)add('router GPS policy',router?.requiresFreshGps===expect.routerFreshGps,`${router?.requiresFreshGps??'missing'} vs ${expect.routerFreshGps}`);
+  if(expect.routerMatched!=null)add('router agreement',router?.matched===expect.routerMatched,`${router?.matched??'missing'} vs ${expect.routerMatched}; actual ${router?.actualDecision||'missing'}`);
+  if(expect.routerApplied!=null)add('router apply mode',router?.applied===expect.routerApplied,`${router?.applied??'missing'} vs ${expect.routerApplied}`);
   if(expect.noNearby)add('no nearby result',!data?.travelos?.nearby,'nearby present');
   if(expect.missingApiNeed)add('missing API declared',(data?.travelos?.missingApiSuggestions||[]).some(item=>item?.need===expect.missingApiNeed),JSON.stringify(data?.travelos?.missingApiSuggestions||[]));
   if(expect.textMinLength)add('answer present',text.length>=expect.textMinLength,`${text.length} chars`);
@@ -82,7 +88,8 @@ function summarizeResponse(data){
     nearby:nearby?{provider:nearby.provider||'',center:point(nearby.center),count:(nearby.pois||[]).length,names:(nearby.pois||[]).slice(0,5).map(item=>item.localizedName||item.name)}:null,
     weather:weather?{coordinates:point(weather.coordinates),timezone:weather.timezone||'',condition:weather.current?.condition||''}:null,
     routes:(data?.travelos?.routes||[]).length,hotelAreaStatus:data?.travelos?.hotelArea?.status||'',place:data?.travelos?.placeDetails?.localizedName||data?.travelos?.placeDetails?.name||'',
-    curatedCount:(data?.travelos?.curated?.places||[]).length,missingApiNeeds:(data?.travelos?.missingApiSuggestions||[]).map(item=>item.need)
+    curatedCount:(data?.travelos?.curated?.places||[]).length,missingApiNeeds:(data?.travelos?.missingApiSuggestions||[]).map(item=>item.need),
+    router:data?.travelos?.plan?.shadowRouter||null
   };
 }
 

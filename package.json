@@ -12,7 +12,9 @@
     "snapshot": "node scripts/fetch-data-snapshot.mjs",
     "test": "node --test tests/guardrails.test.mjs tests/request-router.test.mjs tests/v3-flow.test.mjs tests/mobile-data.test.mjs tests/voice-quality.test.mjs tests/voice-mode-flow.test.mjs tests/voice-translate.test.mjs tests/voice-translation-history.test.mjs tests/food-discovery.test.mjs tests/hotel-area-discovery.test.mjs tests/named-area-discovery.test.mjs",
     "eval:offline": "npm test",
+    "eval:router": "node evals/run-router-eval.mjs",
     "eval:live": "node evals/run-live-eval.mjs",
+    "eval:expanded": "npm run eval:offline && npm run eval:router && npm run eval:live",
     "eval:baseline": "npm run eval:offline && npm run eval:live"
   },
   "dependencies": {

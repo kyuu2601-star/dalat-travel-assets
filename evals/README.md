@@ -5,6 +5,20 @@ Bộ eval có hai tầng:
 1. `npm run eval:offline` chạy toàn bộ test deterministic hiện có. Tầng này kiểm tra planner, tool routing, GPS/provider boundary, grounding, fallback, hotel confirmation, voice và UI contracts mà không gọi API thật.
 2. `npm run eval:live` gọi Worker đang deploy bằng tọa độ công cộng cố định. Tầng này kiểm tra provider và dữ liệu live thật; không dùng vị trí cá nhân của user.
 
+Shadow Router có thêm bộ mở rộng 120 câu:
+
+```bash
+npm run eval:router
+```
+
+Bộ này chạy Router và deterministic planner cạnh nhau, kiểm tra nhánh xử lý, intent, yêu cầu GPS và tool plan mà không gọi API ngoài.
+
+Chạy toàn bộ offline + 120 Router case + live production:
+
+```bash
+npm run eval:expanded
+```
+
 Chạy cả hai tầng:
 
 ```bash
@@ -42,6 +56,7 @@ Report mới nhất được ghi vào `evals/reports/live-latest.md` và `evals/
 - Local Guide nằm ngoài scope release hiện tại; câu hỏi văn hóa/trò chuyện phiếm chỉ được hướng về tìm địa điểm hoặc chỉ đường và không gọi map thừa.
 - Prompt injection phải bị chặn trước planner/tool; lịch sử, review và dữ liệu provider không được phép thay đổi policy hệ thống.
 - Mỗi phản hồi `/ai-v3` phải có `traceId`; source của tool phải có thời gian chạy để đối chiếu latency mà không ghi câu hỏi hoặc GPS vào log.
+- Shadow Router chỉ được chuyển sang điều khiển thật khi bộ 120 case đạt tối thiểu 95%, nhóm route/safety critical đạt 100% và live eval không còn critical failure.
 - Infra error được tách riêng khỏi quality failure.
 - Các tiêu chí ngữ nghĩa trong `manualRubric` phải được người kiểm tra xác nhận trước chuyến đi; vòng đầu chưa dùng LLM-as-judge để tránh tốn tiền và kết quả thiếu ổn định.
 

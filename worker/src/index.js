@@ -4316,3 +4316,5 @@ export default {
     return json({ error: 'Not found' }, 404, request, env);
   }
 };
+
+export { planRequestV3 as planRequestV3ForEval };
