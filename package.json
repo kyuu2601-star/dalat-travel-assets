@@ -14,8 +14,10 @@
     "eval:offline": "npm test",
     "eval:router": "node evals/run-router-eval.mjs",
     "eval:knowledge": "node evals/run-knowledge-eval.mjs",
+    "eval:chat-translate": "node evals/run-chat-translate-eval.mjs",
     "eval:live": "node evals/run-live-eval.mjs",
     "eval:summary": "node evals/summarize-250-eval.mjs",
+    "eval:summary-350": "node evals/summarize-350-eval.mjs",
     "eval:expanded": "npm run eval:offline && npm run eval:router && npm run eval:knowledge && npm run eval:live",
     "eval:baseline": "npm run eval:offline && npm run eval:live"
   },
