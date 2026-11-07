@@ -12,7 +12,7 @@ const oldPassed=router.summary.passed+live.summary.passed;
 const oldFailed=oldCases-oldPassed;
 const totalCases=oldCases+knowledge.summary.cases,totalPassed=oldPassed+knowledge.summary.passed,totalFailed=totalCases-totalPassed;
 const score=Math.round(totalPassed/totalCases*1000)/10;
-const report={generatedAt:new Date().toISOString(),deployment:'https://ai-test.kyuu2601.workers.dev',workerVersion:'062445bf-f845-4d94-b4ae-bf78934597cb',summary:{cases:totalCases,passed:totalPassed,failed:totalFailed,score},existing150:{cases:oldCases,passed:oldPassed,failed:oldFailed,router:router.summary,live:live.summary},new100:knowledge.summary,flowChangeRequired:[
+const report={generatedAt:new Date().toISOString(),deployment:'https://ai-test.kyuu2601.workers.dev',workerVersion:'10874878-61eb-430e-afcb-270e04de6543',summary:{cases:totalCases,passed:totalPassed,failed:totalFailed,score},existing150:{cases:oldCases,passed:oldPassed,failed:oldFailed,router:router.summary,live:live.summary},new100:knowledge.summary,flowChangeRequired:[
   'Safety symptoms combined with an explicit nearby doctor/clinic search can be captured by the existing nearby-place branch before SAFETY_HEALTH.',
   'Changing these remaining failures requires execution-priority changes, which were intentionally excluded from this database-only update.'
 ]};

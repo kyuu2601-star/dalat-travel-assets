@@ -1,16 +1,16 @@
 # TravelOS combined eval — 250 case
 
-- Thời điểm: 2026-11-07T05:29:07.283Z
+- Thời điểm: 2026-11-07T05:50:14.126Z
 - Bản public: https://ai-test.kyuu2601.workers.dev
-- Worker version: 062445bf-f845-4d94-b4ae-bf78934597cb
-- Tổng: **227/250 đạt (90.8%)**
+- Worker version: 10874878-61eb-430e-afcb-270e04de6543
+- Tổng: **226/250 đạt (90.4%)**
 
 | Bộ eval | Case | Đạt | Lỗi | Điểm |
 |---|---:|---:|---:|---:|
 | 120 router cũ | 120 | 102 | 18 | 85% |
-| 30 live cũ | 30 | 27 | 3 | 97.5% structural |
+| 30 live cũ | 30 | 26 | 4 | 97.5% structural |
 | 100 knowledge mới | 100 | 98 | 2 | 98% |
-| **Tổng** | **250** | **227** | **23** | **90.8%** |
+| **Tổng** | **250** | **226** | **24** | **90.4%** |
 
 ## Phạm vi giữ nguyên
 

@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-11-07T05:29:07.283Z",
+  "generatedAt": "2026-11-07T05:50:14.126Z",
   "deployment": "https://ai-test.kyuu2601.workers.dev",
-  "workerVersion": "062445bf-f845-4d94-b4ae-bf78934597cb",
+  "workerVersion": "10874878-61eb-430e-afcb-270e04de6543",
   "summary": {
     "cases": 250,
-    "passed": 227,
-    "failed": 23,
-    "score": 90.8
+    "passed": 226,
+    "failed": 24,
+    "score": 90.4
   },
   "existing150": {
     "cases": 150,
-    "passed": 129,
-    "failed": 21,
+    "passed": 128,
+    "failed": 22,
     "router": {
       "cases": 120,
       "passed": 102,
@@ -21,16 +21,17 @@
     },
     "live": {
       "cases": 30,
-      "passed": 27,
-      "failed": 3,
+      "passed": 26,
+      "failed": 4,
       "infraErrors": 0,
       "structuralScore": 97.5,
       "criticalFailures": [
+        "L08",
         "L24",
         "L25",
         "L26"
       ],
-      "p95LatencyMs": 8515,
+      "p95LatencyMs": 32456,
       "manualReviewCases": [
         "L01",
         "L02",

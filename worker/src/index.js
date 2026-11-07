@@ -12,6 +12,7 @@ import { inspectTravelRequest, neutralizeUntrustedText, sanitizeConversationHist
 import { beginTravelTrace, completeTravelTrace, travelTraceId, updateTravelTrace } from './bot/monitoring.js';
 import { compareShadowRoute, shadowRouteTravelRequest } from './bot/request-router.js';
 import { TRAVEL_LANGUAGE_PATTERNS } from './bot/travel-language-knowledge.js';
+import { assertPromptGateAnswer, guardedAnswerPrompt } from './bot/prompt-gate.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_STABLE_MODEL = 'gemini-3.1-flash-lite';
@@ -3432,8 +3433,11 @@ async function synthesizeV3(userMessage, history, location, plan, evidence, prev
   const profile=INTENT_PROFILES[plan.travelIntent]||INTENT_PROFILES.LOCAL_GUIDE;
   const payload=`USER REQUEST:\n${userMessage}\n\nSELECTED INTENT:\n${plan.travelIntent}: ${profile}\n\nANSWER CONTRACT:\n${JSON.stringify(plan.answerContract||[])}\n\nUNSUPPORTED LIVE NEEDS:\n${JSON.stringify(plan.unsupportedNeeds||[])}\n\nLOCATION LABEL:\n${locationLabel||'Không xác định'}\n\nPREVIOUS_TRAVEL_CONTEXT:\n${JSON.stringify(previousContext||null)}\n\nPLAN:\n${JSON.stringify(plan)}\n\nEVIDENCE:\n${JSON.stringify(evidenceForModel(evidence))}`;
   const contents=buildContents(history,payload);
-  const result=await callTextModel(answerPromptFor(plan.travelIntent,plan.foodQualitySearch),contents,env,null,false);
-  return normalizePipiVoice(modelText(result));
+  const {systemPrompt}=guardedAnswerPrompt({intent:plan.travelIntent,basePrompt:answerPromptFor(plan.travelIntent,plan.foodQualitySearch),plan,evidence});
+  const result=await callTextModel(systemPrompt,contents,env,null,false);
+  const text=normalizePipiVoice(modelText(result));
+  assertPromptGateAnswer({intent:plan.travelIntent,answer:text,plan,evidence});
+  return text;
 }
 
 function validFoodQualityAnswer(text,nearby) {

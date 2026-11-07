@@ -1,6 +1,6 @@
 # TravelOS bot knowledge eval — 100 case mới
 
-- Thời điểm: 2026-11-07T05:25:34.844Z
+- Thời điểm: 2026-11-07T05:43:15.417Z
 - Tổng case: **100**
 - Đạt: **98**
 - Lỗi: **2**

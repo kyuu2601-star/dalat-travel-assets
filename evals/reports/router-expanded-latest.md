@@ -1,6 +1,6 @@
 # TravelOS expanded router eval
 
-- Thời điểm: 2026-11-07T05:25:39.794Z
+- Thời điểm: 2026-11-07T05:43:12.855Z
 - Tổng case: **120**
 - Đạt: **102**
 - Lỗi: **18**
