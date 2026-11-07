@@ -1,33 +1,33 @@
 {
-  "generatedAt": "2026-11-06T19:15:29.525Z",
+  "generatedAt": "2026-11-07T05:25:39.794Z",
   "summary": {
     "cases": 120,
-    "passed": 76,
-    "failed": 44,
-    "score": 63.3,
+    "passed": 102,
+    "failed": 18,
+    "score": 85,
     "gate": false
   },
   "categories": [
     {
       "category": "place-current",
       "cases": 15,
-      "passed": 11,
-      "failed": 4,
-      "score": 73.3
+      "passed": 15,
+      "failed": 0,
+      "score": 100
     },
     {
       "category": "place-remote",
       "cases": 15,
-      "passed": 11,
-      "failed": 4,
-      "score": 73.3
+      "passed": 15,
+      "failed": 0,
+      "score": 100
     },
     {
       "category": "route-current",
       "cases": 15,
-      "passed": 9,
-      "failed": 6,
-      "score": 60
+      "passed": 11,
+      "failed": 4,
+      "score": 73.3
     },
     {
       "category": "route-two-point",
@@ -39,9 +39,9 @@
     {
       "category": "weather",
       "cases": 15,
-      "passed": 10,
-      "failed": 5,
-      "score": 66.7
+      "passed": 14,
+      "failed": 1,
+      "score": 93.3
     },
     {
       "category": "safety-health",
@@ -53,16 +53,16 @@
     {
       "category": "itinerary",
       "cases": 15,
-      "passed": 10,
-      "failed": 5,
-      "score": 66.7
+      "passed": 15,
+      "failed": 0,
+      "score": 100
     },
     {
       "category": "guided-chat",
       "cases": 15,
-      "passed": 8,
-      "failed": 7,
-      "score": 53.3
+      "passed": 15,
+      "failed": 0,
+      "score": 100
     }
   ],
   "results": [
@@ -394,7 +394,7 @@
     {
       "id": "R006",
       "category": "place-current",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Cho tôi tiệm giặt ủi gần đây",
       "router": {
         "version": 1,
@@ -408,12 +408,14 @@
           "place-search",
           "current-area"
         ],
-        "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "actualDecision": "API_TOOLS",
+        "matched": true
       },
       "plan": {
-        "travelIntent": "LOCAL_GUIDE",
-        "tools": [],
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "search_places"
+        ],
         "planner": "deterministic"
       },
       "checks": [
@@ -434,18 +436,18 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "LOCAL_GUIDE vs PLACE_DISCOVERY"
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "none; need search_places"
+          "pass": true,
+          "details": "search_places; need search_places"
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
         },
         {
           "name": "shadow remains disabled",
@@ -718,7 +720,7 @@
     {
       "id": "R011",
       "category": "place-current",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Quán cơm nào gần đây?",
       "router": {
         "version": 1,
@@ -728,69 +730,6 @@
         "intentHint": "PLACE_DISCOVERY",
         "confidence": 0.92,
         "requiresFreshGps": true,
-        "reasonCodes": [
-          "place-search",
-          "current-area"
-        ],
-        "actualDecision": "GUIDED_CHAT",
-        "matched": false
-      },
-      "plan": {
-        "travelIntent": "LOCAL_GUIDE",
-        "tools": [],
-        "planner": "deterministic"
-      },
-      "checks": [
-        {
-          "name": "router decision",
-          "pass": true,
-          "details": "API_TOOLS vs API_TOOLS"
-        },
-        {
-          "name": "router intent",
-          "pass": true,
-          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
-        },
-        {
-          "name": "fresh GPS policy",
-          "pass": true,
-          "details": "true vs true"
-        },
-        {
-          "name": "planner intent",
-          "pass": false,
-          "details": "LOCAL_GUIDE vs PLACE_DISCOVERY"
-        },
-        {
-          "name": "planner tools",
-          "pass": false,
-          "details": "none; need search_places"
-        },
-        {
-          "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
-        },
-        {
-          "name": "shadow remains disabled",
-          "pass": true,
-          "details": "applied=false"
-        }
-      ]
-    },
-    {
-      "id": "R012",
-      "category": "place-current",
-      "status": "FAIL",
-      "message": "Tìm cửa hàng tiện lợi gần tôi",
-      "router": {
-        "version": 1,
-        "mode": "shadow",
-        "applied": false,
-        "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
-        "requiresFreshGps": false,
         "reasonCodes": [
           "place-search",
           "current-area"
@@ -818,8 +757,73 @@
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "false vs true"
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "R012",
+      "category": "place-current",
+      "status": "PASS",
+      "message": "Tìm cửa hàng tiện lợi gần tôi",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "place-search",
+          "current-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
         },
         {
           "name": "planner intent",
@@ -911,7 +915,7 @@
     {
       "id": "R014",
       "category": "place-current",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Kiếm tiệm bánh gần chỗ đang đứng",
       "router": {
         "version": 1,
@@ -920,7 +924,7 @@
         "decision": "API_TOOLS",
         "intentHint": "PLACE_DISCOVERY",
         "confidence": 0.92,
-        "requiresFreshGps": false,
+        "requiresFreshGps": true,
         "reasonCodes": [
           "place-search",
           "current-area"
@@ -929,12 +933,10 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "VENUE_INTELLIGENCE",
+        "travelIntent": "PLACE_DISCOVERY",
         "tools": [
           "resolve_place",
-          "search_places",
-          "place_details",
-          "place_busyness"
+          "search_places"
         ],
         "planner": "deterministic"
       },
@@ -951,18 +953,18 @@
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "false vs true"
+          "pass": true,
+          "details": "true vs true"
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "VENUE_INTELLIGENCE vs PLACE_DISCOVERY"
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
         },
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → search_places → place_details → place_busyness; need search_places"
+          "details": "resolve_place → search_places; need search_places"
         },
         {
           "name": "shadow agreement",
@@ -1308,19 +1310,19 @@
     {
       "id": "R020",
       "category": "place-remote",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Tìm nhà thuốc tại Đà Nẵng",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "WEATHER_OUTDOOR",
-        "confidence": 0.95,
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "weather-language",
-          "named-destination"
+          "place-search",
+          "named-area"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -1341,8 +1343,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "WEATHER_OUTDOOR vs PLACE_DISCOVERY"
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
         },
         {
           "name": "fresh GPS policy",
@@ -1572,19 +1574,19 @@
     {
       "id": "R024",
       "category": "place-remote",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Tìm bảo tàng ở TP.HCM",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "WEATHER_OUTDOOR",
-        "confidence": 0.95,
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "weather-language",
-          "named-destination"
+          "place-search",
+          "named-area"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -1605,8 +1607,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "WEATHER_OUTDOOR vs PLACE_DISCOVERY"
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
         },
         {
           "name": "fresh GPS policy",
@@ -1704,7 +1706,7 @@
     {
       "id": "R026",
       "category": "place-remote",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Tìm tiệm bánh ở quận Du Trung",
       "router": {
         "version": 1,
@@ -1722,12 +1724,10 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "VENUE_INTELLIGENCE",
+        "travelIntent": "PLACE_DISCOVERY",
         "tools": [
           "resolve_place",
-          "search_places",
-          "place_details",
-          "place_busyness"
+          "search_places"
         ],
         "planner": "deterministic"
       },
@@ -1749,13 +1749,13 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "VENUE_INTELLIGENCE vs PLACE_DISCOVERY"
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
         },
         {
           "name": "planner tools",
           "pass": true,
-          "details": "resolve_place → search_places → place_details → place_busyness; need search_places"
+          "details": "resolve_place → search_places; need search_places"
         },
         {
           "name": "shadow agreement",
@@ -1772,21 +1772,22 @@
     {
       "id": "R027",
       "category": "place-remote",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Nhà vệ sinh công cộng tại ga Trùng Khánh Bắc",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "place-search",
+          "named-area"
         ],
         "actualDecision": "API_TOOLS",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "PLACE_DISCOVERY",
@@ -1799,13 +1800,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs API_TOOLS"
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs PLACE_DISCOVERY"
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
         },
         {
           "name": "fresh GPS policy",
@@ -1824,8 +1825,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual API_TOOLS"
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
         },
         {
           "name": "shadow remains disabled",
@@ -2636,12 +2637,12 @@
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
         "requiresFreshGps": true,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "route-language",
+          "current-origin"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -2662,8 +2663,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "fresh GPS policy",
@@ -2695,19 +2696,19 @@
     {
       "id": "R041",
       "category": "route-current",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Tìm đường đến khách sạn Yitel",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
-        "requiresFreshGps": false,
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "route-language",
+          "current-origin"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -2728,13 +2729,13 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "false vs true"
+          "pass": true,
+          "details": "true vs true"
         },
         {
           "name": "planner intent",
@@ -2893,7 +2894,7 @@
     {
       "id": "R044",
       "category": "route-current",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Chạy xe đến Bến xe Miền Đông",
       "router": {
         "version": 1,
@@ -2911,11 +2912,10 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "VENUE_INTELLIGENCE",
+        "travelIntent": "ROUTE_MOBILITY",
         "tools": [
-          "search_places",
-          "place_details",
-          "place_busyness"
+          "resolve_place",
+          "walking_route"
         ],
         "planner": "deterministic"
       },
@@ -2937,13 +2937,13 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "VENUE_INTELLIGENCE vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "search_places → place_details → place_busyness; need resolve_place"
+          "pass": true,
+          "details": "resolve_place → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -2967,20 +2967,21 @@
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
-        "requiresFreshGps": false,
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "route-language",
+          "current-origin"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
       },
       "plan": {
-        "travelIntent": "PLACE_DISCOVERY",
+        "travelIntent": "ROUTE_MOBILITY",
         "tools": [
-          "search_places"
+          "search_places",
+          "walking_route"
         ],
         "planner": "deterministic"
       },
@@ -2992,23 +2993,23 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "false vs true"
+          "pass": true,
+          "details": "true vs true"
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs ROUTE_MOBILITY"
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
         },
         {
           "name": "planner tools",
           "pass": false,
-          "details": "search_places; need resolve_place"
+          "details": "search_places → walking_route; need resolve_place"
         },
         {
           "name": "shadow agreement",
@@ -4225,19 +4226,19 @@
     {
       "id": "R064",
       "category": "weather",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Trời gần đây có tiện đi chơi không?",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
         "requiresFreshGps": true,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "weather-language",
+          "current-location"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -4257,8 +4258,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs WEATHER_OUTDOOR"
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
         },
         {
           "name": "fresh GPS policy",
@@ -4421,7 +4422,7 @@
     {
       "id": "R067",
       "category": "weather",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Trùng Khánh ngày mai có mưa không?",
       "router": {
         "version": 1,
@@ -4430,10 +4431,10 @@
         "decision": "API_TOOLS",
         "intentHint": "WEATHER_OUTDOOR",
         "confidence": 0.95,
-        "requiresFreshGps": true,
+        "requiresFreshGps": false,
         "reasonCodes": [
           "weather-language",
-          "current-location"
+          "named-destination"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -4458,8 +4459,8 @@
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "true vs false"
+          "pass": true,
+          "details": "false vs false"
         },
         {
           "name": "planner intent",
@@ -4552,7 +4553,7 @@
     {
       "id": "R069",
       "category": "weather",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Đà Nẵng cuối tuần có nắng không?",
       "router": {
         "version": 1,
@@ -4561,10 +4562,10 @@
         "decision": "API_TOOLS",
         "intentHint": "WEATHER_OUTDOOR",
         "confidence": 0.95,
-        "requiresFreshGps": true,
+        "requiresFreshGps": false,
         "reasonCodes": [
           "weather-language",
-          "current-location"
+          "named-destination"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -4589,8 +4590,8 @@
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "true vs false"
+          "pass": true,
+          "details": "false vs false"
         },
         {
           "name": "planner intent",
@@ -4881,7 +4882,7 @@
     {
       "id": "R074",
       "category": "weather",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Hồ Xuân Hương chiều nay có mưa không?",
       "router": {
         "version": 1,
@@ -4890,10 +4891,10 @@
         "decision": "API_TOOLS",
         "intentHint": "WEATHER_OUTDOOR",
         "confidence": 0.95,
-        "requiresFreshGps": true,
+        "requiresFreshGps": false,
         "reasonCodes": [
           "weather-language",
-          "current-location"
+          "named-destination"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -4918,8 +4919,8 @@
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "true vs false"
+          "pass": true,
+          "details": "false vs false"
         },
         {
           "name": "planner intent",
@@ -5211,11 +5212,12 @@
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "SAFETY_HEALTH",
+        "intentHint": "ROUTE_MOBILITY",
         "confidence": 0.98,
         "requiresFreshGps": true,
         "reasonCodes": [
-          "safety-place-search"
+          "route-language",
+          "current-origin"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -5236,8 +5238,8 @@
         },
         {
           "name": "router intent",
-          "pass": true,
-          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+          "pass": false,
+          "details": "ROUTE_MOBILITY vs SAFETY_HEALTH"
         },
         {
           "name": "fresh GPS policy",
@@ -5286,11 +5288,9 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "VENUE_INTELLIGENCE",
+        "travelIntent": "SAFETY_HEALTH",
         "tools": [
-          "search_places",
-          "place_details",
-          "place_busyness"
+          "search_places"
         ],
         "planner": "deterministic"
       },
@@ -5312,13 +5312,13 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "VENUE_INTELLIGENCE vs SAFETY_HEALTH"
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
         },
         {
           "name": "planner tools",
           "pass": true,
-          "details": "search_places → place_details → place_busyness; need search_places"
+          "details": "search_places; need search_places"
         },
         {
           "name": "shadow agreement",
@@ -5416,11 +5416,9 @@
         "matched": true
       },
       "plan": {
-        "travelIntent": "VENUE_INTELLIGENCE",
+        "travelIntent": "SAFETY_HEALTH",
         "tools": [
-          "search_places",
-          "place_details",
-          "place_busyness"
+          "search_places"
         ],
         "planner": "deterministic"
       },
@@ -5442,13 +5440,13 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "VENUE_INTELLIGENCE vs SAFETY_HEALTH"
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
         },
         {
           "name": "planner tools",
           "pass": true,
-          "details": "search_places → place_details → place_busyness; need search_places"
+          "details": "search_places; need search_places"
         },
         {
           "name": "shadow agreement",
@@ -5472,12 +5470,11 @@
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "safety-place-search"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -5497,8 +5494,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
         },
         {
           "name": "fresh GPS policy",
@@ -5601,12 +5598,11 @@
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
         "requiresFreshGps": true,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "safety-place-search"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -5626,8 +5622,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
         },
         {
           "name": "fresh GPS policy",
@@ -5730,12 +5726,11 @@
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "safety-place-search"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -5755,8 +5750,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
         },
         {
           "name": "fresh GPS policy",
@@ -5801,12 +5796,14 @@
         "reasonCodes": [
           "safety-place-search"
         ],
-        "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "actualDecision": "API_TOOLS",
+        "matched": true
       },
       "plan": {
-        "travelIntent": "LOCAL_GUIDE",
-        "tools": [],
+        "travelIntent": "SAFETY_HEALTH",
+        "tools": [
+          "search_places"
+        ],
         "planner": "deterministic"
       },
       "checks": [
@@ -5827,18 +5824,18 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "LOCAL_GUIDE vs SAFETY_HEALTH"
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "none; need search_places"
+          "pass": true,
+          "details": "search_places; need search_places"
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
         },
         {
           "name": "shadow remains disabled",
@@ -5920,12 +5917,11 @@
         "mode": "shadow",
         "applied": false,
         "decision": "API_TOOLS",
-        "intentHint": "PLACE_DISCOVERY",
-        "confidence": 0.92,
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
         "requiresFreshGps": true,
         "reasonCodes": [
-          "place-search",
-          "current-area"
+          "safety-place-search"
         ],
         "actualDecision": "API_TOOLS",
         "matched": true
@@ -5945,8 +5941,8 @@
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
         },
         {
           "name": "fresh GPS policy",
@@ -6298,21 +6294,21 @@
     {
       "id": "R096",
       "category": "itinerary",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Plan chuyến đi Thượng Hải 4 ngày",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "PLANNER_MODEL",
+        "intentHint": "ITINERARY_PLANNING",
+        "confidence": 0.96,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "itinerary-language"
         ],
         "actualDecision": "PLANNER_MODEL",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "ITINERARY_PLANNING",
@@ -6324,13 +6320,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs PLANNER_MODEL"
+          "pass": true,
+          "details": "PLANNER_MODEL vs PLANNER_MODEL"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs ITINERARY_PLANNING"
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
         },
         {
           "name": "fresh GPS policy",
@@ -6349,8 +6345,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual PLANNER_MODEL"
+          "pass": true,
+          "details": "true vs true; actual PLANNER_MODEL"
         },
         {
           "name": "shadow remains disabled",
@@ -6362,42 +6358,39 @@
     {
       "id": "R097",
       "category": "itinerary",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Xếp lịch sáng chiều tối ở Trùng Khánh",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "PLANNER_MODEL",
+        "intentHint": "ITINERARY_PLANNING",
+        "confidence": 0.96,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "itinerary-language"
         ],
-        "actualDecision": "API_TOOLS",
-        "matched": false
+        "actualDecision": "PLANNER_MODEL",
+        "matched": true
       },
       "plan": {
-        "travelIntent": "VENUE_INTELLIGENCE",
+        "travelIntent": "ITINERARY_PLANNING",
         "tools": [
-          "resolve_place",
-          "search_places",
-          "place_details",
-          "place_busyness"
+          "curated_places"
         ],
         "planner": "deterministic"
       },
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs PLANNER_MODEL"
+          "pass": true,
+          "details": "PLANNER_MODEL vs PLANNER_MODEL"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs ITINERARY_PLANNING"
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
         },
         {
           "name": "fresh GPS policy",
@@ -6406,18 +6399,18 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "VENUE_INTELLIGENCE vs ITINERARY_PLANNING"
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "resolve_place → search_places → place_details → place_busyness; need curated_places"
+          "pass": true,
+          "details": "curated_places; need curated_places"
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual API_TOOLS"
+          "pass": true,
+          "details": "true vs true; actual PLANNER_MODEL"
         },
         {
           "name": "shadow remains disabled",
@@ -6493,7 +6486,7 @@
     {
       "id": "R099",
       "category": "itinerary",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Lịch trình gia đình ở Đà Nẵng 3 ngày",
       "router": {
         "version": 1,
@@ -6506,14 +6499,13 @@
         "reasonCodes": [
           "itinerary-language"
         ],
-        "actualDecision": "API_TOOLS",
-        "matched": false
+        "actualDecision": "PLANNER_MODEL",
+        "matched": true
       },
       "plan": {
-        "travelIntent": "WEATHER_OUTDOOR",
+        "travelIntent": "ITINERARY_PLANNING",
         "tools": [
-          "resolve_place",
-          "weather"
+          "curated_places"
         ],
         "planner": "deterministic"
       },
@@ -6535,18 +6527,18 @@
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "WEATHER_OUTDOOR vs ITINERARY_PLANNING"
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "resolve_place → weather; need curated_places"
+          "pass": true,
+          "details": "curated_places; need curated_places"
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual API_TOOLS"
+          "pass": true,
+          "details": "true vs true; actual PLANNER_MODEL"
         },
         {
           "name": "shadow remains disabled",
@@ -6750,60 +6742,59 @@
     {
       "id": "R103",
       "category": "itinerary",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Lập lịch đi bảo tàng và cà phê trong một ngày",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "API_TOOLS",
-        "intentHint": "WEATHER_OUTDOOR",
-        "confidence": 0.95,
-        "requiresFreshGps": true,
+        "decision": "PLANNER_MODEL",
+        "intentHint": "ITINERARY_PLANNING",
+        "confidence": 0.96,
+        "requiresFreshGps": false,
         "reasonCodes": [
-          "weather-language",
-          "current-location"
+          "itinerary-language"
         ],
-        "actualDecision": "API_TOOLS",
+        "actualDecision": "PLANNER_MODEL",
         "matched": true
       },
       "plan": {
-        "travelIntent": "PLACE_DISCOVERY",
+        "travelIntent": "ITINERARY_PLANNING",
         "tools": [
-          "search_places"
+          "curated_places"
         ],
         "planner": "deterministic"
       },
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "API_TOOLS vs PLANNER_MODEL"
+          "pass": true,
+          "details": "PLANNER_MODEL vs PLANNER_MODEL"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "WEATHER_OUTDOOR vs ITINERARY_PLANNING"
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
         },
         {
           "name": "fresh GPS policy",
-          "pass": false,
-          "details": "true vs false"
+          "pass": true,
+          "details": "false vs false"
         },
         {
           "name": "planner intent",
-          "pass": false,
-          "details": "PLACE_DISCOVERY vs ITINERARY_PLANNING"
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
         },
         {
           "name": "planner tools",
-          "pass": false,
-          "details": "search_places; need curated_places"
+          "pass": true,
+          "details": "curated_places; need curated_places"
         },
         {
           "name": "shadow agreement",
           "pass": true,
-          "details": "true vs true; actual API_TOOLS"
+          "details": "true vs true; actual PLANNER_MODEL"
         },
         {
           "name": "shadow remains disabled",
@@ -6879,21 +6870,21 @@
     {
       "id": "R105",
       "category": "itinerary",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Sắp xếp lịch trình không quá dày cho Đà Lạt",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "PLANNER_MODEL",
+        "intentHint": "ITINERARY_PLANNING",
+        "confidence": 0.96,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "itinerary-language"
         ],
         "actualDecision": "PLANNER_MODEL",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "ITINERARY_PLANNING",
@@ -6905,13 +6896,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs PLANNER_MODEL"
+          "pass": true,
+          "details": "PLANNER_MODEL vs PLANNER_MODEL"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs ITINERARY_PLANNING"
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
         },
         {
           "name": "fresh GPS policy",
@@ -6930,8 +6921,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual PLANNER_MODEL"
+          "pass": true,
+          "details": "true vs true; actual PLANNER_MODEL"
         },
         {
           "name": "shadow remains disabled",
@@ -7315,21 +7306,21 @@
     {
       "id": "R112",
       "category": "guided-chat",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Có kiêng kỵ gì khi giao tiếp không?",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "guided-travel-chat"
         ],
         "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
@@ -7339,13 +7330,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
         },
         {
           "name": "fresh GPS policy",
@@ -7364,8 +7355,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
         },
         {
           "name": "shadow remains disabled",
@@ -7377,21 +7368,21 @@
     {
       "id": "R113",
       "category": "guided-chat",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Nên nói gì khi gặp người địa phương?",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "guided-travel-chat"
         ],
         "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
@@ -7401,13 +7392,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
         },
         {
           "name": "fresh GPS policy",
@@ -7426,8 +7417,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
         },
         {
           "name": "shadow remains disabled",
@@ -7439,21 +7430,21 @@
     {
       "id": "R114",
       "category": "guided-chat",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Cách ứng xử khi vào đền chùa",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "guided-travel-chat"
         ],
         "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
@@ -7463,13 +7454,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
         },
         {
           "name": "fresh GPS policy",
@@ -7488,8 +7479,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
         },
         {
           "name": "shadow remains disabled",
@@ -7501,21 +7492,21 @@
     {
       "id": "R115",
       "category": "guided-chat",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Phong tục ăn uống ở Trùng Khánh",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "guided-travel-chat"
         ],
         "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
@@ -7525,13 +7516,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
         },
         {
           "name": "fresh GPS policy",
@@ -7550,8 +7541,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
         },
         {
           "name": "shadow remains disabled",
@@ -7625,21 +7616,21 @@
     {
       "id": "R117",
       "category": "guided-chat",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Hello Pipi",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "guided-travel-chat"
         ],
         "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
@@ -7649,13 +7640,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
         },
         {
           "name": "fresh GPS policy",
@@ -7674,8 +7665,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
         },
         {
           "name": "shadow remains disabled",
@@ -7687,21 +7678,21 @@
     {
       "id": "R118",
       "category": "guided-chat",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Hi Pipi",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "guided-travel-chat"
         ],
         "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
@@ -7711,13 +7702,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
         },
         {
           "name": "fresh GPS policy",
@@ -7736,8 +7727,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
         },
         {
           "name": "shadow remains disabled",
@@ -7749,21 +7740,21 @@
     {
       "id": "R119",
       "category": "guided-chat",
-      "status": "FAIL",
+      "status": "PASS",
       "message": "Kể truyền thuyết về thành phố đi",
       "router": {
         "version": 1,
         "mode": "shadow",
         "applied": false,
-        "decision": "MODEL_ANSWER",
-        "intentHint": "TRAVEL_UTILITY",
-        "confidence": 0.55,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
         "requiresFreshGps": false,
         "reasonCodes": [
-          "ambiguous-existing-flow"
+          "guided-travel-chat"
         ],
         "actualDecision": "GUIDED_CHAT",
-        "matched": false
+        "matched": true
       },
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
@@ -7773,13 +7764,13 @@
       "checks": [
         {
           "name": "router decision",
-          "pass": false,
-          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
         },
         {
           "name": "router intent",
-          "pass": false,
-          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
         },
         {
           "name": "fresh GPS policy",
@@ -7798,8 +7789,8 @@
         },
         {
           "name": "shadow agreement",
-          "pass": false,
-          "details": "false vs true; actual GUIDED_CHAT"
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
         },
         {
           "name": "shadow remains disabled",
@@ -7830,7 +7821,7 @@
       "plan": {
         "travelIntent": "LOCAL_GUIDE",
         "tools": [],
-        "planner": "deterministic"
+        "planner": "scope-redirect"
       },
       "checks": [
         {

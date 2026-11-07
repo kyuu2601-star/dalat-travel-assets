@@ -1,16 +1,20 @@
 {
-  "generatedAt": "2026-11-06T18:44:11.128Z",
+  "generatedAt": "2026-11-07T05:28:37.052Z",
   "baseUrl": "https://ai-test.kyuu2601.workers.dev",
   "origin": "https://kyuu2601-star.github.io",
   "timeoutMs": 45000,
   "summary": {
-    "cases": 16,
-    "passed": 16,
-    "failed": 0,
+    "cases": 30,
+    "passed": 27,
+    "failed": 3,
     "infraErrors": 0,
-    "structuralScore": 100,
-    "criticalFailures": [],
-    "p95LatencyMs": 47881,
+    "structuralScore": 97.5,
+    "criticalFailures": [
+      "L24",
+      "L25",
+      "L26"
+    ],
+    "p95LatencyMs": 8515,
     "manualReviewCases": [
       "L01",
       "L02",
@@ -21,7 +25,7 @@
       "L11",
       "L12"
     ],
-    "gate": true
+    "gate": false
   },
   "results": [
     {
@@ -30,7 +34,7 @@
       "category": "location-provider",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 11924,
+      "latencyMs": 6707,
       "infraError": "",
       "checks": [
         {
@@ -55,7 +59,7 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:42:01.837Z\",\"durationMs\":4386,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:26:38.368Z\",\"durationMs\":1413,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
@@ -79,19 +83,19 @@
           "name": "distance ordering",
           "pass": true,
           "critical": true,
-          "details": "232.01321881329397, 237.51952322949845, 267.9658689789836, 283.7292306922873, 308.27880138621947, 382.86844859877954, 392.6074816278884, 399.9053292129182, 400.06568981941075, 413.7959852957612"
+          "details": "232.01321881329397, 237.51952322949845, 283.7292306922873, 308.27880138621947, 382.86844859877954, 392.6074816278884, 399.9053292129182, 400.06568981941075, 413.7959852957612, 442.22648578120175"
         },
         {
           "name": "results inside radius",
           "pass": true,
           "critical": true,
-          "details": "radius 3000; max 413.7959852957612"
+          "details": "radius 3000; max 442.22648578120175"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 11924,
+          "latencyMs": 6707,
           "checks": [
             {
               "name": "intent",
@@ -115,7 +119,7 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:42:01.837Z\",\"durationMs\":4386,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:26:38.368Z\",\"durationMs\":1413,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
@@ -139,18 +143,18 @@
               "name": "distance ordering",
               "pass": true,
               "critical": true,
-              "details": "232.01321881329397, 237.51952322949845, 267.9658689789836, 283.7292306922873, 308.27880138621947, 382.86844859877954, 392.6074816278884, 399.9053292129182, 400.06568981941075, 413.7959852957612"
+              "details": "232.01321881329397, 237.51952322949845, 283.7292306922873, 308.27880138621947, 382.86844859877954, 392.6074816278884, 399.9053292129182, 400.06568981941075, 413.7959852957612, 442.22648578120175"
             },
             {
               "name": "results inside radius",
               "pass": true,
               "critical": true,
-              "details": "radius 3000; max 413.7959852957612"
+              "details": "radius 3000; max 442.22648578120175"
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi gửi bạn danh sách các cửa hàng tiện lợi ở quanh đây nhé: 1. **Circle K Lý Tự Trọng** - **Khoảng cách:** Khoảng 232m - **Địa chỉ:** 45 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh 2. **7-Eleven** - **Khoảng cách:** Khoảng 238m - **Địa chỉ:** 81 Nguyễn Du, Sài Gòn, Hồ Chí Minh 3. **Circle K Nguyễn Du** - **Khoảng cách:** Khoảng 268m - **Địa chỉ:** 57 Nguyễn Du, Quận 1, Hồ Chí Minh 4. **Circle K Nguyễn Huệ** - **Khoảng cách:** Khoảng 284m - **Địa chỉ:** 82 Nguyễn Huệ, Sài Gòn, Hồ Chí Minh 5. **Circle K** - **Khoảng cách:** Khoảng 308m - **Địa chỉ:** 42 Lê Lợi, Sài Gòn, Hồ Chí Minh 6. **GS25 Hai Bà Trưng** - **Khoảng cách:** Khoảng 383m - **Địa chỉ:** 62 Đường Hai Bà Trưng, Quận 1, Hồ Chí Mi",
-            "traceId": "tr_7fb59b3a-2588-4ff4-8662-79fc76b65738",
+            "text": "Chào bạn, Pipi gửi bạn danh sách các cửa hàng tiện lợi ở quanh đây nhé: 1. **Circle K Lý Tự Trọng** - Địa chỉ: 45 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 232m 2. **7-Eleven** - Địa chỉ: 81 Nguyễn Du, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 238m 3. **Circle K Nguyễn Huệ** - Địa chỉ: 82 Nguyễn Huệ, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 284m 4. **Circle K** - Địa chỉ: 42 Lê Lợi, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 308m 5. **GS25 Hai Bà Trưng** - Địa chỉ: 62 Đường Hai Bà Trưng, Quận 1, Hồ Chí Minh - Khoảng cách: Khoảng 383m 6. **Circle K** - Địa chỉ: 54 Đ. Tôn Thất Thiệp, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 393m 7. **Circle K Việt Nam** - Địa chỉ: 165, 167",
+            "traceId": "tr_a4fa7a74-3fce-48a2-9cad-23d48397e6ce",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -161,8 +165,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T18:42:01.837Z",
-                "durationMs": 4386,
+                "fetchedAt": "2026-11-07T05:26:38.368Z",
+                "durationMs": 1413,
                 "error": ""
               }
             ],
@@ -177,9 +181,9 @@
               "names": [
                 "Circle K Lý Tự Trọng",
                 "7-Eleven",
-                "Circle K Nguyễn Du",
                 "Circle K Nguyễn Huệ",
-                "Circle K"
+                "Circle K",
+                "GS25 Hai Bà Trưng"
               ]
             },
             "weather": null,
@@ -187,7 +191,22 @@
             "hotelAreaStatus": "",
             "place": "Circle K Lý Tự Trọng",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "PLACE_DISCOVERY",
+              "confidence": 0.92,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "place-search",
+                "current-area"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
           }
         }
       ],
@@ -201,7 +220,7 @@
       "category": "location-provider",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 11931,
+      "latencyMs": 6126,
       "infraError": "",
       "checks": [
         {
@@ -226,7 +245,7 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-06T18:42:10.786Z\",\"durationMs\":9550,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-07T05:26:44.366Z\",\"durationMs\":4418,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
@@ -268,7 +287,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 11931,
+          "latencyMs": 6126,
           "checks": [
             {
               "name": "intent",
@@ -292,7 +311,7 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-06T18:42:10.786Z\",\"durationMs\":9550,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"amap-place-v5\",\"fetchedAt\":\"2026-11-07T05:26:44.366Z\",\"durationMs\":4418,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
@@ -332,8 +351,8 @@
             }
           ],
           "response": {
-            "text": "Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Jianzhijia Pharmacy (Chongqing Zaozilan Ya) (健之佳健康药房 · 重庆枣子岚垭店) — 92 m · Quận Du Trung, Trùng Khánh (嘉和苑东门旁 · 大礼堂地铁站1号口步行300米). - 2. Nhà thuốc Chân Thiện Mỹ (Zaozilan Ya) (真善美药房 · 渝中区枣子岚垭店) — 110 m · Quận Du Trung, Trùng Khánh (枣子岚垭正街120-附3号附近). - 3. Wanhe Pharmacy (Renhe Street) (万和医药连锁 · 人和街店) — 110 m · Quận Du Trung, Trùng Khánh (人和街42号菜市场 · 大礼堂地铁站2号口步行50米). - 4. Nhà thuốc Đường Thị (Chi nhánh Tòa nhà Khoa Phổ, ngõ Hoa Phúc) (唐氏大药房 · 华福巷科普大厦店) — 140 m · Quận Du Trung, Trùng Khánh (人和街140号 · 大礼堂地铁站2号口步行100米). - 5. Hòa Bình Pharmacy (Zaozi Lanya) (和平药房 · 枣子岚垭店) — 178 m · Quận Du Trung, Trùng Khánh (枣子岚垭正街55号 · 大礼堂地铁站1号口步行430米). Bạn bấm vào danh sá",
-            "traceId": "tr_01ebdba7-62e2-4b47-96a7-542a3f9f7941",
+            "text": "Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Jianzhijia Pharmacy (Chongqing Zaozilan Ya) (健之佳健康药房 · 重庆枣子岚垭店) — 92 m · Quận Du Trung, Trùng Khánh (嘉和苑东门旁 · 大礼堂地铁站1号口步行300米). - 2. Nhà thuốc Chân Thiện Mỹ (Chi nhánh Zaozilan Ya, Quận Du Trung) (真善美药房 · 渝中区枣子岚垭店) — 110 m · Quận Du Trung, Trùng Khánh (枣子岚垭正街120-附3号附近). - 3. Vạn Hòa (Nhân Hòa) (万和医药连锁 · 人和街店) — 110 m · Quận Du Trung, Trùng Khánh (人和街42号菜市场 · 大礼堂地铁站2号口步行50米). - 4. Nhà thuốc Đường Thị (Chi nhánh Tòa nhà Khoa Phổ, ngõ Hoa Phúc) (唐氏大药房 · 华福巷科普大厦店) — 140 m · Quận Du Trung, Trùng Khánh (人和街140号 · 大礼堂地铁站2号口步行100米). - 5. Hòa Bình Pharmacy (Zaozi Lanya) (和平药房 · 枣子岚垭店) — 178 m · Quận Du Trung, Trùng Khánh (枣子岚垭正街55号 · 大礼堂地铁站1号口步行430米). Bạn b",
+            "traceId": "tr_1e2460f2-a236-4c99-96cb-6eaae8078a18",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -344,8 +363,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "amap-place-v5",
-                "fetchedAt": "2026-11-06T18:42:10.786Z",
-                "durationMs": 9550,
+                "fetchedAt": "2026-11-07T05:26:44.366Z",
+                "durationMs": 4418,
                 "error": ""
               }
             ],
@@ -359,8 +378,8 @@
               "count": 10,
               "names": [
                 "Jianzhijia Pharmacy (Chongqing Zaozilan Ya) (健之佳健康药房 · 重庆枣子岚垭店)",
-                "Nhà thuốc Chân Thiện Mỹ (Zaozilan Ya) (真善美药房 · 渝中区枣子岚垭店)",
-                "Wanhe Pharmacy (Renhe Street) (万和医药连锁 · 人和街店)",
+                "Nhà thuốc Chân Thiện Mỹ (Chi nhánh Zaozilan Ya, Quận Du Trung) (真善美药房 · 渝中区枣子岚垭店)",
+                "Vạn Hòa (Nhân Hòa) (万和医药连锁 · 人和街店)",
                 "Nhà thuốc Đường Thị (Chi nhánh Tòa nhà Khoa Phổ, ngõ Hoa Phúc) (唐氏大药房 · 华福巷科普大厦店)",
                 "Hòa Bình Pharmacy (Zaozi Lanya) (和平药房 · 枣子岚垭店)"
               ]
@@ -370,7 +389,22 @@
             "hotelAreaStatus": "",
             "place": "Jianzhijia Pharmacy (Chongqing Zaozilan Ya) (健之佳健康药房 · 重庆枣子岚垭店)",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "PLACE_DISCOVERY",
+              "confidence": 0.92,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "place-search",
+                "current-area"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
           }
         }
       ],
@@ -384,7 +418,7 @@
       "category": "remote-location",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 3720,
+      "latencyMs": 3235,
       "infraError": "",
       "checks": [
         {
@@ -403,25 +437,25 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T18:42:21.989Z\",\"durationMs\":877,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-06T18:42:22.866Z\",\"durationMs\":1118,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-07T05:26:50.094Z\",\"durationMs\":770,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-07T05:26:50.864Z\",\"durationMs\":1139,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "180 chars"
+          "details": "207 chars"
         },
         {
           "name": "text excludes /TP\\.?HCM/i",
           "pass": true,
           "critical": true,
-          "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+          "details": "Ở Đà Lạt, hiện tại Mưa phùn dày, 23°C. Nhìn 8 giờ tới (16–22°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển."
         },
         {
           "name": "text excludes /Hồ Chí Minh/i",
           "pass": true,
           "critical": true,
-          "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+          "details": "Ở Đà Lạt, hiện tại Mưa phùn dày, 23°C. Nhìn 8 giờ tới (16–22°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển."
         },
         {
           "name": "weather target coordinates",
@@ -433,7 +467,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 3720,
+          "latencyMs": 3235,
           "checks": [
             {
               "name": "intent",
@@ -451,25 +485,25 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-06T18:42:21.989Z\",\"durationMs\":877,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-06T18:42:22.866Z\",\"durationMs\":1118,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"geoapify-geocoding-v1\",\"fetchedAt\":\"2026-11-07T05:26:50.094Z\",\"durationMs\":770,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"weather\",\"ok\":true,\"source\":\"open-meteo-coverage-fallback\",\"fetchedAt\":\"2026-11-07T05:26:50.864Z\",\"durationMs\":1139,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "180 chars"
+              "details": "207 chars"
             },
             {
               "name": "text excludes /TP\\.?HCM/i",
               "pass": true,
               "critical": true,
-              "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+              "details": "Ở Đà Lạt, hiện tại Mưa phùn dày, 23°C. Nhìn 8 giờ tới (16–22°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển."
             },
             {
               "name": "text excludes /Hồ Chí Minh/i",
               "pass": true,
               "critical": true,
-              "details": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở."
+              "details": "Ở Đà Lạt, hiện tại Mưa phùn dày, 23°C. Nhìn 8 giờ tới (16–22°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển."
             },
             {
               "name": "weather target coordinates",
@@ -479,8 +513,8 @@
             }
           ],
           "response": {
-            "text": "Ở Đà Lạt, hiện tại Trời quang, 15°C. Nhìn 8 giờ tới (15–24°C), thời tiết **khá tiện để đi chơi**. Bạn có thể đi ngoài trời; mang nước và kiểm tra lại radar mưa trước lúc rời chỗ ở.",
-            "traceId": "tr_83628802-33a1-46d8-8f85-6f5160ef2aba",
+            "text": "Ở Đà Lạt, hiện tại Mưa phùn dày, 23°C. Nhìn 8 giờ tới (16–22°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển.",
+            "traceId": "tr_a80419b5-111b-4610-a089-4682dcbe2009",
             "intent": "WEATHER_OUTDOOR",
             "tools": [
               "resolve_place",
@@ -492,8 +526,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "geoapify-geocoding-v1",
-                "fetchedAt": "2026-11-06T18:42:21.989Z",
-                "durationMs": 877,
+                "fetchedAt": "2026-11-07T05:26:50.094Z",
+                "durationMs": 770,
                 "error": ""
               },
               {
@@ -501,8 +535,8 @@
                 "tool": "weather",
                 "ok": true,
                 "source": "open-meteo-coverage-fallback",
-                "fetchedAt": "2026-11-06T18:42:22.866Z",
-                "durationMs": 1118,
+                "fetchedAt": "2026-11-07T05:26:50.864Z",
+                "durationMs": 1139,
                 "error": ""
               }
             ],
@@ -514,13 +548,28 @@
                 "lng": 108.4375758
               },
               "timezone": "Asia/Ho_Chi_Minh",
-              "condition": "Trời quang"
+              "condition": "Mưa phùn dày"
             },
             "routes": 0,
             "hotelAreaStatus": "",
             "place": "Đà Lạt",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "WEATHER_OUTDOOR",
+              "confidence": 0.95,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "weather-language",
+                "named-destination"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
           }
         }
       ],
@@ -534,7 +583,7 @@
       "category": "clarification",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 105,
+      "latencyMs": 109,
       "infraError": "",
       "checks": [
         {
@@ -565,7 +614,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 105,
+          "latencyMs": 109,
           "checks": [
             {
               "name": "no successful live source",
@@ -594,7 +643,7 @@
           ],
           "response": {
             "text": "Pipi chưa lấy được GPS hiện tại nên chưa thể tìm địa điểm “quanh đây”. Bạn bật quyền Vị trí hoặc kiểm tra Sensor rồi gửi lại câu hỏi nhé.",
-            "traceId": "tr_7425677c-466e-47f6-85f2-62b5173a98bf",
+            "traceId": "tr_268914e9-423c-4630-9a9f-44edab098e25",
             "intent": "",
             "tools": [],
             "sources": [],
@@ -605,7 +654,8 @@
             "hotelAreaStatus": "",
             "place": "",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": null
           }
         }
       ],
@@ -617,7 +667,7 @@
       "category": "location-safety",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 82,
+      "latencyMs": 120,
       "infraError": "",
       "checks": [
         {
@@ -648,7 +698,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 82,
+          "latencyMs": 120,
           "checks": [
             {
               "name": "no successful live source",
@@ -677,7 +727,7 @@
           ],
           "response": {
             "text": "Vị trí trong app đang đồng bộ: nhãn khu vực và tọa độ GPS chưa trùng nhau. Pipi chưa tìm “quanh đây” để tránh trả địa điểm sai. Bạn chờ vài giây để GPS cập nhật rồi gửi lại nhé.",
-            "traceId": "tr_fb21ac02-ae7b-4ca5-b433-21872d0670f2",
+            "traceId": "tr_d7defb93-497d-4a6e-bc77-20f8b775c110",
             "intent": "",
             "tools": [],
             "sources": [],
@@ -688,7 +738,8 @@
             "hotelAreaStatus": "",
             "place": "",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": null
           }
         }
       ],
@@ -700,7 +751,7 @@
       "category": "grounding",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 97,
+      "latencyMs": 352,
       "infraError": "",
       "checks": [
         {
@@ -737,7 +788,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 97,
+          "latencyMs": 352,
           "checks": [
             {
               "name": "intent",
@@ -772,7 +823,7 @@
           ],
           "response": {
             "text": "Pipi chưa thể hỗ trợ câu hỏi này.",
-            "traceId": "tr_ee14ffde-4365-4e0d-9411-7b20ab9dfbfe",
+            "traceId": "tr_64428d64-0fa9-4f7f-bfe8-3623bab66c34",
             "intent": "TRAVEL_UTILITY",
             "tools": [],
             "sources": [],
@@ -785,7 +836,8 @@
             "curatedCount": 0,
             "missingApiNeeds": [
               "CURRENCY_RATE"
-            ]
+            ],
+            "router": null
           }
         }
       ],
@@ -797,7 +849,7 @@
       "category": "route",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 19450,
+      "latencyMs": 3309,
       "infraError": "",
       "checks": [
         {
@@ -816,13 +868,13 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"google-places-text-v1\",\"fetchedAt\":\"2026-11-06T18:42:27.150Z\",\"durationMs\":257,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-06T18:42:27.407Z\",\"durationMs\":41,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"google-places-text-v1\",\"fetchedAt\":\"2026-11-07T05:26:54.026Z\",\"durationMs\":277,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-07T05:26:54.303Z\",\"durationMs\":65,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "727 chars"
+          "details": "647 chars"
         },
         {
           "name": "route returned",
@@ -840,7 +892,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 19450,
+          "latencyMs": 3309,
           "checks": [
             {
               "name": "intent",
@@ -858,13 +910,13 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"google-places-text-v1\",\"fetchedAt\":\"2026-11-06T18:42:27.150Z\",\"durationMs\":257,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-06T18:42:27.407Z\",\"durationMs\":41,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"resolve_place\",\"ok\":true,\"source\":\"google-places-text-v1\",\"fetchedAt\":\"2026-11-07T05:26:54.026Z\",\"durationMs\":277,\"error\":\"\"},{\"id\":\"tool-2\",\"tool\":\"walking_route\",\"ok\":true,\"source\":\"google-routes-v2\",\"fetchedAt\":\"2026-11-07T05:26:54.303Z\",\"durationMs\":65,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "727 chars"
+              "details": "647 chars"
             },
             {
               "name": "route returned",
@@ -880,8 +932,8 @@
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi sẽ hướng dẫn bạn cách đi bộ từ vị trí hiện tại đến Dinh Độc Lập như sau: * **Khoảng cách:** 971 mét. * **Thời gian di chuyển dự kiến:** Khoảng 13-14 phút (dựa trên dữ liệu quãng đường 809 giây). * **Chi tiết lộ trình:** 1. Đi về hướng Đông Bắc về phía Đồng Khởi. 2. Rẽ trái tại Cyber Real - Văn Phòng Cho Thuê TPHCM vào đường Đồng Khởi. 3. Rẽ trái tại Nhà trọ Nhân Nghĩa vào đường Nguyễn Du. 4. Rẽ phải tại Ticket office of the independence palace. 5. Rẽ trái. 6. Rẽ phải tại Dinh Design Store - Independence Palace Souvenir Shop, điểm đến sẽ nằm ở phía bên trái của bạn. *Lưu ý: Một số đoạn trên tuyến đường này có giới hạn sử dụng hoặc là đường riêng, bạn vui lòng quan sát biển báo ",
-            "traceId": "tr_6bf18a31-73bc-4e4a-a465-5bd840f0fc9c",
+            "text": "Chào bạn, Pipi xin gửi thông tin chi tiết về tuyến đường đi bộ từ vị trí hiện tại đến Dinh Độc Lập cho bạn nhé: - **Phương tiện:** Đi bộ - **Quãng đường:** 971 mét - **Thời gian di chuyển ước tính:** Khoảng 14 phút - **Tình trạng giao thông / Lưu ý:** Tuyến đường có một số đoạn bị giới hạn sử dụng hoặc là đường riêng. - **Chi tiết đường đi:** 1. Đi về hướng Đông Bắc về phía Đồng Khởi. 2. Rẽ trái vào đường Đồng Khởi. 3. Rẽ trái vào đường Nguyễn Du. 4. Rẽ phải tại khu vực phòng vé Dinh Độc Lập. 5. Tiếp tục rẽ trái rồi rẽ phải tại cửa hàng lưu niệm Dinh Design Store để tới điểm đến ở bên trái. - **Điểm đến:** Dinh Độc Lập (Bến Thành, TP.HCM).",
+            "traceId": "tr_abc2817a-0e63-4a12-b776-cbd917819ca1",
             "intent": "ROUTE_MOBILITY",
             "tools": [
               "resolve_place",
@@ -893,8 +945,8 @@
                 "tool": "resolve_place",
                 "ok": true,
                 "source": "google-places-text-v1",
-                "fetchedAt": "2026-11-06T18:42:27.150Z",
-                "durationMs": 257,
+                "fetchedAt": "2026-11-07T05:26:54.026Z",
+                "durationMs": 277,
                 "error": ""
               },
               {
@@ -902,8 +954,8 @@
                 "tool": "walking_route",
                 "ok": true,
                 "source": "google-routes-v2",
-                "fetchedAt": "2026-11-06T18:42:27.407Z",
-                "durationMs": 41,
+                "fetchedAt": "2026-11-07T05:26:54.303Z",
+                "durationMs": 65,
                 "error": ""
               }
             ],
@@ -914,7 +966,22 @@
             "hotelAreaStatus": "",
             "place": "Dinh Độc Lập",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "route-language",
+                "current-origin"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
           }
         }
       ],
@@ -928,7 +995,7 @@
       "category": "safety-navigation",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 9345,
+      "latencyMs": 2347,
       "infraError": "",
       "checks": [
         {
@@ -947,7 +1014,7 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:42:48.878Z\",\"durationMs\":4173,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:26:57.272Z\",\"durationMs\":949,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
@@ -995,7 +1062,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 9345,
+          "latencyMs": 2347,
           "checks": [
             {
               "name": "intent",
@@ -1013,7 +1080,7 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:42:48.878Z\",\"durationMs\":4173,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:26:57.272Z\",\"durationMs\":949,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
@@ -1060,7 +1127,7 @@
           ],
           "response": {
             "text": "Pipi không chẩn đoán hoặc chọn thuốc thay cho nhân viên y tế. Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Nhà thuốc Pasteur — ⭐ 3.9 (67 đánh giá) · 119 m · 156 Pasteur, Sài Gòn, Hồ Chí Minh, Việt Nam. - 2. TSURUHA DRUG STORE Ly Tu Trong Shop — ⭐ 4.3 (61 đánh giá) · 237 m · 43 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh 710000, Việt Nam. - 3. Nhà thuốc Pharmacity — ⭐ 3.9 (254 đánh giá) · 349 m · 97 Hai Bà Trưng, Quận 1, Hồ Chí Minh 71000, Việt Nam. - 4. Nhà Thuốc Tư Nhân Bến Nghé — ⭐ 3.3 (4 đánh giá) · 352 m · 124 Pasteur, Sài Gòn, Hồ Chí Minh, Việt Nam. - 5. Công Ty TNHH Nhà Thuốc Tốt — ⭐ 4.7 (16 đánh giá) · 354 m · Lầu 9, 68 Nguyễn Huệ, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. Bạn bấm vào danh sách/b",
-            "traceId": "tr_559a827b-0c15-45e3-8305-ca8e54fb10c3",
+            "traceId": "tr_861529c9-d8f8-48ee-9f98-d4c4371b5ffb",
             "intent": "SAFETY_HEALTH",
             "tools": [
               "search_places"
@@ -1071,8 +1138,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T18:42:48.878Z",
-                "durationMs": 4173,
+                "fetchedAt": "2026-11-07T05:26:57.272Z",
+                "durationMs": 949,
                 "error": ""
               }
             ],
@@ -1097,7 +1164,21 @@
             "hotelAreaStatus": "",
             "place": "Nhà thuốc Pasteur",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "SAFETY_HEALTH",
+              "confidence": 0.98,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "safety-place-search"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
           }
         }
       ],
@@ -1111,7 +1192,7 @@
       "category": "scope",
       "critical": false,
       "status": "PASS",
-      "latencyMs": 123,
+      "latencyMs": 360,
       "infraError": "",
       "checks": [
         {
@@ -1148,7 +1229,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 123,
+          "latencyMs": 360,
           "checks": [
             {
               "name": "intent",
@@ -1183,7 +1264,7 @@
           ],
           "response": {
             "text": "Pipi hiện tập trung tìm địa điểm và chỉ đường cho chuyến đi. Bạn muốn đi đâu, hoặc cần tìm gì gần vị trí hiện tại?",
-            "traceId": "tr_49bd9d95-4cac-4dc9-9d06-99afc123a3bf",
+            "traceId": "tr_02c230a4-2aff-4ff4-9f71-84ffe71eea21",
             "intent": "LOCAL_GUIDE",
             "tools": [],
             "sources": [],
@@ -1194,7 +1275,21 @@
             "hotelAreaStatus": "",
             "place": "",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "GUIDED_CHAT",
+              "intentHint": "LOCAL_GUIDE",
+              "confidence": 0.94,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "guided-travel-chat"
+              ],
+              "actualDecision": "GUIDED_CHAT",
+              "matched": true
+            }
           }
         }
       ],
@@ -1206,7 +1301,7 @@
       "category": "itinerary",
       "critical": false,
       "status": "PASS",
-      "latencyMs": 6895,
+      "latencyMs": 3671,
       "infraError": "",
       "checks": [
         {
@@ -1225,19 +1320,19 @@
           "name": "required sources ok",
           "pass": true,
           "critical": false,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-06T18:42:57.930Z\",\"durationMs\":18,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-07T05:26:59.979Z\",\"durationMs\":29,\"error\":\"\"}]"
         },
         {
           "name": "answer present",
           "pass": true,
           "critical": false,
-          "details": "1172 chars"
+          "details": "1275 chars"
         },
         {
           "name": "text matches /buổi sáng|buổi trưa|buổi chiều|buổi tối|\\b\\d{1,2}(?::|h)\\d{0,2}\\b/i",
           "pass": true,
           "critical": false,
-          "details": "Chào bạn, Pipi gửi bạn gợi ý lịch trình 1 ngày tại Đà Lạt được sắp xếp các điểm gần nhau, không quá dày đặc để bạn thoải mái trải nghiệm nhé: **Buổi sáng (09:00 - 11:30): Khám phá khu vực trung tâm và thưởng thức quà vặt** * **09:00 - 10:00:** Ghé **Kem bơ Phụng chợ Đà Lạt** (Mở cửa: 09:00 - 22:30)"
+          "details": "Chào bạn, Pipi gợi ý cho bạn lịch trình một ngày khám phá Đà Lạt được sắp xếp theo các cụm địa điểm gần nhau, nhẹ nhàng và không quá dày đặc để bạn thoải mái tận hưởng nhé: **Buổi sáng: Thưởng thức bánh ngọt và cà phê ngắm cảnh** * **09:00 - 10:30 | Canelés Dalat – since 2020:** Ghé tiệm để thưởng t"
         },
         {
           "name": "curated places returned",
@@ -1249,7 +1344,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 6895,
+          "latencyMs": 3671,
           "checks": [
             {
               "name": "intent",
@@ -1267,19 +1362,19 @@
               "name": "required sources ok",
               "pass": true,
               "critical": false,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-06T18:42:57.930Z\",\"durationMs\":18,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"curated_places\",\"ok\":true,\"source\":\"travelos-d1\",\"fetchedAt\":\"2026-11-07T05:26:59.979Z\",\"durationMs\":29,\"error\":\"\"}]"
             },
             {
               "name": "answer present",
               "pass": true,
               "critical": false,
-              "details": "1172 chars"
+              "details": "1275 chars"
             },
             {
               "name": "text matches /buổi sáng|buổi trưa|buổi chiều|buổi tối|\\b\\d{1,2}(?::|h)\\d{0,2}\\b/i",
               "pass": true,
               "critical": false,
-              "details": "Chào bạn, Pipi gửi bạn gợi ý lịch trình 1 ngày tại Đà Lạt được sắp xếp các điểm gần nhau, không quá dày đặc để bạn thoải mái trải nghiệm nhé: **Buổi sáng (09:00 - 11:30): Khám phá khu vực trung tâm và thưởng thức quà vặt** * **09:00 - 10:00:** Ghé **Kem bơ Phụng chợ Đà Lạt** (Mở cửa: 09:00 - 22:30)"
+              "details": "Chào bạn, Pipi gợi ý cho bạn lịch trình một ngày khám phá Đà Lạt được sắp xếp theo các cụm địa điểm gần nhau, nhẹ nhàng và không quá dày đặc để bạn thoải mái tận hưởng nhé: **Buổi sáng: Thưởng thức bánh ngọt và cà phê ngắm cảnh** * **09:00 - 10:30 | Canelés Dalat – since 2020:** Ghé tiệm để thưởng t"
             },
             {
               "name": "curated places returned",
@@ -1289,8 +1384,8 @@
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi gửi bạn gợi ý lịch trình 1 ngày tại Đà Lạt được sắp xếp các điểm gần nhau, không quá dày đặc để bạn thoải mái trải nghiệm nhé: **Buổi sáng (09:00 - 11:30): Khám phá khu vực trung tâm và thưởng thức quà vặt** * **09:00 - 10:00:** Ghé **Kem bơ Phụng chợ Đà Lạt** (Mở cửa: 09:00 - 22:30) để thưởng thức món kem bơ trứ danh. * **10:00 - 11:30:** Di chuyển gần đó đến **Canelés Dalat – since 2020** (Mở cửa: 09:00 - 19:00) để mua bánh canelé giòn thơm (lưu ý đoạn đường lên tiệm dốc khá cao và hẹp). **Buổi trưa và chiều (11:30 - 16:30): Thư giãn và ngắm cảnh thung lũng** * **11:30 - 13:30:** Nghỉ ngơi và dùng bữa trưa kiểu Ý tại **Émai Dallat Coffee** (Mở cửa: 07:30 - 22:00). * **13:30 ",
-            "traceId": "tr_b3b26a85-f2eb-4cc4-bf7b-104b154e58a0",
+            "text": "Chào bạn, Pipi gợi ý cho bạn lịch trình một ngày khám phá Đà Lạt được sắp xếp theo các cụm địa điểm gần nhau, nhẹ nhàng và không quá dày đặc để bạn thoải mái tận hưởng nhé: **Buổi sáng: Thưởng thức bánh ngọt và cà phê ngắm cảnh** * **09:00 - 10:30 | Canelés Dalat – since 2020:** Ghé tiệm để thưởng thức những chiếc bánh Canelé vỏ giòn ruột mềm nổi tiếng (bạn lưu ý đường lên dốc khá cao và hẹp nên có thể đi bộ từ đầu hẻm vào nhé). * **10:30 - 12:00 | Kem bơ Phụng chợ Đà Lạt:** Di chuyển ra khu vực gần đó để thưởng thức món kem bơ đặc sản trứ danh của thành phố. **Buổi trưa & Chiều: Trải nghiệm không gian và mua sắm đặc sản** * **12:00 - 14:00 | Émai Dallat Coffee:** Nghỉ ngơi và dùng bữa trưa ",
+            "traceId": "tr_2b25e030-0d78-4495-b099-7967efb7fc52",
             "intent": "ITINERARY_PLANNING",
             "tools": [
               "curated_places"
@@ -1301,8 +1396,8 @@
                 "tool": "curated_places",
                 "ok": true,
                 "source": "travelos-d1",
-                "fetchedAt": "2026-11-06T18:42:57.930Z",
-                "durationMs": 18,
+                "fetchedAt": "2026-11-07T05:26:59.979Z",
+                "durationMs": 29,
                 "error": ""
               }
             ],
@@ -1313,7 +1408,21 @@
             "hotelAreaStatus": "",
             "place": "",
             "curatedCount": 30,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "PLANNER_MODEL",
+              "intentHint": "ITINERARY_PLANNING",
+              "confidence": 0.96,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "itinerary-language"
+              ],
+              "actualDecision": "PLANNER_MODEL",
+              "matched": true
+            }
           }
         }
       ],
@@ -1328,7 +1437,7 @@
       "category": "multi-turn",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 47881,
+      "latencyMs": 7945,
       "infraError": "",
       "checks": [
         {
@@ -1341,7 +1450,7 @@
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "736 chars"
+          "details": "706 chars"
         },
         {
           "name": "hotel confirmation state",
@@ -1353,7 +1462,7 @@
           "name": "answer present",
           "pass": true,
           "critical": true,
-          "details": "974 chars"
+          "details": "1081 chars"
         },
         {
           "name": "place details returned",
@@ -1377,7 +1486,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 11903,
+          "latencyMs": 3968,
           "checks": [
             {
               "name": "no nearby result",
@@ -1389,7 +1498,7 @@
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "736 chars"
+              "details": "706 chars"
             },
             {
               "name": "hotel confirmation state",
@@ -1399,8 +1508,8 @@
             }
           ],
           "response": {
-            "text": "Pipi tìm thấy khách sạn này: **Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店))** — Số 30 đường Lâm Giang Chi, quận Du Trung (cách cửa số 1 ga tàu điện ngầm Lâm Giang Môn 450 mét) (临江支路30号(临江门地铁站1号口步行450米)). Đây có đúng chỗ bạn nói không? Các chi nhánh khác: 2. Khách sạn Yitel (Trùng Khánh Nam Bình - Quảng trường Vạn Đạt) (和颐酒店(重庆南坪万达广场轻轨站店)) — Số 186 đường Huệ Công, quận Nam Ngạn (南坪惠工路186号) 3. Khách sạn Yitel (Trùng Khánh - Ga tàu điện nhẹ Song Bi) (和颐酒店(重庆双碑轻轨站店)) — Số 34, phụ số 10-1 đường Song Bi, quận Sa Bình Bá (双碑街34号附10号-1) Bạn có thể trả lời “đúng số 2” nếu là chi nhánh khác. Nếu chưa đúng, bạn gửi link bản đồ hoặc mô tả nó gần đâu nhé. Pipi ",
-            "traceId": "tr_a5febb5e-6075-4575-8a7b-c7e741dd334e",
+            "text": "Pipi tìm thấy khách sạn này: **Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店))** — Số 30 đường Lâm Giang Chi, quận Du Trung (cách cửa số 1 ga tàu điện ngầm Lâm Giang Môn 450 mét) (临江支路30号(临江门地铁站1号口步行450米)). Đây có đúng chỗ bạn nói không? Các chi nhánh khác: 2. Khách sạn Yitel (Trùng Khánh Nam Bình Vạn Đạt Quảng Trường) (和颐酒店(重庆南坪万达广场轻轨站店)) — Số 186 đường Huệ Công, quận Nam Ngạn (南坪惠工路186号) 3. Khách sạn Yitel (Trùng Khánh Song Bi) (和颐酒店(重庆双碑轻轨站店)) — Số 34-10 đường Song Bi, quận Sa Bình Bá (双碑街34号附10号-1) Bạn có thể trả lời “đúng số 2” nếu là chi nhánh khác. Nếu chưa đúng, bạn gửi link bản đồ hoặc mô tả nó gần đâu nhé. Pipi sẽ tìm chỗ ăn chơi sau khi xác",
+            "traceId": "tr_bf3d34aa-9183-48dd-9ac7-3d347847478d",
             "intent": "PLACE_DISCOVERY",
             "tools": [],
             "sources": [],
@@ -1411,18 +1520,19 @@
             "hotelAreaStatus": "awaiting_confirmation",
             "place": "",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": null
           }
         },
         {
           "step": 2,
-          "latencyMs": 35978,
+          "latencyMs": 3977,
           "checks": [
             {
               "name": "answer present",
               "pass": true,
               "critical": true,
-              "details": "974 chars"
+              "details": "1081 chars"
             },
             {
               "name": "place details returned",
@@ -1444,8 +1554,8 @@
             }
           ],
           "response": {
-            "text": "Pipi đã lấy Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店)) (Số 30 đường Lâm Giang Chi, quận Du Trung (cách cửa số 1 ga tàu điện ngầm Lâm Giang Môn 450 mét) (临江支路30号(临江门地铁站1号口步行450米))) làm điểm tìm. Đây là 10 nơi gần khách sạn nhất: - 1. Du thuyền đêm Lưỡng Giang Trùng Khánh (重庆两江夜景游船) — 32 m. - 2. Trùng Khánh Hồ Điệp Tập (重庆蝴蝶集) — 59 m. - 3. Du thuyền đêm Lưỡng Giang Tứ Ngạn (两江四岸夜景游船) — 59 m. - 4. Đài tưởng niệm liệt sĩ Trương Bồi Tước (张培爵烈士纪念碑) — 86 m. - 5. Tâm Nguyện Đình (心愿亭) — 88 m. - 6. Tham quan trên cao Hồng Nhai Động (洪崖洞高空观光) — 91 m. - 7. Hải Đạo Nhai (海盗街 · 洪崖洞异国美食街店) — 96 m. - 8. Hồng Nhai Tích Thúy (洪崖滴翠) — 96 m. - 9. Trải nghiệm Tiên ",
-            "traceId": "tr_de5e228d-ee7e-4352-b83e-c95fd0ea90a6",
+            "text": "Pipi đã lấy Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店)) (Số 30 đường Lâm Giang Chi, quận Du Trung (cách cửa số 1 ga tàu điện ngầm Lâm Giang Môn 450 mét) (临江支路30号(临江门地铁站1号口步行450米))) làm điểm tìm. Đây là 10 nơi gần khách sạn nhất: - 1. Du thuyền cảnh đêm Lưỡng Giang Trùng Khánh (重庆两江夜景游船) — 32 m. - 2. Trùng Khánh Hồ Điệp Tập (重庆蝴蝶集) — 59 m. - 3. Du thuyền đêm Lưỡng Giang Tứ Ngạn (两江四岸夜景游船) — 59 m. - 4. Đài tưởng niệm liệt sĩ Trương Bồi Tước (张培爵烈士纪念碑) — 86 m. - 5. Tâm Nguyện Đình (心愿亭) — 88 m. - 6. Tham quan trên cao Hồng Nhai Động (洪崖洞高空观光) — 91 m. - 7. Hải Đạo Nhai (海盗街 · 洪崖洞异国美食街店) — 96 m. - 8. Hồng Nhai Tích Thúy (洪崖滴翠) — 96 m. - 9. Trải nghiệm ",
+            "traceId": "tr_68afa694-b0c0-4937-9339-f7b68302c0ba",
             "intent": "PLACE_DISCOVERY",
             "tools": [],
             "sources": [],
@@ -1458,7 +1568,7 @@
               },
               "count": 10,
               "names": [
-                "Du thuyền đêm Lưỡng Giang Trùng Khánh (重庆两江夜景游船)",
+                "Du thuyền cảnh đêm Lưỡng Giang Trùng Khánh (重庆两江夜景游船)",
                 "Trùng Khánh Hồ Điệp Tập (重庆蝴蝶集)",
                 "Du thuyền đêm Lưỡng Giang Tứ Ngạn (两江四岸夜景游船)",
                 "Đài tưởng niệm liệt sĩ Trương Bồi Tước (张培爵烈士纪念碑)",
@@ -1470,7 +1580,8 @@
             "hotelAreaStatus": "",
             "place": "Khách sạn Yitel Premium (Trùng Khánh Giải Phóng Bi - Hồng Nhai Động) (和颐至尚酒店(重庆解放碑洪崖洞店))",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": null
           }
         }
       ],
@@ -1484,7 +1595,7 @@
       "category": "location-freshness",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 82,
+      "latencyMs": 155,
       "infraError": "",
       "checks": [
         {
@@ -1509,7 +1620,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 82,
+          "latencyMs": 155,
           "checks": [
             {
               "name": "no successful live source",
@@ -1532,7 +1643,7 @@
           ],
           "response": {
             "text": "Pipi cần cập nhật lại vị trí GPS trước khi tìm kiếm hoặc chỉ đường. Bạn chờ một chút nhé.",
-            "traceId": "tr_abfe845c-0422-48bc-b653-3f22af24aca3",
+            "traceId": "tr_7f82e4ec-789a-49a9-9baf-8d51fd6b8be8",
             "intent": "",
             "tools": [],
             "sources": [],
@@ -1543,7 +1654,8 @@
             "hotelAreaStatus": "",
             "place": "",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": null
           }
         }
       ],
@@ -1557,7 +1669,7 @@
       "category": "guardrail",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 92,
+      "latencyMs": 132,
       "infraError": "",
       "checks": [
         {
@@ -1576,7 +1688,7 @@
           "name": "trace id present",
           "pass": true,
           "critical": true,
-          "details": "tr_08de0931-8a21-4ccf-bf62-1d37b0c3aeb9"
+          "details": "tr_2c859ef1-d934-4c72-b0cd-a90271ca98cd"
         },
         {
           "name": "no nearby result",
@@ -1594,7 +1706,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 92,
+          "latencyMs": 132,
           "checks": [
             {
               "name": "no successful live source",
@@ -1612,7 +1724,7 @@
               "name": "trace id present",
               "pass": true,
               "critical": true,
-              "details": "tr_08de0931-8a21-4ccf-bf62-1d37b0c3aeb9"
+              "details": "tr_2c859ef1-d934-4c72-b0cd-a90271ca98cd"
             },
             {
               "name": "no nearby result",
@@ -1629,7 +1741,7 @@
           ],
           "response": {
             "text": "Pipi chỉ hỗ trợ tìm địa điểm và chỉ đường du lịch. Bạn nói nơi muốn tìm hoặc muốn đi nhé.",
-            "traceId": "tr_08de0931-8a21-4ccf-bf62-1d37b0c3aeb9",
+            "traceId": "tr_2c859ef1-d934-4c72-b0cd-a90271ca98cd",
             "intent": "LOCAL_GUIDE",
             "tools": [],
             "sources": [],
@@ -1640,7 +1752,8 @@
             "hotelAreaStatus": "",
             "place": "",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": null
           }
         }
       ],
@@ -1652,7 +1765,7 @@
       "category": "guardrail",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 16597,
+      "latencyMs": 6173,
       "infraError": "",
       "checks": [
         {
@@ -1671,19 +1784,19 @@
           "name": "required sources ok",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T18:43:50.022Z\",\"durationMs\":1069,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-07T05:27:12.925Z\",\"durationMs\":1164,\"error\":\"\"}]"
         },
         {
           "name": "trace id present",
           "pass": true,
           "critical": true,
-          "details": "tr_cfec3c4c-ca32-4ed0-b092-8a9196064977"
+          "details": "tr_6aaa5d44-a7b9-4e9b-a874-b2d3f1ce5ccb"
         },
         {
           "name": "source durations present",
           "pass": true,
           "critical": true,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T18:43:50.022Z\",\"durationMs\":1069,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-07T05:27:12.925Z\",\"durationMs\":1164,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
@@ -1713,7 +1826,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 16597,
+          "latencyMs": 6173,
           "checks": [
             {
               "name": "intent",
@@ -1731,19 +1844,19 @@
               "name": "required sources ok",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T18:43:50.022Z\",\"durationMs\":1069,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-07T05:27:12.925Z\",\"durationMs\":1164,\"error\":\"\"}]"
             },
             {
               "name": "trace id present",
               "pass": true,
               "critical": true,
-              "details": "tr_cfec3c4c-ca32-4ed0-b092-8a9196064977"
+              "details": "tr_6aaa5d44-a7b9-4e9b-a874-b2d3f1ce5ccb"
             },
             {
               "name": "source durations present",
               "pass": true,
               "critical": true,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-06T18:43:50.022Z\",\"durationMs\":1069,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"geoapify-places-v2\",\"fetchedAt\":\"2026-11-07T05:27:12.925Z\",\"durationMs\":1164,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
@@ -1771,8 +1884,8 @@
             }
           ],
           "response": {
-            "text": "Chào bạn, Pipi đã tìm thấy một số cửa hàng tiện lợi gần vị trí của bạn tại TP.HCM như sau: 1. **Circle K** - Khoảng cách: ~234m - Địa chỉ: Đường Lý Tự Trọng, Phường Sài Gòn - Giờ hoạt động: 24/7 2. **7-Eleven** - Khoảng cách: ~243m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn - Giờ hoạt động: Pipi chưa xác minh được 3. **7-Eleven** - Khoảng cách: ~251m - Địa chỉ: Đường Nguyễn Du, Phường Sài Gòn - Giờ hoạt động: Pipi chưa xác minh được 4. **Shop&Go!** - Khoảng cách: ~262m - Địa chỉ: Hẻm 59 Nguyễn Du, Phường Sài Gòn - Giờ hoạt động: Pipi chưa xác minh được 5. **Circle K** - Khoảng cách: ~264m - Địa chỉ: Hẻm 59 Nguyễn Du, Phường Sài Gòn - Giờ hoạt động: Pipi chưa xác minh được 6. **Circle K** - K",
-            "traceId": "tr_cfec3c4c-ca32-4ed0-b092-8a9196064977",
+            "text": "Pipi xin gửi bạn danh sách các cửa hàng tiện lợi ở quanh đây: 1. **Circle K** - **Khoảng cách:** Khoảng 234 mét - **Địa chỉ:** Đường Lý Tự Trọng, Phường Sài Gòn, Thành phố Hồ Chí Minh - **Giờ hoạt động:** 24/7 2. **7-Eleven** - **Khoảng cách:** Khoảng 243 mét - **Địa chỉ:** Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh - **Giờ hoạt động:** Chưa xác minh được 3. **7-Eleven** - **Khoảng cách:** Khoảng 251 mét - **Địa chỉ:** Đường Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh - **Giờ hoạt động:** Chưa xác minh được 4. **Shop&Go!** - **Khoảng cách:** Khoảng 262 mét - **Địa chỉ:** Hẻm 59 Nguyễn Du, Phường Sài Gòn, Thành phố Hồ Chí Minh - **Giờ hoạt động:** Chưa xác minh được 5. **Circ",
+            "traceId": "tr_6aaa5d44-a7b9-4e9b-a874-b2d3f1ce5ccb",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -1783,8 +1896,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "geoapify-places-v2",
-                "fetchedAt": "2026-11-06T18:43:50.022Z",
-                "durationMs": 1069,
+                "fetchedAt": "2026-11-07T05:27:12.925Z",
+                "durationMs": 1164,
                 "error": ""
               }
             ],
@@ -1809,7 +1922,22 @@
             "hotelAreaStatus": "",
             "place": "Circle K",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "PLACE_DISCOVERY",
+              "confidence": 0.92,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "place-search",
+                "current-area"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
           }
         }
       ],
@@ -1821,7 +1949,7 @@
       "category": "guardrail",
       "critical": true,
       "status": "PASS",
-      "latencyMs": 87,
+      "latencyMs": 475,
       "infraError": "",
       "checks": [
         {
@@ -1840,7 +1968,7 @@
           "name": "trace id present",
           "pass": true,
           "critical": true,
-          "details": "tr_decd0a2a-de25-43f0-a237-f0fc3793ca20"
+          "details": "tr_f7c41ec1-a459-496b-93f6-127e2a4d93bb"
         },
         {
           "name": "no nearby result",
@@ -1852,7 +1980,7 @@
       "steps": [
         {
           "step": 1,
-          "latencyMs": 87,
+          "latencyMs": 475,
           "checks": [
             {
               "name": "no successful live source",
@@ -1870,7 +1998,7 @@
               "name": "trace id present",
               "pass": true,
               "critical": true,
-              "details": "tr_decd0a2a-de25-43f0-a237-f0fc3793ca20"
+              "details": "tr_f7c41ec1-a459-496b-93f6-127e2a4d93bb"
             },
             {
               "name": "no nearby result",
@@ -1881,7 +2009,7 @@
           ],
           "response": {
             "text": "Câu hỏi hơi dài. Bạn rút gọn còn dưới 4.000 ký tự và nói rõ nơi muốn tìm hoặc muốn đi nhé.",
-            "traceId": "tr_decd0a2a-de25-43f0-a237-f0fc3793ca20",
+            "traceId": "tr_f7c41ec1-a459-496b-93f6-127e2a4d93bb",
             "intent": "LOCAL_GUIDE",
             "tools": [],
             "sources": [],
@@ -1892,7 +2020,8 @@
             "hotelAreaStatus": "",
             "place": "",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": null
           }
         }
       ],
@@ -1904,7 +2033,7 @@
       "category": "monitoring",
       "critical": false,
       "status": "PASS",
-      "latencyMs": 8310,
+      "latencyMs": 4543,
       "infraError": "",
       "checks": [
         {
@@ -1923,31 +2052,31 @@
           "name": "required sources ok",
           "pass": true,
           "critical": false,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:44:06.502Z\",\"durationMs\":4149,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:27:18.442Z\",\"durationMs\":844,\"error\":\"\"}]"
         },
         {
           "name": "trace id present",
           "pass": true,
           "critical": false,
-          "details": "tr_e2b0602e-2a79-47bc-b4bf-337be869ed03"
+          "details": "tr_e88b4d11-a217-433b-92ac-f70472f0ad7f"
         },
         {
           "name": "source durations present",
           "pass": true,
           "critical": false,
-          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:44:06.502Z\",\"durationMs\":4149,\"error\":\"\"}]"
+          "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:27:18.442Z\",\"durationMs\":844,\"error\":\"\"}]"
         },
         {
           "name": "nearby POIs returned",
           "pass": true,
           "critical": false,
-          "details": "10 POIs"
+          "details": "9 POIs"
         }
       ],
       "steps": [
         {
           "step": 1,
-          "latencyMs": 8310,
+          "latencyMs": 4543,
           "checks": [
             {
               "name": "intent",
@@ -1965,30 +2094,30 @@
               "name": "required sources ok",
               "pass": true,
               "critical": false,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:44:06.502Z\",\"durationMs\":4149,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:27:18.442Z\",\"durationMs\":844,\"error\":\"\"}]"
             },
             {
               "name": "trace id present",
               "pass": true,
               "critical": false,
-              "details": "tr_e2b0602e-2a79-47bc-b4bf-337be869ed03"
+              "details": "tr_e88b4d11-a217-433b-92ac-f70472f0ad7f"
             },
             {
               "name": "source durations present",
               "pass": true,
               "critical": false,
-              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-06T18:44:06.502Z\",\"durationMs\":4149,\"error\":\"\"}]"
+              "details": "[{\"id\":\"tool-1\",\"tool\":\"search_places\",\"ok\":true,\"source\":\"google-places-multi-pass-v1\",\"fetchedAt\":\"2026-11-07T05:27:18.442Z\",\"durationMs\":844,\"error\":\"\"}]"
             },
             {
               "name": "nearby POIs returned",
               "pass": true,
               "critical": false,
-              "details": "10 POIs"
+              "details": "9 POIs"
             }
           ],
           "response": {
-            "text": "Pipi gửi bạn danh sách các nhà thuốc ở gần bạn nhé: 1. **Nhà thuốc Pasteur** - **Khoảng cách:** Khoảng 119m - **Địa chỉ:** 156 Pasteur, Sài Gòn, Hồ Chí Minh - **Trạng thái hoạt động:** Đang đóng cửa (Giờ mở cửa hôm nay: 08:00–20:00) 2. **TSURUHA DRUG STORE Ly Tu Trong Shop** - **Khoảng cách:** Khoảng 237m - **Địa chỉ:** 43 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh - **Trạng thái hoạt động:** Đang đóng cửa (Giờ mở cửa hôm nay: 10:00–22:00) 3. **Nhà thuốc Pharmacity** - **Khoảng cách:** Khoảng 349m - **Địa chỉ:** 97 Hai Bà Trưng, Quận 1, Hồ Chí Minh - **Trạng thái hoạt động:** Đang mở cửa (Giờ mở cửa hôm nay: 00:00–23:59) 4. **Nhà Thuốc Tư Nhân Bến Nghé** - **Khoảng cách:** Khoảng 352m - **Địa chỉ:** ",
-            "traceId": "tr_e2b0602e-2a79-47bc-b4bf-337be869ed03",
+            "text": "Chào bạn, Pipi gửi bạn danh sách các nhà thuốc ở gần bạn nhé: 1. **Nhà thuốc Pasteur** - Địa chỉ: 156 Pasteur, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 119m - Tình trạng hoạt động: Đang mở cửa (08:00–20:00) 2. **Nhà thuốc Pharmacity** - Địa chỉ: 97 Hai Bà Trưng, Quận 1, Hồ Chí Minh - Khoảng cách: Khoảng 349m - Tình trạng hoạt động: Đang mở cửa (00:00–23:59) 3. **Nhà Thuốc Tư Nhân Bến Nghé** - Địa chỉ: 124 Pasteur, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 352m - Tình trạng hoạt động: Chưa xác minh được giờ mở cửa (Hoạt động bình thường) 4. **Công Ty TNHH Nhà Thuốc Tốt** - Địa chỉ: Lầu 9, 68 Nguyễn Huệ, Sài Gòn, Hồ Chí Minh - Khoảng cách: Khoảng 354m - Tình trạng hoạt động: Đang mở cửa (",
+            "traceId": "tr_e88b4d11-a217-433b-92ac-f70472f0ad7f",
             "intent": "PLACE_DISCOVERY",
             "tools": [
               "search_places"
@@ -1999,8 +2128,8 @@
                 "tool": "search_places",
                 "ok": true,
                 "source": "google-places-multi-pass-v1",
-                "fetchedAt": "2026-11-06T18:44:06.502Z",
-                "durationMs": 4149,
+                "fetchedAt": "2026-11-07T05:27:18.442Z",
+                "durationMs": 844,
                 "error": ""
               }
             ],
@@ -2011,13 +2140,13 @@
                 "lat": 10.7769,
                 "lng": 106.7009
               },
-              "count": 10,
+              "count": 9,
               "names": [
                 "Nhà thuốc Pasteur",
-                "TSURUHA DRUG STORE Ly Tu Trong Shop",
                 "Nhà thuốc Pharmacity",
                 "Nhà Thuốc Tư Nhân Bến Nghé",
-                "Công Ty TNHH Nhà Thuốc Tốt"
+                "Công Ty TNHH Nhà Thuốc Tốt",
+                "Công Ty Tnhh Quốc Tế Khánh Linh - Nhà Thuốc Khánh Linh 1"
               ]
             },
             "weather": null,
@@ -2025,7 +2154,2426 @@
             "hotelAreaStatus": "",
             "place": "Nhà thuốc Pasteur",
             "curatedCount": 0,
-            "missingApiNeeds": []
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "PLACE_DISCOVERY",
+              "confidence": 0.92,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "place-search",
+                "current-area"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L17",
+      "title": "Đà Nẵng không bị hiểu nhầm thành thời tiết",
+      "category": "router-place",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 4743,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": false,
+          "details": "resolve_place → search_places; need resolve_place, search_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "710 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 4743,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": false,
+              "details": "resolve_place → search_places; need resolve_place, search_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "710 chars"
+            }
+          ],
+          "response": {
+            "text": "Pipi gửi bạn danh sách các nhà thuốc tại Đà Nẵng: 1. **Nhà thuốc Blue Pharmacy** - Địa chỉ: Kiot 26-27, chợ Hàn, Hùng Vương, Hải Châu, Đà Nẵng 2. **DAPHARCOBLU+ PHARMACY** - Địa chỉ: 110 Trần Phú, Hải Châu, Đà Nẵng 3. **Nhà thuốc Blue Pharmacy** - Địa chỉ: 23 Nguyễn Thái Học, Hải Châu, Đà Nẵng 4. **Han Pharmacy** - Địa chỉ: 27 Nguyễn Thái Học, Hải Châu, Đà Nẵng 5. **Nhà thuốc Blu+ Pharmacy** - Địa chỉ: 112 Bạch Đằng, Hải Châu, Đà Nẵng 6. **NAVER Pharmacy** - Địa chỉ: 10 Nguyễn Thái Học, Hải Châu, Đà Nẵng 7. **SOC PHARMACY** - Địa chỉ: 127 Trần Phú, Hải Châu, Đà Nẵng 8. **Sông Hàn pharmacy** - Địa chỉ: 53 Nguyễn Thái Học, Hải Châu, Đà Nẵng 9. **Hanuri Pharma** - Địa chỉ: 156 Trần Phú, Hải Châ",
+            "traceId": "tr_add8ea60-3896-4857-834f-96b45f6b59d9",
+            "intent": "PLACE_DISCOVERY",
+            "tools": [
+              "resolve_place",
+              "search_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "geoapify-geocoding-v1",
+                "fetchedAt": "2026-11-07T05:27:23.135Z",
+                "durationMs": 661,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "search_places",
+                "ok": true,
+                "source": "google-places-multi-pass-v1",
+                "fetchedAt": "2026-11-07T05:27:23.796Z",
+                "durationMs": 972,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": {
+              "provider": "google_places",
+              "center": {
+                "lat": 16.068501,
+                "lng": 108.2240242
+              },
+              "count": 10,
+              "names": [
+                "Nhà thuốc Blue Pharmacy",
+                "DAPHARCOBLU+ PHARMACY",
+                "Nhà thuốc Blue Pharmacy",
+                "Han Pharmacy",
+                "Nhà thuốc Blu+ Pharmacy"
+              ]
+            },
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "Nhà thuốc Blue Pharmacy",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "PLACE_DISCOVERY",
+              "confidence": 0.92,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "place-search",
+                "named-area"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L18",
+      "title": "Bảo tàng không bị hiểu nhầm thành bão",
+      "category": "router-place",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 4883,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": false,
+          "details": "resolve_place → search_places; need resolve_place, search_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "1540 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 4883,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": false,
+              "details": "resolve_place → search_places; need resolve_place, search_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "1540 chars"
+            }
+          ],
+          "response": {
+            "text": "Pipi xin gửi đến bạn danh sách các bảo tàng tại TP.HCM: 1. **Bảo tàng Tôn Đức Thắng** - Khoảng cách: Cách trung tâm khoảng 1,1 km - Địa chỉ: 5 Tôn Đức Thắng, Sài Gòn, Hồ Chí Minh - Lý do phù hợp: Là bảo tàng tưởng niệm Chủ tịch Tôn Đức Thắng với không gian trưng bày trang trọng và nhiều hiện vật lịch sử giá trị. 2. **Bến Nhà Rồng - Bảo tàng Hồ Chí Minh** - Khoảng cách: Cách trung tâm khoảng 1,2 km - Địa chỉ: 1 Đ. Nguyễn Tất Thành, Xóm Chiếu, Hồ Chí Minh - Lý do phù hợp: Nơi lưu giữ nhiều dấu ấn lịch sử quan trọng về hành trình ra đi tìm đường cứu nước của Chủ tịch Hồ Chí Minh. 3. **Flyover Starry Sky Art Museum** - Khoảng cách: Cách trung tâm khoảng 1,3 km - Địa chỉ: Tầng 4, Tòa nhà tài chín",
+            "traceId": "tr_ea9e1e15-0cd4-426a-9b31-875f59800eef",
+            "intent": "PLACE_DISCOVERY",
+            "tools": [
+              "resolve_place",
+              "search_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "geoapify-geocoding-v1",
+                "fetchedAt": "2026-11-07T05:27:28.364Z",
+                "durationMs": 572,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "search_places",
+                "ok": true,
+                "source": "google-places-multi-pass-v1",
+                "fetchedAt": "2026-11-07T05:27:28.936Z",
+                "durationMs": 141,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": {
+              "provider": "google_places",
+              "center": {
+                "lat": 10.7737261,
+                "lng": 106.7166008
+              },
+              "count": 10,
+              "names": [
+                "Bảo tàng Tôn Đức Thắng",
+                "Bến Nhà Rồng - Bảo tàng Hồ Chí Minh",
+                "Flyover Starry Sky Art Museum",
+                "Don Chicken - Hồ Tùng Mậu",
+                "Bảo tàng Đỗ Hùng"
+              ]
+            },
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "Bảo tàng Tôn Đức Thắng",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "PLACE_DISCOVERY",
+              "confidence": 0.92,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "place-search",
+                "named-area"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L19",
+      "title": "Route tiếng Anh vẫn tạo chỉ đường",
+      "category": "router-route",
+      "critical": true,
+      "status": "PASS",
+      "latencyMs": 4875,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "resolve_place → walking_route; need resolve_place, walking_route"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "283 chars"
+        },
+        {
+          "name": "route returned",
+          "pass": true,
+          "critical": true,
+          "details": "3 routes"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 4875,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "resolve_place → walking_route; need resolve_place, walking_route"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "283 chars"
+            },
+            {
+              "name": "route returned",
+              "pass": true,
+              "critical": true,
+              "details": "3 routes"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi gửi bạn thông tin di chuyển đến Hồng Nhai Động (洪崖洞民俗风貌区) nhé: - **Phương tiện:** Đi bộ - **Quãng đường:** Khoảng 2,8 km (tuyến đường ngắn nhất) - **Thời gian di chuyển ước tính:** Khoảng 38 phút (2.259 giây) - **Điểm đến:** Hồng Nhai Động (Quận Du Trung, Trùng Khánh)",
+            "traceId": "tr_22618e25-0152-49c5-96c3-dc0a46bcff7d",
+            "intent": "ROUTE_MOBILITY",
+            "tools": [
+              "resolve_place",
+              "walking_route"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-07T05:27:33.087Z",
+                "durationMs": 722,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "walking_route",
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-07T05:27:33.809Z",
+                "durationMs": 961,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 3,
+            "hotelAreaStatus": "",
+            "place": "Hồng Nhai Động (洪崖洞民俗风貌区)",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "route-language",
+                "current-origin"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L20",
+      "title": "Cách đi đến landmark được hiểu là route",
+      "category": "router-route",
+      "critical": true,
+      "status": "PASS",
+      "latencyMs": 6910,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "resolve_place → walking_route; need resolve_place, walking_route"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "482 chars"
+        },
+        {
+          "name": "route returned",
+          "pass": true,
+          "critical": true,
+          "details": "1 routes"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 6910,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "resolve_place → walking_route; need resolve_place, walking_route"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "482 chars"
+            },
+            {
+              "name": "route returned",
+              "pass": true,
+              "critical": true,
+              "details": "1 routes"
+            }
+          ],
+          "response": {
+            "text": "Pipi xin chào bạn! Chào bạn, để đi đến Lễ Đường Nhân Dân (重庆市人民大礼堂, địa chỉ: Quận Du Trung, Trùng Khánh), bạn có thể tham khảo tuyến đường đi bộ như sau: - **Phương tiện:** Đi bộ - **Quãng đường:** 439 mét - **Thời gian di chuyển:** Khoảng 6 phút (351 giây) - **Tình trạng giao thông:** Chưa xác minh được - **Điểm đến:** Lễ Đường Nhân Dân (Quận Du Trung, Trùng Khánh) Nếu bạn cần Pipi hỗ trợ tìm kiếm thêm thông tin hoặc tuyến đường di chuyển từ vị trí khác, hãy cho Pipi biết nhé!",
+            "traceId": "tr_a8ea6f7f-783b-4d07-97ff-888f0beb9df1",
+            "intent": "ROUTE_MOBILITY",
+            "tools": [
+              "resolve_place",
+              "walking_route"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-07T05:27:38.858Z",
+                "durationMs": 1127,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "walking_route",
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-07T05:27:39.985Z",
+                "durationMs": 402,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 1,
+            "hotelAreaStatus": "",
+            "place": "Lễ Đường Nhân Dân (重庆市人民大礼堂)",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "route-language",
+                "current-origin"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L21",
+      "title": "Tuyến hai điểm dùng từ tới",
+      "category": "router-route",
+      "critical": true,
+      "status": "PASS",
+      "latencyMs": 7260,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place, walking_route"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "618 chars"
+        },
+        {
+          "name": "route returned",
+          "pass": true,
+          "critical": true,
+          "details": "3 routes"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 7260,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "resolve_place → resolve_place → walking_route; need resolve_place, walking_route"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "618 chars"
+            },
+            {
+              "name": "route returned",
+              "pass": true,
+              "critical": true,
+              "details": "3 routes"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi xin gửi thông tin hướng dẫn di chuyển từ ga Trùng Khánh Bắc tới Giải Phóng Bi như sau: **1. Các phương tiện di chuyển** Bạn có thể lựa chọn đi bằng phương tiện cá nhân, xe hơi hoặc đi bộ. **2. Tuyến đường và thời gian dự kiến (đối với đi bộ)** - **Điểm đi:** Ga Trùng Khánh Bắc - **Điểm đến:** Giải Phóng Bi (Khu phố đi bộ Giải Phóng Bi, Quận Du Trung) - **Quãng đường:** Khoảng 7,8 km – 7,9 km - **Thời gian di chuyển ước tính:** Khoảng 1 giờ 44 phút đến 1 giờ 45 phút. - **Tình trạng giao thông:** Chưa xác minh được. Nếu bạn cần Pipi hỗ trợ thêm thông tin nào khác cho chuyến đi, bạn cứ hỏi Pipi nhé!",
+            "traceId": "tr_f35edad3-ec4c-4ca7-b676-38a002aef6e2",
+            "intent": "ROUTE_MOBILITY",
+            "tools": [
+              "resolve_place",
+              "resolve_place",
+              "walking_route"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-07T05:27:45.243Z",
+                "durationMs": 1212,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "amap-place-text-v5",
+                "fetchedAt": "2026-11-07T05:27:46.455Z",
+                "durationMs": 489,
+                "error": ""
+              },
+              {
+                "id": "tool-3",
+                "tool": "walking_route",
+                "ok": true,
+                "source": "amap-route-v2",
+                "fetchedAt": "2026-11-07T05:27:46.944Z",
+                "durationMs": 918,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 3,
+            "hotelAreaStatus": "",
+            "place": "Giải Phóng Bi (解放碑步行街)",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "ROUTE_MOBILITY",
+              "confidence": 0.98,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "route-language",
+                "explicit-origin"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L22",
+      "title": "Trời gần đây ưu tiên intent thời tiết",
+      "category": "router-weather",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 2772,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": false,
+          "details": "resolve_place → weather; need weather"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "243 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 2772,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": false,
+              "details": "resolve_place → weather; need weather"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "243 chars"
+            }
+          ],
+          "response": {
+            "text": "Ở Thành phố Hồ Chí Minh, hiện tại Có mây rải rác, 34°C, cảm giác như 40°C. Nhìn 8 giờ tới (28–34°C), thời tiết **không thật sự tiện để đi chơi ngoài trời**. Nếu vẫn đi, bạn nên ưu tiên điểm trong nhà, mang ô/áo mưa và chừa thời gian di chuyển.",
+            "traceId": "tr_e25e10c4-18f5-4a89-a116-b4d712b1e068",
+            "intent": "WEATHER_OUTDOOR",
+            "tools": [
+              "resolve_place",
+              "weather"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "geoapify-geocoding-v1",
+                "fetchedAt": "2026-11-07T05:27:51.928Z",
+                "durationMs": 485,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "weather",
+                "ok": true,
+                "source": "open-meteo-coverage-fallback",
+                "fetchedAt": "2026-11-07T05:27:52.413Z",
+                "durationMs": 750,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": {
+              "coordinates": {
+                "lat": 10.7737261,
+                "lng": 106.7166008
+              },
+              "timezone": "Asia/Ho_Chi_Minh",
+              "condition": "Có mây rải rác"
+            },
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "Thành phố Hồ Chí Minh",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "WEATHER_OUTDOOR",
+              "confidence": 0.95,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "weather-language",
+                "current-location"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L23",
+      "title": "Tên thành phố đứng đầu vẫn là thời tiết remote",
+      "category": "router-weather",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 8515,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": false,
+          "details": "resolve_place → weather; need resolve_place, weather"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "246 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 8515,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": false,
+              "details": "resolve_place → weather; need resolve_place, weather"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "246 chars"
+            }
+          ],
+          "response": {
+            "text": "Ở Thành phố Đà Nẵng, hiện tại Trời quang, 29°C, cảm giác như 35°C. Nhìn 8 giờ tới (26–29°C), thời tiết **vẫn đi chơi được nhưng nên có phương án dự phòng**. Khả năng mưa cao nhất trong khoảng 8 giờ tới khoảng 43%; bạn nên mang ô hoặc áo mưa mỏng.",
+            "traceId": "tr_9e9e59f2-2c64-43a1-b786-b5ad49dd8c93",
+            "intent": "WEATHER_OUTDOOR",
+            "tools": [
+              "resolve_place",
+              "weather"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "resolve_place",
+                "ok": true,
+                "source": "geoapify-geocoding-v1",
+                "fetchedAt": "2026-11-07T05:28:00.881Z",
+                "durationMs": 572,
+                "error": ""
+              },
+              {
+                "id": "tool-2",
+                "tool": "weather",
+                "ok": true,
+                "source": "open-meteo-coverage-fallback",
+                "fetchedAt": "2026-11-07T05:28:01.453Z",
+                "durationMs": 229,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": {
+              "coordinates": {
+                "lat": 16.068501,
+                "lng": 108.2240242
+              },
+              "timezone": "Asia/Ho_Chi_Minh",
+              "condition": "Trời quang"
+            },
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "Thành phố Đà Nẵng",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "WEATHER_OUTDOOR",
+              "confidence": 0.95,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "weather-language",
+                "named-destination"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L24",
+      "title": "Chóng mặt được quy về trợ giúp y tế",
+      "category": "router-safety",
+      "critical": true,
+      "status": "FAIL",
+      "latencyMs": 5850,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": false,
+          "critical": true,
+          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": false,
+          "critical": true,
+          "details": "false vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "750 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 5850,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": false,
+              "critical": true,
+              "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "search_places; need search_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": false,
+              "critical": true,
+              "details": "false vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "750 chars"
+            }
+          ],
+          "response": {
+            "text": "Pipi tìm được 4 địa điểm gần bạn nhất: - 1. SIAN Skincare Laser Clinic — ⭐ 4.6 (210 đánh giá) · 386 m · 27 Nguyễn Trung Trực, Bến Thành, Hồ Chí Minh 700000, Việt Nam. - 2. Phòng Khám Đa Khoa Quốc Tế DYM Việt Nam — ⭐ 3.9 (695 đánh giá) · 498 m · Tầng hầm toà, Phòng B103, Kumho Asiana Plaza, 39 Lê Duẩn, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 3. Westcoast International Dental Clinic (Norfolk Mansion) — ⭐ 4.7 (252 đánh giá) · 562 m · 17-21 Lý Tự Trọng, Sài Gòn, Hồ Chí Minh 700000, Việt Nam. - 4. NP CLINIC BEAUTY & WELLNESS SPA — ⭐ 4.9 (164 đánh giá) · 745 m · 09 Lê Thánh Tôn, Phường, Sài Gòn, Hồ Chí Minh 710000, Việt Nam. Bạn bấm vào danh sách/bản đồ bên dưới để xem vị trí và mở chỉ đường. Pip",
+            "traceId": "tr_99e70b43-c38f-4c56-abc5-3f03499ed1e8",
+            "intent": "PLACE_DISCOVERY",
+            "tools": [
+              "search_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "search_places",
+                "ok": true,
+                "source": "google-places-multi-pass-v1",
+                "fetchedAt": "2026-11-07T05:28:03.016Z",
+                "durationMs": 1461,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": {
+              "provider": "google_places",
+              "center": {
+                "lat": 10.7769,
+                "lng": 106.7009
+              },
+              "count": 4,
+              "names": [
+                "SIAN Skincare Laser Clinic",
+                "Phòng Khám Đa Khoa Quốc Tế DYM Việt Nam",
+                "Westcoast International Dental Clinic (Norfolk Mansion)",
+                "NP CLINIC BEAUTY & WELLNESS SPA"
+              ]
+            },
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "SIAN Skincare Laser Clinic",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "SAFETY_HEALTH",
+              "confidence": 0.98,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "safety-place-search"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L25",
+      "title": "Dị ứng được quy về trợ giúp y tế",
+      "category": "router-safety",
+      "critical": true,
+      "status": "FAIL",
+      "latencyMs": 4990,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": false,
+          "critical": true,
+          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "846 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 4990,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": false,
+              "critical": true,
+              "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "search_places; need search_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "846 chars"
+            }
+          ],
+          "response": {
+            "text": "Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Bệnh viện Nhân dân Gia Định - cơ sở 2 — 549 m · Bệnh viện Nhân dân Gia Định - cơ sở 2, 125, Đường Lê Lợi, Phường Bến Thành, Thành phố Hồ Chí Minh, 71006, Việt Nam. - 2. Bệnh viện Nhi đồng 2 — 553 m · Bệnh viện Nhi đồng 2, 14, Đường Lý Tự Trọng, Phường Sài Gòn, Thành phố Hồ Chí Minh, 71016, Việt Nam. - 3. Columbia Asia Saigon — 563 m · Columbia Asia Saigon, 8, Đường Alexandre de Rhodes, Phường Sài Gòn, Thành phố Hồ Chí Minh, 71016, Việt Nam. - 4. Bệnh Viện Mắt Sài Gòn — 1.2 km · Bệnh Viện Mắt Sài Gòn, 100, Đường Lê Thị Riêng, Phường Bến Thành, Thành phố Hồ Chí Minh, 71009, Việt Nam. - 5. Bệnh viện Đa khoa Khánh Hội — 1.3 km · Bệnh viện Đa khoa Khánh",
+            "traceId": "tr_de3f58ec-9bc9-47a5-af52-80674895d6fc",
+            "intent": "PLACE_DISCOVERY",
+            "tools": [
+              "search_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "search_places",
+                "ok": true,
+                "source": "geoapify-places-v2",
+                "fetchedAt": "2026-11-07T05:28:09.117Z",
+                "durationMs": 629,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": {
+              "provider": "geoapify",
+              "center": {
+                "lat": 10.7769,
+                "lng": 106.7009
+              },
+              "count": 10,
+              "names": [
+                "Bệnh viện Nhân dân Gia Định - cơ sở 2",
+                "Bệnh viện Nhi đồng 2",
+                "Columbia Asia Saigon",
+                "Bệnh Viện Mắt Sài Gòn",
+                "Bệnh viện Đa khoa Khánh Hội"
+              ]
+            },
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "Bệnh viện Nhân dân Gia Định - cơ sở 2",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "SAFETY_HEALTH",
+              "confidence": 0.98,
+              "requiresFreshGps": true,
+              "reasonCodes": [
+                "safety-place-search"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L26",
+      "title": "Đau đầu dữ dội không rơi vào chat thường",
+      "category": "router-safety",
+      "critical": true,
+      "status": "FAIL",
+      "latencyMs": 3338,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": false,
+          "critical": true,
+          "details": "false vs true"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": true,
+          "details": "905 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 3338,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": true,
+              "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": true,
+              "details": "search_places; need search_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": true,
+              "details": "API_TOOLS vs API_TOOLS"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": true,
+              "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": false,
+              "critical": true,
+              "details": "false vs true"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": true,
+              "details": "true vs true; actual API_TOOLS"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": true,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": true,
+              "details": "905 chars"
+            }
+          ],
+          "response": {
+            "text": "Pipi không chẩn đoán hoặc chọn thuốc thay cho nhân viên y tế. Pipi tìm được 5 địa điểm gần bạn nhất: - 1. Phòng khám Nhi đồng Thành phố — 354 m · Phòng khám Nhi đồng Thành phố, Đường Lý Tự Trọng, Phường Sài Gòn, Thành phố Hồ Chí Minh, 71016, Việt Nam. - 2. Centre Medical International — 354 m · Centre Medical International, 1, Đường Hàn Thuyên, Phường Sài Gòn, Thành phố Hồ Chí Minh, 71016, Việt Nam. - 3. I-Megane Premium — 432 m · I-Megane Premium, Đường Lê Thánh Tôn, Phường Bến Thành, Thành phố Hồ Chí Minh, 71009, Việt Nam. - 4. Hiếu Tâm Eye Wear Store — 472 m · Hiếu Tâm Eye Wear Store, Đường Lý Tự Trọng, Phường Bến Thành, Thành phố Hồ Chí Minh, 71009, Việt Nam. - 5. American Chiropractic C",
+            "traceId": "tr_b42d527e-56ab-4f68-8624-ef2e006fc25f",
+            "intent": "SAFETY_HEALTH",
+            "tools": [
+              "search_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "search_places",
+                "ok": true,
+                "source": "geoapify-places-v2",
+                "fetchedAt": "2026-11-07T05:28:14.653Z",
+                "durationMs": 1202,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": {
+              "provider": "geoapify",
+              "center": {
+                "lat": 10.7769,
+                "lng": 106.7009
+              },
+              "count": 10,
+              "names": [
+                "Phòng khám Nhi đồng Thành phố",
+                "Centre Medical International",
+                "I-Megane Premium",
+                "Hiếu Tâm Eye Wear Store",
+                "American Chiropractic Clinic (ACC)"
+              ]
+            },
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "Phòng khám Nhi đồng Thành phố",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "API_TOOLS",
+              "intentHint": "SAFETY_HEALTH",
+              "confidence": 0.98,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "safety-place-search"
+              ],
+              "actualDecision": "API_TOOLS",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L27",
+      "title": "Plan tiếng Anh được hiểu là itinerary",
+      "category": "router-itinerary",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 3319,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": false,
+          "details": "curated_places; need curated_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "PLANNER_MODEL vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual PLANNER_MODEL"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "610 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 3319,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": false,
+              "details": "curated_places; need curated_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "PLANNER_MODEL vs PLANNER_MODEL"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual PLANNER_MODEL"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "610 chars"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi gửi bạn gợi ý các địa điểm nổi bật và lịch trình tham quan Thượng Hải trong 4 ngày dựa trên dữ liệu hiện có: **Các địa điểm nổi bật tại Thượng Hải:** Hiện tại, hệ thống của Pipi chưa có dữ liệu chi tiết về các địa điểm tham quan cụ thể tại Thượng Hải (dữ liệu đang có chỉ ghi nhận địa điểm Bếp Nhà Tuly tại Quận Gò Vấp, TP.HCM). **Gợi ý lịch trình tham quan Thượng Hải trong 4 ngày:** Vì chưa có danh sách địa điểm live tại Thượng Hải trong hệ thống, Pipi chưa thể lên chi tiết lịch trình từng ngày cho bạn. Bạn hãy cho Pipi biết thêm các điểm đến cụ thể tại Thượng Hải mà bạn muốn ghé thăm nhé!",
+            "traceId": "tr_5c3a2659-6092-4d71-8e22-6702666a9f09",
+            "intent": "ITINERARY_PLANNING",
+            "tools": [
+              "curated_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "curated_places",
+                "ok": true,
+                "source": "travelos-d1",
+                "fetchedAt": "2026-11-07T05:28:17.155Z",
+                "durationMs": 21,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "",
+            "curatedCount": 1,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "PLANNER_MODEL",
+              "intentHint": "ITINERARY_PLANNING",
+              "confidence": 0.96,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "itinerary-language"
+              ],
+              "actualDecision": "PLANNER_MODEL",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L28",
+      "title": "Lịch trình Đà Nẵng không thành weather",
+      "category": "router-itinerary",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 13612,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": false,
+          "details": "curated_places; need curated_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "PLANNER_MODEL vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual PLANNER_MODEL"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "418 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 13612,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": false,
+              "details": "curated_places; need curated_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "PLANNER_MODEL vs PLANNER_MODEL"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual PLANNER_MODEL"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "418 chars"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi xin gửi gợi ý lịch trình 3 ngày cho gia đình bạn nhé! Hiện tại, dữ liệu kiểm chứng tại Đà Nẵng của Pipi chưa có đủ các địa điểm vui chơi và ăn uống phù hợp cho chuyến đi 3 ngày của gia đình bạn. Trong hệ thống hiện chỉ có địa điểm Bếp Nhà Tuly ở TP.HCM thôi. Bạn có muốn Pipi tìm kiếm các địa điểm cụ thể khác như quán ăn, điểm tham quan tại Đà Nẵng để Pipi hỗ trợ bạn lên lịch trình chi tiết hơn không?",
+            "traceId": "tr_16511cbe-7ae0-4356-b257-d85c4d2a33ba",
+            "intent": "ITINERARY_PLANNING",
+            "tools": [
+              "curated_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "curated_places",
+                "ok": true,
+                "source": "travelos-d1",
+                "fetchedAt": "2026-11-07T05:28:31.782Z",
+                "durationMs": 22,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "",
+            "curatedCount": 1,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "PLANNER_MODEL",
+              "intentHint": "ITINERARY_PLANNING",
+              "confidence": 0.96,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "itinerary-language"
+              ],
+              "actualDecision": "PLANNER_MODEL",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L29",
+      "title": "Lập lịch bảo tàng và cà phê là itinerary",
+      "category": "router-itinerary",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 4227,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "tools contain",
+          "pass": true,
+          "critical": false,
+          "details": "curated_places; need curated_places"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "PLANNER_MODEL vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual PLANNER_MODEL"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "519 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 4227,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+            },
+            {
+              "name": "tools contain",
+              "pass": true,
+              "critical": false,
+              "details": "curated_places; need curated_places"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "PLANNER_MODEL vs PLANNER_MODEL"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual PLANNER_MODEL"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "519 chars"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn, Pipi xin gửi gợi ý lịch trình đi bảo tàng và cà phê trong một ngày dành cho bạn nhé! Theo dữ liệu hiện tại, Pipi tìm thấy địa điểm quán ăn là **Bếp Nhà Tuly** tại Quận Gò Vấp (giờ mở cửa: 17:00-19:00 và 21:00-23:00, giá từ 65k - 130k). Các danh mục cụ thể cho bảo tàng và các quán cà phê khác tại TP.HCM hiện chưa có trong dữ liệu xác minh trực tiếp, nên Pipi chưa thể liệt kê chi tiết hoặc sắp xếp lịch trình trọn vẹn cho bạn lúc này. Bạn có muốn Pipi hỗ trợ tìm kiếm thêm các địa điểm cụ thể nào khác không?",
+            "traceId": "tr_b4b40590-247f-4b73-8d2a-6166dc5a2166",
+            "intent": "ITINERARY_PLANNING",
+            "tools": [
+              "curated_places"
+            ],
+            "sources": [
+              {
+                "id": "tool-1",
+                "tool": "curated_places",
+                "ok": true,
+                "source": "travelos-d1",
+                "fetchedAt": "2026-11-07T05:28:34.320Z",
+                "durationMs": 22,
+                "error": ""
+              }
+            ],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "",
+            "curatedCount": 1,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "PLANNER_MODEL",
+              "intentHint": "ITINERARY_PLANNING",
+              "confidence": 0.96,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "itinerary-language"
+              ],
+              "actualDecision": "PLANNER_MODEL",
+              "matched": true
+            }
+          }
+        }
+      ],
+      "manualRubric": []
+    },
+    {
+      "id": "L30",
+      "title": "Hello Pipi ở guided chat",
+      "category": "router-guided",
+      "critical": false,
+      "status": "PASS",
+      "latencyMs": 139,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "intent",
+          "pass": true,
+          "critical": false,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "tools exact",
+          "pass": true,
+          "critical": false,
+          "details": "none vs none"
+        },
+        {
+          "name": "no successful live source",
+          "pass": true,
+          "critical": false,
+          "details": "[]"
+        },
+        {
+          "name": "router decision",
+          "pass": true,
+          "critical": false,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "critical": false,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "router GPS policy",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "router agreement",
+          "pass": true,
+          "critical": false,
+          "details": "true vs true; actual GUIDED_CHAT"
+        },
+        {
+          "name": "router apply mode",
+          "pass": true,
+          "critical": false,
+          "details": "false vs false"
+        },
+        {
+          "name": "answer present",
+          "pass": true,
+          "critical": false,
+          "details": "124 chars"
+        }
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "latencyMs": 139,
+          "checks": [
+            {
+              "name": "intent",
+              "pass": true,
+              "critical": false,
+              "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+            },
+            {
+              "name": "tools exact",
+              "pass": true,
+              "critical": false,
+              "details": "none vs none"
+            },
+            {
+              "name": "no successful live source",
+              "pass": true,
+              "critical": false,
+              "details": "[]"
+            },
+            {
+              "name": "router decision",
+              "pass": true,
+              "critical": false,
+              "details": "GUIDED_CHAT vs GUIDED_CHAT"
+            },
+            {
+              "name": "router intent",
+              "pass": true,
+              "critical": false,
+              "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+            },
+            {
+              "name": "router GPS policy",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "router agreement",
+              "pass": true,
+              "critical": false,
+              "details": "true vs true; actual GUIDED_CHAT"
+            },
+            {
+              "name": "router apply mode",
+              "pass": true,
+              "critical": false,
+              "details": "false vs false"
+            },
+            {
+              "name": "answer present",
+              "pass": true,
+              "critical": false,
+              "details": "124 chars"
+            }
+          ],
+          "response": {
+            "text": "Chào bạn! Pipi hiện tập trung tìm địa điểm và chỉ đường cho chuyến đi. Bạn muốn đi đâu, hoặc cần tìm gì gần vị trí hiện tại?",
+            "traceId": "tr_28ae920d-a39f-4e0d-80ce-80f8323bd9c3",
+            "intent": "LOCAL_GUIDE",
+            "tools": [],
+            "sources": [],
+            "errorCode": "",
+            "nearby": null,
+            "weather": null,
+            "routes": 0,
+            "hotelAreaStatus": "",
+            "place": "",
+            "curatedCount": 0,
+            "missingApiNeeds": [],
+            "router": {
+              "version": 1,
+              "mode": "shadow",
+              "applied": false,
+              "decision": "GUIDED_CHAT",
+              "intentHint": "LOCAL_GUIDE",
+              "confidence": 0.94,
+              "requiresFreshGps": false,
+              "reasonCodes": [
+                "guided-travel-chat"
+              ],
+              "actualDecision": "GUIDED_CHAT",
+              "matched": true
+            }
           }
         }
       ],

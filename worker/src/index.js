@@ -11,6 +11,7 @@ import { parseNamedAreaRequest, namedAreaMatchScore } from './bot/named-area-dis
 import { inspectTravelRequest, neutralizeUntrustedText, sanitizeConversationHistory, sanitizeUntrustedData, validateGroundedAnswer } from './bot/guardrails.js';
 import { beginTravelTrace, completeTravelTrace, travelTraceId, updateTravelTrace } from './bot/monitoring.js';
 import { compareShadowRoute, shadowRouteTravelRequest } from './bot/request-router.js';
+import { TRAVEL_LANGUAGE_PATTERNS } from './bot/travel-language-knowledge.js';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_STABLE_MODEL = 'gemini-3.1-flash-lite';
@@ -1962,16 +1963,16 @@ const TRAVEL_INTENT_IDS = [
 
 function explicitRouteRequest(userMessage) {
   const text=fold(userMessage);
-  const routeCue=/\b(?:chi duong|dan duong|tim duong|duong di|cach di|route|dua (?:toi|tui|minh) (?:den|toi)|di bo|lai xe|xe may|o to|taxi|di chuyen|traffic|giao thong|ket xe|bao xa|bao lau|mat bao nhieu phut)\b/.test(text);
+  const routeCue=TRAVEL_LANGUAGE_PATTERNS.route.test(text);
   const endpoints=/\btu\s+.{2,160}\s+(?:den|toi|qua)\s+.{2,160}/.test(text);
   return routeCue||endpoints;
 }
 
 function explicitLocalGuideOrCasual(userMessage) {
   const text=fold(userMessage);
-  const actionable=/\b(?:tim|kiem|gan toi|gan nhat|quanh|xung quanh|o dau|cho nao|quan nao|tiem nao|chi duong|dan duong|duong di|di bo|lai xe|thoi tiet|du bao|lich trinh|ke hoach|review|danh gia|mo cua|dong cua|atm|rut tien|nha thuoc|benh vien|phong kham|cap cuu)\b/.test(text);
+  const actionable=TRAVEL_LANGUAGE_PATTERNS.actionable.test(text);
   if(actionable)return false;
-  return /\b(?:cu xu|phep lich su|van hoa|phong tuc|tap quan|nen noi gi|cach giao tiep|cach ung xu|kieng ky|chao pipi|xin chao|hello|hi pipi|khoe khong|noi chuyen phiem|ke chuyen|ke truyen)\b/.test(text);
+  return TRAVEL_LANGUAGE_PATTERNS.guided.test(text);
 }
 
 function navigationScopeAnswer(userMessage) {
@@ -1981,20 +1982,20 @@ function navigationScopeAnswer(userMessage) {
 
 function detectTravelIntent(userMessage, previousContext = null) {
   const text=fold(userMessage),hasPreviousPlace=Boolean(previousContext?.placeDetails||previousContext?.nearby?.pois?.length);
-  const hasWeather=/\b(?:thoi tiet|du bao|troi|mua|nang|nhiet do)\b/.test(text),hasItinerary=/\b(?:lich trinh|ke hoach|sap xep|itinerary)\b/.test(text);
+  const hasWeather=TRAVEL_LANGUAGE_PATTERNS.weather.test(text),hasItinerary=TRAVEL_LANGUAGE_PATTERNS.itinerary.test(text)||/\b(?:[2-9]n[1-8]d|[2-9] ngay|mot ngay.*di)\b/.test(text);
   if(explicitRouteRequest(userMessage)&&!hasWeather&&!hasItinerary)return'ROUTE_MOBILITY';
   if(explicitLocalGuideOrCasual(userMessage))return'LOCAL_GUIDE';
   const asksToFind=/\b(?:tim|kiem|gan toi|gan nhat|quanh|xung quanh|o dau|cho nao|quan nao|tiem nao|co (?:quan|tiem|cho|nha hang))\b/.test(text);
-  const namesPlaceType=/\b(?:nha thuoc|hieu thuoc|benh vien|phong kham|atm|cua hang tien loi|chtl|sieu thi|tap hoa|nha hang|quan|tiem|quan an|cafe|ca phe|khach san|diem tham quan|diem vui choi|gi choi|cong vien|bao tang|trung tam thuong mai|tttm|ga metro|ga tau dien|tram xe buyt|nha ve sinh|toilet|quan bar|pharmacity|long chau|an khang|gs25|circle k|familymart|lawson|kfc|jollibee|lotteria|popeyes|chicken plus)\b/.test(text);
+  const namesPlaceType=TRAVEL_LANGUAGE_PATTERNS.placeType.test(text);
   if(asksToFind&&namesPlaceType)return'PLACE_DISCOVERY';
   const rules=[
-    ['WEATHER_OUTDOOR',/\b(?:thoi tiet|troi|mua|nang|nong|lanh|nhiet do|du bao|ao mua|o du|gio manh|di choi.*(?:duoc|tien|on)|outdoor)\b/],
-    ['ITINERARY_PLANNING',/\b(?:lich trinh|ke hoach|sap xep|plan|itinerary|[2-9]n[1-8]d|[2-9] ngay|mot ngay.*di)\b/],
-    ['ROUTE_MOBILITY',/\b(?:chi duong|duong di|di bo|lai xe|xe may|o to|metro|tau dien|taxi|di chuyen|traffic|giao thong|ket xe|bao lau|mat bao nhieu phut)\b/],
-    ['SAFETY_HEALTH',/\b(?:an toan|nguy hiem|canh bao|lua dao|moc tui|cap cuu|benh vien|phong kham|nha thuoc|thuoc|dau bung|sot|bi thuong|canh sat|cong an)\b/],
-    ['VENUE_INTELLIGENCE',/\b(?:rating|review|danh gia|mo cua|dong cua|dang mo|may gio|dong khong|dong duc|so dien thoai|website|dat ban|tien ich)\b/],
-    ['TRAVEL_UTILITY',/\b(?:atm|rut tien|doi tien|ty gia|sim|esim|wifi|wi fi|internet|cua hang tien loi|chtl|sieu thi|tap hoa|gui do|hanh ly|ve|hotline|lien he)\b/],
-    ['PLACE_DISCOVERY',/\b(?:tim|kiem|gan toi|quanh toi|quanh day|xung quanh|o dau|cho nao|quan nao|tiem nao|nha hang|quan an|cafe|ca phe|khach san|diem choi|diem tham quan|diem vui choi|gi choi|tham quan|check in|cong vien|bao tang|trung tam thuong mai|tttm|nha ve sinh|toilet|mua o dau)\b/]
+    ['WEATHER_OUTDOOR',TRAVEL_LANGUAGE_PATTERNS.weather],
+    ['ITINERARY_PLANNING',TRAVEL_LANGUAGE_PATTERNS.itinerary],
+    ['ROUTE_MOBILITY',TRAVEL_LANGUAGE_PATTERNS.route],
+    ['SAFETY_HEALTH',TRAVEL_LANGUAGE_PATTERNS.safety],
+    ['VENUE_INTELLIGENCE',TRAVEL_LANGUAGE_PATTERNS.venue],
+    ['TRAVEL_UTILITY',TRAVEL_LANGUAGE_PATTERNS.utility],
+    ['PLACE_DISCOVERY',TRAVEL_LANGUAGE_PATTERNS.placeDiscovery]
   ];
   for(const [id,pattern] of rules)if(pattern.test(text)){
     if(id==='VENUE_INTELLIGENCE'&&!hasPreviousPlace&&/\b(?:quan nao|tiem nao|cho nao)\b/.test(text))return'PLACE_DISCOVERY';
@@ -2141,7 +2142,8 @@ function genericPlaceQuery(value) {
     'nha thuoc','hieu thuoc','benh vien','phong kham','cua hang tien loi','chtl','tap hoa','sieu thi',
     'atm','ngan hang','cay xang','khach san','cafe','ca phe','diem tham quan','diem vui choi',
     'cong vien','bao tang','trung tam thuong mai','ga metro','tram xe buyt','nha ve sinh','toilet','bar','gi choi','diem choi',
-    'ga ran','lau','do nuong','bbq','tra sua','pho','sushi','ramen','pizza','burger'
+    'ga ran','lau','do nuong','bbq','tra sua','pho','sushi','ramen','pizza','burger','quan com','tiem banh','tiem giat ui','giat ui',
+    'tiem giat ui xung quanh','hieu thuoc quanh cho minh'
   ].map(semanticSearchKey);
   if(generic.includes(key))return true;
   const filler=new Set('co nao dia diem cho noi quan tiem cua hang nha hang an mon do ngon tot noi tieng gan nhat rating cao review danh gia gi choi'.split(' '));

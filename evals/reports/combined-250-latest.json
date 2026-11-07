@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-11-07T05:29:07.283Z",
+  "deployment": "https://ai-test.kyuu2601.workers.dev",
+  "workerVersion": "062445bf-f845-4d94-b4ae-bf78934597cb",
+  "summary": {
+    "cases": 250,
+    "passed": 227,
+    "failed": 23,
+    "score": 90.8
+  },
+  "existing150": {
+    "cases": 150,
+    "passed": 129,
+    "failed": 21,
+    "router": {
+      "cases": 120,
+      "passed": 102,
+      "failed": 18,
+      "score": 85,
+      "gate": false
+    },
+    "live": {
+      "cases": 30,
+      "passed": 27,
+      "failed": 3,
+      "infraErrors": 0,
+      "structuralScore": 97.5,
+      "criticalFailures": [
+        "L24",
+        "L25",
+        "L26"
+      ],
+      "p95LatencyMs": 8515,
+      "manualReviewCases": [
+        "L01",
+        "L02",
+        "L03",
+        "L07",
+        "L08",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "gate": false
+    }
+  },
+  "new100": {
+    "cases": 100,
+    "passed": 98,
+    "failed": 2,
+    "score": 98,
+    "gate": false
+  },
+  "flowChangeRequired": [
+    "Safety symptoms combined with an explicit nearby doctor/clinic search can be captured by the existing nearby-place branch before SAFETY_HEALTH.",
+    "Changing these remaining failures requires execution-priority changes, which were intentionally excluded from this database-only update."
+  ]
+}

@@ -1,3 +1,5 @@
+import { TRAVEL_LANGUAGE_PATTERNS } from './travel-language-knowledge.js';
+
 const clean=(value,max=500)=>String(value??'').trim().slice(0,max);
 
 const fold=value=>clean(value)
@@ -26,7 +28,7 @@ function explicitTwoPointRoute(text) {
 }
 
 function currentOriginLanguage(text) {
-  return /\b(?:quanh day|xung quanh|gan day|vi tri hien tai|tu day|o day|cho toi|dua toi)\b/.test(text);
+  return TRAVEL_LANGUAGE_PATTERNS.currentOrigin.test(text);
 }
 
 function result(decision,intentHint,confidence,requiresFreshGps,reasonCodes) {
@@ -52,27 +54,27 @@ export function shadowRouteTravelRequest({userMessage='',location=null,previousC
   const twoPointRoute=explicitTwoPointRoute(text);
   const currentOrigin=currentOriginLanguage(text);
 
-  if(/\b(?:lich trinh|ke hoach|sap xep|di dau|tour|itinerary)\b/.test(text)&&/\b(?:ngay|buoi|sang|trua|chieu|toi|diem|choi)\b/.test(text)){
+  if(TRAVEL_LANGUAGE_PATTERNS.itinerary.test(text)&&TRAVEL_LANGUAGE_PATTERNS.itineraryContext.test(text)){
     return result(DECISIONS.PLANNER_MODEL,'ITINERARY_PLANNING',.96,false,['itinerary-language']);
   }
-  if(/\b(?:chi duong|dan duong|duong di|route|di bo|lai xe|chay xe|di xe|cach di|toi do bang)\b/.test(text)||twoPointRoute){
+  if(TRAVEL_LANGUAGE_PATTERNS.route.test(text)||twoPointRoute){
     return result(DECISIONS.API_TOOLS,'ROUTE_MOBILITY',.98,!twoPointRoute,['route-language',twoPointRoute?'explicit-origin':'current-origin']);
   }
-  if(/\b(?:dau bung|bi thuong|cap cuu|kho tho|chay mau|dau nguc|ngo doc|can bac si|can y te)\b/.test(text)){
+  if(TRAVEL_LANGUAGE_PATTERNS.safety.test(text)){
     return result(DECISIONS.API_TOOLS,'SAFETY_HEALTH',.98,currentOrigin||!hasGps(location),['safety-place-search']);
   }
-  if(/\b(?:thoi tiet|mua|nang|nhiet do|weather|bao|lanh|nong)\b/.test(text)){
-    const remote=/\b(?:o|tai)\s+.{2,60}\b/.test(text)&&!currentOrigin;
+  if(TRAVEL_LANGUAGE_PATTERNS.weather.test(text)){
+    const remote=(/\b(?:o|tai)\s+.{2,60}\b/.test(text)||TRAVEL_LANGUAGE_PATTERNS.knownDestination.test(text))&&!currentOrigin;
     return result(DECISIONS.API_TOOLS,'WEATHER_OUTDOOR',.95,!remote,['weather-language',remote?'named-destination':'current-location']);
   }
-  if(/\b(?:xin chao|chao pipi|cam on|noi chuyen|ke chuyen|cu xu|van hoa|lich su|con nguoi)\b/.test(text)){
+  if(TRAVEL_LANGUAGE_PATTERNS.guided.test(text)){
     return result(DECISIONS.GUIDED_CHAT,'LOCAL_GUIDE',.94,false,['guided-travel-chat']);
   }
-  if(/\b(?:tim|quan|tiem|khach san|hotel|nha hang|restaurant|cua hang|nha thuoc|pharmacy|benh vien|hospital|choi|tham quan|gan day|quanh day|xung quanh)\b/.test(text)){
+  if(TRAVEL_LANGUAGE_PATTERNS.placeDiscovery.test(text)||TRAVEL_LANGUAGE_PATTERNS.placeType.test(text)){
     const remote=/\b(?:o|tai|khu|quan|huyen|thanh pho)\s+.{2,80}\b/.test(text)&&!currentOrigin;
     return result(DECISIONS.API_TOOLS,'PLACE_DISCOVERY',.92,currentOrigin||(!remote&&!hasGps(location)),['place-search',remote?'named-area':'current-area']);
   }
-  if(/\b(?:review|rating|danh gia|mo cua|dong cua|may gio|dia chi|so dien thoai|website|dong duc|vang)\b/.test(text)){
+  if(TRAVEL_LANGUAGE_PATTERNS.venue.test(text)||/\b(?:dia chi|vang)\b/.test(text)){
     return result(DECISIONS.API_TOOLS,'VENUE_INTELLIGENCE',.9,false,[previousContext?'context-or-place-detail':'place-detail']);
   }
   return result(DECISIONS.MODEL_ANSWER,'TRAVEL_UTILITY',.55,false,['ambiguous-existing-flow']);
