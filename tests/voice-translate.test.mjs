@@ -105,6 +105,33 @@ test('Chinese speech fallback returns playable audio without exposing AI details
   assert.equal(await response.text(),'RIFFtest');
 });
 
+test('Established Live socket failure renews both language sessions while idle', async () => {
+  const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
+  const sockets=[],errors=[];
+  class Socket {
+    static OPEN=1;
+    constructor(url){this.url=url;this.readyState=1;sockets.push(this);setTimeout(()=>this.onopen?.(),0);}
+    send(raw){if(JSON.parse(raw).setup)setTimeout(()=>this.onmessage?.({data:JSON.stringify({setupComplete:{}})}),0);}
+    close(){this.readyState=3;}
+  }
+  const context=vm.createContext({
+    window:{},navigator:{},
+    fetch:async(_url,options)=>new Response(JSON.stringify({token:JSON.parse(options.body).targetLanguageCode})),
+    WebSocket:Socket,Response,Uint8Array,Float32Array,DataView,Buffer,AbortController,
+    atob,btoa,Blob,TextDecoder,ArrayBuffer,setTimeout,clearTimeout,console
+  });
+  vm.runInContext(source,context);
+  const translator=new context.window.PipiLiveTranslate('https://pipi.test',{onError:error=>errors.push(error.message)});
+  await translator.prepare();
+  assert.equal(sockets.length,2);
+  sockets[0].onerror();
+  for(let i=0;i<80 && (!translator.ready || sockets.length<4);i++)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(translator.ready,true);
+  assert.equal(sockets.length,4,'a broken established socket renews the complete bilingual pair');
+  assert.ok(errors.includes('LIVE_SOCKET_ERROR'));
+  translator.close();
+});
+
 test('Interpreter speaks after release and renews Live sessions for the next turn', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[];
@@ -253,13 +280,14 @@ test('Interpreter returns backend translation when Live produces no audio', asyn
 test('Held interpreter plays one direction after release while text completes separately', async () => {
   const source=await readFile(new URL('../voice-translate.js',import.meta.url),'utf8');
   const sockets=[],segments=[],pending=[],done=[];
-  let plays=0,stops=0,streamEnds=0,finishText;
+  let plays=0,stops=0,streamEnds=0,audioPackets=0,finishText;
   class Socket {
     static OPEN=1;
     constructor(url){this.url=url;this.readyState=1;sockets.push(this);setTimeout(()=>this.onopen?.(),0);}
     send(raw){
       const message=JSON.parse(raw);
       if(message.setup)setTimeout(()=>this.onmessage?.({data:JSON.stringify({setupComplete:{}})}),0);
+      if(message.realtimeInput?.audio)audioPackets++;
       if(message.realtimeInput?.audioStreamEnd)streamEnds++;
     }
     close(){this.readyState=3;}
@@ -309,6 +337,7 @@ test('Held interpreter plays one direction after release while text completes se
   await stopping;
   assert.equal(stops,1);
   assert.equal(streamEnds,2);
+  assert.equal(audioPackets,38,'both sessions receive 1.5 seconds of tail audio before stream end');
   assert.equal(pending.length,1);
   assert.equal(done.length,0,'text request can remain pending after voice is finished');
   for(let i=0;i<30&&!translator.ready;i++)await new Promise(resolve=>setTimeout(resolve,10));

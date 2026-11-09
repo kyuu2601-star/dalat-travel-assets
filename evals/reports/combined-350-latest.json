@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-09T02:53:17.173Z",
+  "generatedAt": "2026-11-09T03:14:07.899Z",
   "summary": {
     "cases": 350,
-    "passed": 280,
-    "failed": 47,
-    "infra": 23,
-    "score": 80,
+    "passed": 306,
+    "failed": 44,
+    "infra": 0,
+    "score": 87.4,
     "gate": false
   },
   "suites": [
@@ -61,10 +61,10 @@
       "name": "100 chat + translate",
       "summary": {
         "cases": 100,
-        "passed": 54,
-        "failed": 23,
-        "infra": 23,
-        "score": 54,
+        "passed": 80,
+        "failed": 20,
+        "infra": 0,
+        "score": 80,
         "gate": false
       }
     }

@@ -24,7 +24,7 @@ const translateCases=(selectedIds.size?TRANSLATE_EVAL_CASES.filter(item=>selecte
   .filter(item=>!retryInfra||retryIds.has(item.id));
 const LIVE_MODEL='gemini-3.5-live-translate-preview';
 const LIVE_WS='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
-const LIVE_TARGETS=['vi','zh-Hans'],SILENCE_FRAME=Buffer.alloc(3200);
+const LIVE_TARGETS=['vi','zh-Hans'],SILENCE_FRAME=Buffer.alloc(3200),TAIL_SILENCE_FRAMES=15;
 const sameArray=(left,right)=>left.length===right.length&&left.every((value,index)=>value===right[index]);
 const toolsOf=plan=>(plan?.tools||[]).map(tool=>tool?.name).filter(Boolean);
 const clean=value=>String(value??'').replace(/\s+/g,' ').trim();
@@ -166,7 +166,7 @@ async function requestLiveTranslation(audio,evalCase){
     for(let index=0;index<3;index++){send(SILENCE_FRAME);await sleep(45);}
     const pcm=wavPcm(audio);
     for(let offset=0;offset<pcm.length;offset+=3200){send(pcm.subarray(offset,Math.min(offset+3200,pcm.length)));await sleep(100);}
-    for(let index=0;index<5;index++){send(SILENCE_FRAME);await sleep(100);}
+    for(let index=0;index<TAIL_SILENCE_FRAMES;index++){send(SILENCE_FRAME);await sleep(100);}
     for(const session of sessions)session.socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
     const chosen=sessions.find(session=>session.state.target===evalCase.targetLanguage);
     const state=await Promise.race([chosen.done,waitForStableTranslation(chosen,started)]);

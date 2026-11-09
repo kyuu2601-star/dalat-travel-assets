@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-09T02:52:43.735Z",
+  "generatedAt": "2026-11-09T03:14:04.935Z",
   "baseUrl": "https://ai-test.kyuu2601.workers.dev",
   "summary": {
     "cases": 100,
-    "passed": 54,
-    "failed": 23,
-    "infra": 23,
-    "score": 54,
+    "passed": 80,
+    "failed": 20,
+    "infra": 0,
+    "score": 80,
     "gate": false
   },
   "categories": [
@@ -93,18 +93,18 @@
     {
       "category": "translate-vi-zh",
       "cases": 25,
-      "passed": 4,
-      "failed": 17,
-      "infra": 4,
-      "score": 16
+      "passed": 18,
+      "failed": 7,
+      "infra": 0,
+      "score": 72
     },
     {
       "category": "translate-zh-vi",
       "cases": 25,
-      "passed": 2,
-      "failed": 4,
-      "infra": 19,
-      "score": 8
+      "passed": 14,
+      "failed": 11,
+      "infra": 0,
+      "score": 56
     }
   ],
   "results": [
@@ -3402,18 +3402,20 @@
       "id": "T001",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Xin chào, nhà vệ sinh ở đâu?",
       "reference": "你好，请问洗手间在哪里？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Xin chào, nhà vệ sinh ở",
-        "translatedText": "你好，"
+        "sourceText": "Xin chào, nhà vệ sinh ở đâu?",
+        "translatedText": "你好，请问厕所在哪里？",
+        "audioBytes": 228000
       },
-      "latencyMs": 10236,
+      "latencyMs": 10992,
       "infraError": "",
       "checks": [
         {
@@ -3434,27 +3436,27 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "92% · Xin chào, nhà vệ sinh ở"
+          "details": "100% · Xin chào, nhà vệ sinh ở đâu?"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "33% · 你好，"
+          "details": "74% · 你好，请问厕所在哪里？"
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "洗手间 | 厕所 · 你好，"
+          "pass": true,
+          "details": "洗手间 | 厕所 · 你好，请问厕所在哪里？"
         },
         {
           "name": "required meaning 2",
-          "pass": false,
-          "details": "哪里 | 哪儿 · 你好，"
+          "pass": true,
+          "details": "哪里 | 哪儿 · 你好，请问厕所在哪里？"
         }
       ]
     },
@@ -3462,18 +3464,20 @@
       "id": "T002",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Chỉ đường giúp tôi đến Hồng Nhai Động.",
       "reference": "请给我指路去洪崖洞。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Chỉ đường giúp tôi đến Hồng Nhai",
-        "translatedText": "请指路带我去"
+        "sourceText": "Chỉ đường giúp tôi đến Hồng Nhai Động.",
+        "translatedText": "帮我指路去洪崖洞。",
+        "audioBytes": 240000
       },
-      "latencyMs": 9696,
+      "latencyMs": 10608,
       "infraError": "",
       "checks": [
         {
@@ -3494,27 +3498,27 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "204000 bytes"
+          "details": "240000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "93% · Chỉ đường giúp tôi đến Hồng Nhai"
+          "details": "100% · Chỉ đường giúp tôi đến Hồng Nhai Động."
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "67% · 请指路带我去"
+          "details": "82% · 帮我指路去洪崖洞。"
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "洪崖洞 · 请指路带我去"
+          "pass": true,
+          "details": "洪崖洞 · 帮我指路去洪崖洞。"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "指路 | 怎么走 | 带我去 · 请指路带我去"
+          "details": "指路 | 怎么走 | 带我去 · 帮我指路去洪崖洞。"
         }
       ]
     },
@@ -3528,12 +3532,14 @@
       "sourceText": "Đi bộ đến đó mất bao lâu?",
       "reference": "走路到那里需要多长时间？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
         "sourceText": "Đi bộ đến đó mất bao lâu?",
-        "translatedText": "走去那里要多久？"
+        "translatedText": "走去那里要多久？",
+        "audioBytes": 228000
       },
-      "latencyMs": 11079,
+      "latencyMs": 11059,
       "infraError": "",
       "checks": [
         {
@@ -3554,7 +3560,7 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
@@ -3588,12 +3594,14 @@
       "sourceText": "Nhà thuốc gần nhất ở đâu?",
       "reference": "最近的药店在哪里？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
         "sourceText": "Nhà thuốc gần nhất ở đâu?",
-        "translatedText": "最近的药店在"
+        "translatedText": "最近的药店在",
+        "audioBytes": 192000
       },
-      "latencyMs": 10171,
+      "latencyMs": 10008,
       "infraError": "",
       "checks": [
         {
@@ -3642,32 +3650,20 @@
       "id": "T005",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Tôi bị dị ứng đậu phộng.",
       "reference": "我对花生过敏。",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_TRANSLATION_TIMEOUT:{\"target\":\"zh-Hans\",\"sourceText\":\"\",\"translatedText\":\"\",\"audioBytes\":0,\"complete\":false}",
-      "checks": []
-    },
-    {
-      "id": "T006",
-      "kind": "translate",
-      "category": "translate-vi-zh",
-      "status": "FAIL",
-      "sourceLanguage": "vi",
-      "targetLanguage": "zh-Hans",
-      "sourceText": "Làm ơn gọi giúp tôi một chiếc taxi.",
-      "reference": "请帮我叫一辆出租车。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Làm ơn gọi giúp tôi một chiếc",
-        "translatedText": "请帮我叫"
+        "sourceText": "Tôi bị dị ứng đậu",
+        "translatedText": "我对花生过敏。",
+        "audioBytes": 192000
       },
-      "latencyMs": 9786,
+      "latencyMs": 12092,
       "infraError": "",
       "checks": [
         {
@@ -3693,22 +3689,84 @@
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "93% · Làm ơn gọi giúp tôi một chiếc"
+          "details": "91% · Tôi bị dị ứng đậu"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "62% · 请帮我叫"
+          "details": "100% · 我对花生过敏。"
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "出租车 | 的士 · 请帮我叫"
+          "pass": true,
+          "details": "花生 · 我对花生过敏。"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "叫 | 打 | 坐 · 请帮我叫"
+          "details": "过敏 · 我对花生过敏。"
+        }
+      ]
+    },
+    {
+      "id": "T006",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Làm ơn gọi giúp tôi một chiếc taxi.",
+      "reference": "请帮我叫一辆出租车。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Làm ơn gọi giúp tôi một chiếc taxi.",
+        "translatedText": "请帮我叫一辆出租车。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 9737,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Làm ơn gọi giúp tôi một chiếc taxi."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 请帮我叫一辆出租车。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "出租车 | 的士 · 请帮我叫一辆出租车。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "叫 | 打 | 坐 · 请帮我叫一辆出租车。"
         }
       ]
     },
@@ -3716,15 +3774,63 @@
       "id": "T007",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Món này giá bao nhiêu?",
       "reference": "这个多少钱？",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_TRANSLATION_TIMEOUT:{\"target\":\"zh-Hans\",\"sourceText\":\"\",\"translatedText\":\"\",\"audioBytes\":0,\"complete\":false}",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Món này giá bao nhiêu?",
+        "translatedText": "这道菜多少钱？",
+        "audioBytes": 192000
+      },
+      "latencyMs": 9242,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Món này giá bao nhiêu?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "73% · 这道菜多少钱？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "多少 · 这道菜多少钱？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "钱 | 价格 · 这道菜多少钱？"
+        }
+      ]
     },
     {
       "id": "T008",
@@ -3736,12 +3842,14 @@
       "sourceText": "Ở đây có thể thanh toán bằng Alipay không?",
       "reference": "这里可以用支付宝付款吗？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
         "sourceText": "Ở đây có thể thanh toán bằng AliPay không?",
-        "translatedText": "这里可以用支付宝支付吗？"
+        "translatedText": "这里可以用支付宝支付吗？",
+        "audioBytes": 252000
       },
-      "latencyMs": 10451,
+      "latencyMs": 11061,
       "infraError": "",
       "checks": [
         {
@@ -3796,12 +3904,14 @@
       "sourceText": "Tôi muốn nhận phòng khách sạn.",
       "reference": "我想办理酒店入住。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
         "sourceText": "Tôi muốn nhận phòng khách sạn.",
-        "translatedText": "我想办理酒店"
+        "translatedText": "我想办理酒店",
+        "audioBytes": 192000
       },
-      "latencyMs": 9607,
+      "latencyMs": 8889,
       "infraError": "",
       "checks": [
         {
@@ -3856,12 +3966,14 @@
       "sourceText": "Chuyến tàu điện cuối cùng lúc mấy giờ?",
       "reference": "最后一班地铁是几点？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Chuyến tàu điện cuối cùng lúc mấy",
-        "translatedText": "最后一班电车"
+        "sourceText": "Chuyến tàu điện cuối cùng lúc mấy giờ?",
+        "translatedText": "最后一班电车是几点？",
+        "audioBytes": 228000
       },
-      "latencyMs": 9364,
+      "latencyMs": 10548,
       "infraError": "",
       "checks": [
         {
@@ -3882,32 +3994,32 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "93% · Chuyến tàu điện cuối cùng lúc mấy"
+          "details": "100% · Chuyến tàu điện cuối cùng lúc mấy giờ?"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "53% · 最后一班电车"
+          "details": "78% · 最后一班电车是几点？"
         },
         {
           "name": "required meaning 1",
           "pass": true,
-          "details": "最后 · 最后一班电车"
+          "details": "最后 · 最后一班电车是几点？"
         },
         {
           "name": "required meaning 2",
           "pass": false,
-          "details": "地铁 · 最后一班电车"
+          "details": "地铁 · 最后一班电车是几点？"
         },
         {
           "name": "required meaning 3",
-          "pass": false,
-          "details": "几点 · 最后一班电车"
+          "pass": true,
+          "details": "几点 · 最后一班电车是几点？"
         }
       ]
     },
@@ -3915,32 +4027,20 @@
       "id": "T011",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Tôi không ăn cay.",
       "reference": "我不吃辣。",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_TRANSLATION_TIMEOUT:{\"target\":\"zh-Hans\",\"sourceText\":\"\",\"translatedText\":\"\",\"audioBytes\":0,\"complete\":false}",
-      "checks": []
-    },
-    {
-      "id": "T012",
-      "kind": "translate",
-      "category": "translate-vi-zh",
-      "status": "FAIL",
-      "sourceLanguage": "vi",
-      "targetLanguage": "zh-Hans",
-      "sourceText": "Cho tôi một vé đến ga Trùng Khánh Bắc.",
-      "reference": "请给我一张去重庆北站的票。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "cho tôi một vé đến ga Trùng",
-        "translatedText": "给我一张去"
+        "sourceText": "Tôi không ăn cay.",
+        "translatedText": "我不吃辣。",
+        "audioBytes": 192000
       },
-      "latencyMs": 9570,
+      "latencyMs": 9359,
       "infraError": "",
       "checks": [
         {
@@ -3966,101 +4066,38 @@
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "88% · cho tôi một vé đến ga Trùng"
+          "details": "100% · Tôi không ăn cay."
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "59% · 给我一张去"
+          "details": "100% · 我不吃辣。"
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "重庆北站 · 给我一张去"
-        },
-        {
-          "name": "required meaning 2",
           "pass": true,
-          "details": "一张 | 票 · 给我一张去"
+          "details": "不吃辣 | 不要辣 · 我不吃辣。"
         }
       ]
     },
     {
-      "id": "T013",
+      "id": "T012",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
-      "sourceText": "Tôi cần có mặt lúc 8 giờ sáng.",
-      "reference": "我早上八点需要到达。",
+      "sourceText": "Cho tôi một vé đến ga Trùng Khánh Bắc.",
+      "reference": "请给我一张去重庆北站的票。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Tôi cần có mặt lúc 8:00",
-        "translatedText": "我需要在早上"
+        "sourceText": "cho tôi một vé đến ga Trùng Khánh Bắc.",
+        "translatedText": "给我一张去重庆北站的票。",
+        "audioBytes": 240000
       },
-      "latencyMs": 9865,
-      "infraError": "",
-      "checks": [
-        {
-          "name": "source language",
-          "pass": true,
-          "details": "vi vs vi"
-        },
-        {
-          "name": "target language",
-          "pass": true,
-          "details": "zh-Hans vs zh-Hans"
-        },
-        {
-          "name": "live streaming path",
-          "pass": true,
-          "details": "live=true"
-        },
-        {
-          "name": "translated audio returned",
-          "pass": true,
-          "details": "204000 bytes"
-        },
-        {
-          "name": "transcript fidelity",
-          "pass": true,
-          "details": "80% · Tôi cần có mặt lúc 8:00"
-        },
-        {
-          "name": "translation similarity",
-          "pass": true,
-          "details": "67% · 我需要在早上"
-        },
-        {
-          "name": "required meaning 1",
-          "pass": false,
-          "details": "八点 | 8点 · 我需要在早上"
-        },
-        {
-          "name": "required meaning 2",
-          "pass": true,
-          "details": "早上 | 上午 · 我需要在早上"
-        }
-      ]
-    },
-    {
-      "id": "T014",
-      "kind": "translate",
-      "category": "translate-vi-zh",
-      "status": "FAIL",
-      "sourceLanguage": "vi",
-      "targetLanguage": "zh-Hans",
-      "sourceText": "Tổng cộng là 120 nhân dân tệ đúng không?",
-      "reference": "一共是一百二十元，对吗？",
-      "actual": {
-        "sourceLanguage": "vi",
-        "targetLanguage": "zh-Hans",
-        "sourceText": "Tổng cộng là 120 nhân dân tệ đúng",
-        "translatedText": "总共是120元人民币,"
-      },
-      "latencyMs": 10662,
+      "latencyMs": 10436,
       "infraError": "",
       "checks": [
         {
@@ -4086,41 +4123,43 @@
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "94% · Tổng cộng là 120 nhân dân tệ đúng"
+          "details": "100% · cho tôi một vé đến ga Trùng Khánh Bắc."
         },
         {
           "name": "translation similarity",
-          "pass": false,
-          "details": "30% · 总共是120元人民币,"
+          "pass": true,
+          "details": "96% · 给我一张去重庆北站的票。"
         },
         {
           "name": "required meaning 1",
           "pass": true,
-          "details": "一百二十 | 120 · 总共是120元人民币,"
+          "details": "重庆北站 · 给我一张去重庆北站的票。"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "元 | 人民币 · 总共是120元人民币,"
+          "details": "一张 | 票 · 给我一张去重庆北站的票。"
         }
       ]
     },
     {
-      "id": "T015",
+      "id": "T013",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
-      "sourceText": "Khách sạn Yitel nằm ở đường nào?",
-      "reference": "和颐酒店在哪条路上？",
+      "sourceText": "Tôi cần có mặt lúc 8 giờ sáng.",
+      "reference": "我早上八点需要到达。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Khách sạn Oitel nằm ở đường",
-        "translatedText": "Oitel 酒店"
+        "sourceText": "Tôi cần có mặt lúc 8:00 sáng.",
+        "translatedText": "我需要在早上8点到。",
+        "audioBytes": 240000
       },
-      "latencyMs": 9779,
+      "latencyMs": 9883,
       "infraError": "",
       "checks": [
         {
@@ -4141,27 +4180,151 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "240000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "77% · Khách sạn Oitel nằm ở đường"
+          "details": "88% · Tôi cần có mặt lúc 8:00 sáng."
         },
         {
           "name": "translation similarity",
-          "pass": false,
-          "details": "25% · Oitel 酒店"
+          "pass": true,
+          "details": "78% · 我需要在早上8点到。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "八点 | 8点 · 我需要在早上8点到。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "早上 | 上午 · 我需要在早上8点到。"
+        }
+      ]
+    },
+    {
+      "id": "T014",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tổng cộng là 120 nhân dân tệ đúng không?",
+      "reference": "一共是一百二十元，对吗？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tổng cộng là 120 nhân dân tệ đúng không?",
+        "translatedText": "总共是120元人民币,对吧?",
+        "audioBytes": 276000
+      },
+      "latencyMs": 11430,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "276000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tổng cộng là 120 nhân dân tệ đúng không?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "36% · 总共是120元人民币,对吧?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "一百二十 | 120 · 总共是120元人民币,对吧?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "元 | 人民币 · 总共是120元人民币,对吧?"
+        }
+      ]
+    },
+    {
+      "id": "T015",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "FAIL",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Khách sạn Yitel nằm ở đường nào?",
+      "reference": "和颐酒店在哪条路上？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Khách sạn Oitel nằm ở đường nào?",
+        "translatedText": "Oitel 酒店位于哪条路？",
+        "audioBytes": 228000
+      },
+      "latencyMs": 9973,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "86% · Khách sạn Oitel nằm ở đường nào?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "48% · Oitel 酒店位于哪条路？"
         },
         {
           "name": "required meaning 1",
           "pass": false,
-          "details": "和颐 | Yitel · Oitel 酒店"
+          "details": "和颐 | Yitel · Oitel 酒店位于哪条路？"
         },
         {
           "name": "required meaning 2",
-          "pass": false,
-          "details": "路 · Oitel 酒店"
+          "pass": true,
+          "details": "路 · Oitel 酒店位于哪条路？"
         }
       ]
     },
@@ -4169,15 +4332,63 @@
       "id": "T016",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Tôi làm mất hộ chiếu.",
       "reference": "我的护照丢了。",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_TRANSLATION_TIMEOUT:{\"target\":\"zh-Hans\",\"sourceText\":\"\",\"translatedText\":\"\",\"audioBytes\":0,\"complete\":false}",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi làm mất hộ chiếu.",
+        "translatedText": "我把护照弄丢了。",
+        "audioBytes": 180000
+      },
+      "latencyMs": 9784,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "180000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi làm mất hộ chiếu."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "77% · 我把护照弄丢了。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "护照 · 我把护照弄丢了。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "丢 | 遗失 | 失去 · 我把护照弄丢了。"
+        }
+      ]
     },
     {
       "id": "T017",
@@ -4189,12 +4400,14 @@
       "sourceText": "Làm ơn đưa tôi đến đồn cảnh sát gần nhất.",
       "reference": "请带我去最近的派出所。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
         "sourceText": "Làm ơn đưa tôi đến đồn cảnh sát gần nhất.",
-        "translatedText": "请带我去最近的警察局。"
+        "translatedText": "请带我去警察局最近的。",
+        "audioBytes": 228000
       },
-      "latencyMs": 10335,
+      "latencyMs": 10151,
       "infraError": "",
       "checks": [
         {
@@ -4225,17 +4438,17 @@
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "70% · 请带我去最近的警察局。"
+          "details": "70% · 请带我去警察局最近的。"
         },
         {
           "name": "required meaning 1",
           "pass": true,
-          "details": "派出所 | 警察局 · 请带我去最近的警察局。"
+          "details": "派出所 | 警察局 · 请带我去警察局最近的。"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "最近 · 请带我去最近的警察局。"
+          "details": "最近 · 请带我去警察局最近的。"
         }
       ]
     },
@@ -4243,18 +4456,20 @@
       "id": "T018",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Tôi có hai vali và một ba lô.",
       "reference": "我有两个行李箱和一个背包。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Tôi có hai vali và một",
-        "translatedText": "我有两个行李箱"
+        "sourceText": "Tôi có hai vali và một balo.",
+        "translatedText": "我有两个行李箱和一个背包。",
+        "audioBytes": 228000
       },
-      "latencyMs": 9429,
+      "latencyMs": 10599,
       "infraError": "",
       "checks": [
         {
@@ -4275,32 +4490,32 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "86% · Tôi có hai vali và một"
+          "details": "80% · Tôi có hai vali và một balo."
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "74% · 我有两个行李箱"
+          "details": "100% · 我有两个行李箱和一个背包。"
         },
         {
           "name": "required meaning 1",
           "pass": true,
-          "details": "两个 | 2个 · 我有两个行李箱"
+          "details": "两个 | 2个 · 我有两个行李箱和一个背包。"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "行李箱 · 我有两个行李箱"
+          "details": "行李箱 · 我有两个行李箱和一个背包。"
         },
         {
           "name": "required meaning 3",
-          "pass": false,
-          "details": "背包 · 我有两个行李箱"
+          "pass": true,
+          "details": "背包 · 我有两个行李箱和一个背包。"
         }
       ]
     },
@@ -4308,18 +4523,20 @@
       "id": "T019",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Xe buýt này có đến sân bay không?",
       "reference": "这辆公交车去机场吗？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Xe buýt này có đến sân bay",
-        "translatedText": "这辆公交车"
+        "sourceText": "Xe buýt này có đến sân bay không?",
+        "translatedText": "这辆公交车到机场吗？",
+        "audioBytes": 228000
       },
-      "latencyMs": 9832,
+      "latencyMs": 10113,
       "infraError": "",
       "checks": [
         {
@@ -4340,27 +4557,27 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "204000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "93% · Xe buýt này có đến sân bay"
+          "details": "100% · Xe buýt này có đến sân bay không?"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "71% · 这辆公交车"
+          "details": "89% · 这辆公交车到机场吗？"
         },
         {
           "name": "required meaning 1",
           "pass": true,
-          "details": "公交车 | 巴士 · 这辆公交车"
+          "details": "公交车 | 巴士 · 这辆公交车到机场吗？"
         },
         {
           "name": "required meaning 2",
-          "pass": false,
-          "details": "机场 · 这辆公交车"
+          "pass": true,
+          "details": "机场 · 这辆公交车到机场吗？"
         }
       ]
     },
@@ -4374,12 +4591,14 @@
       "sourceText": "Bảo tàng đóng cửa lúc mấy giờ?",
       "reference": "博物馆几点关门？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
         "sourceText": "Bảo tàng đóng cửa lúc mấy giờ?",
-        "translatedText": "博物馆几点关门？"
+        "translatedText": "博物馆几点关门？",
+        "audioBytes": 192000
       },
-      "latencyMs": 10795,
+      "latencyMs": 10167,
       "infraError": "",
       "checks": [
         {
@@ -4433,18 +4652,20 @@
       "id": "T021",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Trời đang mưa, tôi cần mua ô.",
       "reference": "正在下雨，我需要买一把伞。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Trời đang mưa, tôi cần mua",
-        "translatedText": "外面在下雨，"
+        "sourceText": "Trời đang mưa, tôi cần mua ô.",
+        "translatedText": "天在下雨，我需要买把伞。",
+        "audioBytes": 240000
       },
-      "latencyMs": 9612,
+      "latencyMs": 9965,
       "infraError": "",
       "checks": [
         {
@@ -4465,27 +4686,27 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "240000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "92% · Trời đang mưa, tôi cần mua"
+          "details": "100% · Trời đang mưa, tôi cần mua ô."
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "38% · 外面在下雨，"
+          "details": "86% · 天在下雨，我需要买把伞。"
         },
         {
           "name": "required meaning 1",
           "pass": true,
-          "details": "下雨 · 外面在下雨，"
+          "details": "下雨 · 天在下雨，我需要买把伞。"
         },
         {
           "name": "required meaning 2",
-          "pass": false,
-          "details": "伞 · 外面在下雨，"
+          "pass": true,
+          "details": "伞 · 天在下雨，我需要买把伞。"
         }
       ]
     },
@@ -4499,12 +4720,14 @@
       "sourceText": "Xin dừng ở cổng số 2.",
       "reference": "请在二号门停车。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
         "sourceText": "Xin dừng ở cổng số hai.",
-        "translatedText": "请在二号"
+        "translatedText": "请在二号门",
+        "audioBytes": 192000
       },
-      "latencyMs": 10299,
+      "latencyMs": 10889,
       "infraError": "",
       "checks": [
         {
@@ -4535,17 +4758,17 @@
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "73% · 请在二号"
+          "details": "83% · 请在二号门"
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "二号门 | 2号门 · 请在二号"
+          "pass": true,
+          "details": "二号门 | 2号门 · 请在二号门"
         },
         {
           "name": "required meaning 2",
           "pass": false,
-          "details": "停车 | 停 · 请在二号"
+          "details": "停车 | 停 · 请在二号门"
         }
       ]
     },
@@ -4559,12 +4782,14 @@
       "sourceText": "Tôi muốn đến Giải Phóng Bi trước 7 giờ tối.",
       "reference": "我想在晚上七点前到达解放碑。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Tôi muốn đến giải phóng bi trước 7 giờ tối.",
-        "translatedText": "我想在7点前去解放"
+        "sourceText": "Tôi muốn đến giải phóng bi trước bảy giờ tối.",
+        "translatedText": "我想在七点前去解放",
+        "audioBytes": 228000
       },
-      "latencyMs": 11230,
+      "latencyMs": 10947,
       "infraError": "",
       "checks": [
         {
@@ -4585,32 +4810,32 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "240000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "100% · Tôi muốn đến giải phóng bi trước 7 giờ tối."
+          "details": "90% · Tôi muốn đến giải phóng bi trước bảy giờ tối."
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "64% · 我想在7点前去解放"
+          "details": "73% · 我想在七点前去解放"
         },
         {
           "name": "required meaning 1",
           "pass": false,
-          "details": "解放碑 · 我想在7点前去解放"
+          "details": "解放碑 · 我想在七点前去解放"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "七点 | 7点 · 我想在7点前去解放"
+          "details": "七点 | 7点 · 我想在七点前去解放"
         },
         {
           "name": "required meaning 3",
           "pass": false,
-          "details": "晚上 · 我想在7点前去解放"
+          "details": "晚上 · 我想在七点前去解放"
         }
       ]
     },
@@ -4618,18 +4843,20 @@
       "id": "T024",
       "kind": "translate",
       "category": "translate-vi-zh",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "vi",
       "targetLanguage": "zh-Hans",
       "sourceText": "Có cửa hàng tiện lợi nào mở 24 giờ không?",
       "reference": "有二十四小时营业的便利店吗？",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Có cửa hàng tiện lợi nào mở 24 giờ",
-        "translatedText": "有哪家便利店是24"
+        "sourceText": "Có cửa hàng tiện lợi nào mở 24 giờ không?",
+        "translatedText": "有哪家便利店是24小时营业的吗？",
+        "audioBytes": 276000
       },
-      "latencyMs": 10143,
+      "latencyMs": 11366,
       "infraError": "",
       "checks": [
         {
@@ -4650,27 +4877,27 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "240000 bytes"
+          "details": "276000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "95% · Có cửa hàng tiện lợi nào mở 24 giờ"
+          "details": "100% · Có cửa hàng tiện lợi nào mở 24 giờ không?"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "36% · 有哪家便利店是24"
+          "details": "71% · 有哪家便利店是24小时营业的吗？"
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "二十四小时 | 24小时 · 有哪家便利店是24"
+          "pass": true,
+          "details": "二十四小时 | 24小时 · 有哪家便利店是24小时营业的吗？"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "便利店 · 有哪家便利店是24"
+          "details": "便利店 · 有哪家便利店是24小时营业的吗？"
         }
       ]
     },
@@ -4684,12 +4911,14 @@
       "sourceText": "Địa chỉ khách sạn là số 30 đường Lâm Giang Chi.",
       "reference": "酒店地址是临江支路三十号。",
       "actual": {
+        "live": true,
         "sourceLanguage": "vi",
         "targetLanguage": "zh-Hans",
-        "sourceText": "Địa chỉ khách sạn là số 30 đường Lâm Giang",
-        "translatedText": "酒店地址是林江路"
+        "sourceText": "Địa chỉ khách sạn là số 30 đường Lâm Giang Chi.",
+        "translatedText": "酒店地址是林江路30号。",
+        "audioBytes": 276000
       },
-      "latencyMs": 10270,
+      "latencyMs": 11380,
       "infraError": "",
       "checks": [
         {
@@ -4710,27 +4939,27 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "240000 bytes"
+          "details": "276000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "95% · Địa chỉ khách sạn là số 30 đường Lâm Giang"
+          "details": "100% · Địa chỉ khách sạn là số 30 đường Lâm Giang Chi."
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "70% · 酒店地址是林江路"
+          "details": "70% · 酒店地址是林江路30号。"
         },
         {
           "name": "required meaning 1",
           "pass": false,
-          "details": "临江支路 · 酒店地址是林江路"
+          "details": "临江支路 · 酒店地址是林江路30号。"
         },
         {
           "name": "required meaning 2",
-          "pass": false,
-          "details": "三十号 | 30号 · 酒店地址是林江路"
+          "pass": true,
+          "details": "三十号 | 30号 · 酒店地址是林江路30号。"
         }
       ]
     },
@@ -4744,12 +4973,14 @@
       "sourceText": "你好，请问洗手间在哪里？",
       "reference": "Xin chào, cho hỏi nhà vệ sinh ở đâu?",
       "actual": {
+        "live": true,
         "sourceLanguage": "zh-Hans",
         "targetLanguage": "vi",
         "sourceText": "你好,请问洗手间在哪里?",
-        "translatedText": "Xin chào, cho hỏi nhà vệ sinh ở đâu?"
+        "translatedText": "Xin chào, cho hỏi nhà vệ sinh ở đâu?",
+        "audioBytes": 228000
       },
-      "latencyMs": 10114,
+      "latencyMs": 10375,
       "infraError": "",
       "checks": [
         {
@@ -4798,18 +5029,20 @@
       "id": "T027",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "请带我去洪崖洞。",
       "reference": "Làm ơn đưa tôi đến Hồng Nhai Động.",
       "actual": {
+        "live": true,
         "sourceLanguage": "zh-Hans",
         "targetLanguage": "vi",
         "sourceText": "请带我去红雅洞。",
-        "translatedText": "Làm ơn đưa tôi đến"
+        "translatedText": "Làm ơn đưa tôi đến Hồng Nhai Động.",
+        "audioBytes": 228000
       },
-      "latencyMs": 11617,
+      "latencyMs": 10934,
       "infraError": "",
       "checks": [
         {
@@ -4830,7 +5063,7 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
@@ -4840,17 +5073,17 @@
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "77% · Làm ơn đưa tôi đến"
+          "details": "100% · Làm ơn đưa tôi đến Hồng Nhai Động."
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "hồng nhai động | hongya · Làm ơn đưa tôi đến"
+          "pass": true,
+          "details": "hồng nhai động | hongya · Làm ơn đưa tôi đến Hồng Nhai Động."
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "đưa tôi | dẫn tôi | đến · Làm ơn đưa tôi đến"
+          "details": "đưa tôi | dẫn tôi | đến · Làm ơn đưa tôi đến Hồng Nhai Động."
         }
       ]
     },
@@ -4864,12 +5097,14 @@
       "sourceText": "走路到那里需要多长时间？",
       "reference": "Đi bộ đến đó mất bao lâu?",
       "actual": {
+        "live": true,
         "sourceLanguage": "zh-Hans",
         "targetLanguage": "vi",
-        "sourceText": "走陸道那裡需要多長",
-        "translatedText": "Đi đường bộ thì mất"
+        "sourceText": "走陸道那裡需要多長時間?",
+        "translatedText": "Đi đường bộ thì mất bao lâu?",
+        "audioBytes": 228000
       },
-      "latencyMs": 10486,
+      "latencyMs": 9588,
       "infraError": "",
       "checks": [
         {
@@ -4890,27 +5125,27 @@
         {
           "name": "translated audio returned",
           "pass": true,
-          "details": "192000 bytes"
+          "details": "228000 bytes"
         },
         {
           "name": "transcript fidelity",
           "pass": false,
-          "details": "50% · 走陸道那裡需要多長"
+          "details": "45% · 走陸道那裡需要多長時間?"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "50% · Đi đường bộ thì mất"
+          "details": "71% · Đi đường bộ thì mất bao lâu?"
         },
         {
           "name": "required meaning 1",
           "pass": false,
-          "details": "đi bộ · Đi đường bộ thì mất"
+          "details": "đi bộ · Đi đường bộ thì mất bao lâu?"
         },
         {
           "name": "required meaning 2",
-          "pass": false,
-          "details": "bao lâu | mất bao nhiêu thời gian · Đi đường bộ thì mất"
+          "pass": true,
+          "details": "bao lâu | mất bao nhiêu thời gian · Đi đường bộ thì mất bao lâu?"
         }
       ]
     },
@@ -4924,12 +5159,76 @@
       "sourceText": "最近的药店在哪里？",
       "reference": "Nhà thuốc gần nhất ở đâu?",
       "actual": {
+        "live": true,
         "sourceLanguage": "zh-Hans",
         "targetLanguage": "vi",
-        "sourceText": "最近的藥店在哪裡?",
-        "translatedText": "Hiệu thuốc gần nhất"
+        "sourceText": "最近的药店在哪里?",
+        "translatedText": "Hiệu thuốc gần nhất ở đâu?",
+        "audioBytes": 228000
       },
-      "latencyMs": 9340,
+      "latencyMs": 10418,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 最近的药店在哪里?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "83% · Hiệu thuốc gần nhất ở đâu?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "nhà thuốc | hiệu thuốc · Hiệu thuốc gần nhất ở đâu?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "gần nhất · Hiệu thuốc gần nhất ở đâu?"
+        }
+      ]
+    },
+    {
+      "id": "T030",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我对花生过敏。",
+      "reference": "Tôi bị dị ứng đậu phộng.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我对花生过敏。",
+        "translatedText": "Tôi bị dị ứng với đậu",
+        "audioBytes": 192000
+      },
+      "latencyMs": 9619,
       "infraError": "",
       "checks": [
         {
@@ -4955,55 +5254,105 @@
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "75% · 最近的藥店在哪裡?"
+          "details": "100% · 我对花生过敏。"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "60% · Hiệu thuốc gần nhất"
+          "details": "83% · Tôi bị dị ứng với đậu"
         },
         {
           "name": "required meaning 1",
           "pass": true,
-          "details": "nhà thuốc | hiệu thuốc · Hiệu thuốc gần nhất"
+          "details": "dị ứng · Tôi bị dị ứng với đậu"
         },
         {
           "name": "required meaning 2",
-          "pass": true,
-          "details": "gần nhất · Hiệu thuốc gần nhất"
+          "pass": false,
+          "details": "đậu phộng | lạc · Tôi bị dị ứng với đậu"
         }
       ]
-    },
-    {
-      "id": "T030",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "我对花生过敏。",
-      "reference": "Tôi bị dị ứng đậu phộng.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_TRANSLATION_TIMEOUT:{\"target\":\"vi\",\"sourceText\":\"\",\"translatedText\":\"\",\"audioBytes\":0,\"complete\":false}",
-      "checks": []
     },
     {
       "id": "T031",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "请帮我叫一辆出租车。",
       "reference": "Làm ơn gọi giúp tôi một chiếc taxi.",
       "actual": {
+        "live": true,
         "sourceLanguage": "zh-Hans",
         "targetLanguage": "vi",
-        "sourceText": "请帮我叫一辆出租",
-        "translatedText": "Làm ơn gọi giúp tôi"
+        "sourceText": "请帮我叫一辆出租车。",
+        "translatedText": "Làm ơn gọi giúp tôi một chiếc taxi.",
+        "audioBytes": 228000
       },
-      "latencyMs": 10118,
+      "latencyMs": 10593,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请帮我叫一辆出租车。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Làm ơn gọi giúp tôi một chiếc taxi."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "taxi | xe taxi · Làm ơn gọi giúp tôi một chiếc taxi."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "gọi · Làm ơn gọi giúp tôi một chiếc taxi."
+        }
+      ]
+    },
+    {
+      "id": "T032",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "这个多少钱？",
+      "reference": "Món này giá bao nhiêu?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "这个多少钱?",
+        "translatedText": "Cái này bao nhiêu tiền?",
+        "audioBytes": 204000
+      },
+      "latencyMs": 9986,
       "infraError": "",
       "checks": [
         {
@@ -5029,55 +5378,539 @@
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "94% · 请帮我叫一辆出租"
+          "details": "100% · 这个多少钱?"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "77% · Làm ơn gọi giúp tôi"
+          "details": "60% · Cái này bao nhiêu tiền?"
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "taxi | xe taxi · Làm ơn gọi giúp tôi"
+          "pass": true,
+          "details": "bao nhiêu · Cái này bao nhiêu tiền?"
         },
         {
           "name": "required meaning 2",
           "pass": true,
-          "details": "gọi · Làm ơn gọi giúp tôi"
+          "details": "giá | tiền · Cái này bao nhiêu tiền?"
         }
       ]
-    },
-    {
-      "id": "T032",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "这个多少钱？",
-      "reference": "Món này giá bao nhiêu?",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_TRANSLATION_TIMEOUT:{\"target\":\"vi\",\"sourceText\":\"\",\"translatedText\":\"\",\"audioBytes\":0,\"complete\":false}",
-      "checks": []
     },
     {
       "id": "T033",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "FAIL",
+      "status": "PASS",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "这里可以用支付宝付款吗？",
       "reference": "Ở đây có thể thanh toán bằng Alipay không?",
       "actual": {
+        "live": true,
         "sourceLanguage": "zh-Hans",
         "targetLanguage": "vi",
-        "sourceText": "这里可以用支付宝",
-        "translatedText": "Ở đây có thể dùng"
+        "sourceText": "这里可以用支付宝付款吗?",
+        "translatedText": "Ở đây có thể dùng Alipay để thanh toán không?",
+        "audioBytes": 228000
       },
-      "latencyMs": 9852,
+      "latencyMs": 10421,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 这里可以用支付宝付款吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "84% · Ở đây có thể dùng Alipay để thanh toán không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "alipay | chi phó bảo · Ở đây có thể dùng Alipay để thanh toán không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "thanh toán · Ở đây có thể dùng Alipay để thanh toán không?"
+        }
+      ]
+    },
+    {
+      "id": "T034",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想办理酒店入住。",
+      "reference": "Tôi muốn làm thủ tục nhận phòng khách sạn.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想办理酒店入住,",
+        "translatedText": "Tôi muốn làm thủ tục nhận phòng khách sạn,",
+        "audioBytes": 228000
+      },
+      "latencyMs": 11843,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我想办理酒店入住,"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Tôi muốn làm thủ tục nhận phòng khách sạn,"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "nhận phòng · Tôi muốn làm thủ tục nhận phòng khách sạn,"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "khách sạn · Tôi muốn làm thủ tục nhận phòng khách sạn,"
+        }
+      ]
+    },
+    {
+      "id": "T035",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "最后一班地铁是几点？",
+      "reference": "Chuyến tàu điện cuối cùng lúc mấy giờ?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "最後一般地鐵是幾點?",
+        "translatedText": "Chuyến tàu điện ngầm cuối cùng là mấy giờ?",
+        "audioBytes": 240000
+      },
+      "latencyMs": 11198,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "240000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": false,
+          "details": "44% · 最後一般地鐵是幾點?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "82% · Chuyến tàu điện ngầm cuối cùng là mấy giờ?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "cuối cùng | chuyến cuối · Chuyến tàu điện ngầm cuối cùng là mấy giờ?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "tàu điện | metro · Chuyến tàu điện ngầm cuối cùng là mấy giờ?"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "mấy giờ · Chuyến tàu điện ngầm cuối cùng là mấy giờ?"
+        }
+      ]
+    },
+    {
+      "id": "T036",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我不吃辣。",
+      "reference": "Tôi không ăn cay.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我不吃了。",
+        "translatedText": "Tôi không ăn nữa.",
+        "audioBytes": 204000
+      },
+      "latencyMs": 10616,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "204000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "75% · 我不吃了。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "75% · Tôi không ăn nữa."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "không ăn cay | không cay · Tôi không ăn nữa."
+        }
+      ]
+    },
+    {
+      "id": "T037",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "请给我一张去重庆北站的票。",
+      "reference": "Cho tôi một vé đến ga Trùng Khánh Bắc.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请给我一张去重庆北站的票。",
+        "translatedText": "Cho tôi một vé đi Trùng Khánh Bắc nhé.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10652,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请给我一张去重庆北站的票。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "78% · Cho tôi một vé đi Trùng Khánh Bắc nhé."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "một vé | 1 vé · Cho tôi một vé đi Trùng Khánh Bắc nhé."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": false,
+          "details": "ga trùng khánh bắc · Cho tôi một vé đi Trùng Khánh Bắc nhé."
+        }
+      ]
+    },
+    {
+      "id": "T038",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我早上八点需要到达。",
+      "reference": "Tôi cần đến nơi lúc 8 giờ sáng.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我早上8点需要到达。",
+        "translatedText": "Tôi cần có mặt lúc 8 giờ sáng.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10880,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "89% · 我早上8点需要到达。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "75% · Tôi cần có mặt lúc 8 giờ sáng."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "8 giờ | tám giờ · Tôi cần có mặt lúc 8 giờ sáng."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "sáng · Tôi cần có mặt lúc 8 giờ sáng."
+        }
+      ]
+    },
+    {
+      "id": "T039",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "一共是一百二十元，对吗？",
+      "reference": "Tổng cộng là 120 nhân dân tệ, đúng không?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "一共是120元,对吗?",
+        "translatedText": "Tổng cộng là 120 tệ, đúng không?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 11211,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "63% · 一共是120元,对吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "88% · Tổng cộng là 120 tệ, đúng không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "120 | một trăm hai mươi · Tổng cộng là 120 tệ, đúng không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "nhân dân tệ | tệ · Tổng cộng là 120 tệ, đúng không?"
+        }
+      ]
+    },
+    {
+      "id": "T040",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "和颐酒店在哪条路上？",
+      "reference": "Khách sạn Yitel nằm ở đường nào?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "和颐酒店在哪条路上?",
+        "translatedText": "Khách sạn Hồi Di ở đường nào?",
+        "audioBytes": 216000
+      },
+      "latencyMs": 10289,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "216000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 和颐酒店在哪条路上?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "71% · Khách sạn Hồi Di ở đường nào?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "yitel | khách sạn hòa di · Khách sạn Hồi Di ở đường nào?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "đường nào · Khách sạn Hồi Di ở đường nào?"
+        }
+      ]
+    },
+    {
+      "id": "T041",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我的护照丢了。",
+      "reference": "Tôi làm mất hộ chiếu.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我的护照丢了。",
+        "translatedText": "Tôi bị mất hộ chiếu.",
+        "audioBytes": 192000
+      },
+      "latencyMs": 10482,
       "infraError": "",
       "checks": [
         {
@@ -5103,262 +5936,602 @@
         {
           "name": "transcript fidelity",
           "pass": true,
-          "details": "84% · 这里可以用支付宝"
+          "details": "100% · 我的护照丢了。"
         },
         {
           "name": "translation similarity",
           "pass": true,
-          "details": "57% · Ở đây có thể dùng"
+          "details": "80% · Tôi bị mất hộ chiếu."
         },
         {
           "name": "required meaning 1",
-          "pass": false,
-          "details": "alipay | chi phó bảo · Ở đây có thể dùng"
+          "pass": true,
+          "details": "mất | thất lạc · Tôi bị mất hộ chiếu."
         },
         {
           "name": "required meaning 2",
-          "pass": false,
-          "details": "thanh toán · Ở đây có thể dùng"
+          "pass": true,
+          "details": "hộ chiếu · Tôi bị mất hộ chiếu."
         }
       ]
-    },
-    {
-      "id": "T034",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "我想办理酒店入住。",
-      "reference": "Tôi muốn làm thủ tục nhận phòng khách sạn.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_TRANSLATION_TIMEOUT:{\"target\":\"vi\",\"sourceText\":\"我想办理酒店入住,\",\"translatedText\":\"Tôi muốn làm thủ tục nhận\",\"audioBytes\":72000,\"complete\":false}",
-      "checks": []
-    },
-    {
-      "id": "T035",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "最后一班地铁是几点？",
-      "reference": "Chuyến tàu điện cuối cùng lúc mấy giờ?",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SOCKET_ERROR",
-      "checks": []
-    },
-    {
-      "id": "T036",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "我不吃辣。",
-      "reference": "Tôi không ăn cay.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SOCKET_ERROR",
-      "checks": []
-    },
-    {
-      "id": "T037",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "请给我一张去重庆北站的票。",
-      "reference": "Cho tôi một vé đến ga Trùng Khánh Bắc.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
-    },
-    {
-      "id": "T038",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "我早上八点需要到达。",
-      "reference": "Tôi cần đến nơi lúc 8 giờ sáng.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
-    },
-    {
-      "id": "T039",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "一共是一百二十元，对吗？",
-      "reference": "Tổng cộng là 120 nhân dân tệ, đúng không?",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
-    },
-    {
-      "id": "T040",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "和颐酒店在哪条路上？",
-      "reference": "Khách sạn Yitel nằm ở đường nào?",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SOCKET_ERROR",
-      "checks": []
-    },
-    {
-      "id": "T041",
-      "kind": "translate",
-      "category": "translate-zh-vi",
-      "status": "INFRA",
-      "sourceLanguage": "zh-Hans",
-      "targetLanguage": "vi",
-      "sourceText": "我的护照丢了。",
-      "reference": "Tôi làm mất hộ chiếu.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
     },
     {
       "id": "T042",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "请带我去最近的派出所。",
       "reference": "Làm ơn đưa tôi đến đồn cảnh sát gần nhất.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SOCKET_ERROR",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请带我去最近的派出所。",
+        "translatedText": "Hãy đưa tôi đến đồn cảnh sát gần nhất.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10619,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请带我去最近的派出所。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "84% · Hãy đưa tôi đến đồn cảnh sát gần nhất."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "đồn cảnh sát | đồn công an · Hãy đưa tôi đến đồn cảnh sát gần nhất."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "gần nhất · Hãy đưa tôi đến đồn cảnh sát gần nhất."
+        }
+      ]
     },
     {
       "id": "T043",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "FAIL",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "我有两个行李箱和一个背包。",
       "reference": "Tôi có hai vali và một ba lô.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我有兩個行李箱和一個背包。",
+        "translatedText": "Tôi có hai cái vali và một cái ba lô.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10834,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "75% · 我有兩個行李箱和一個背包。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "89% · Tôi có hai cái vali và một cái ba lô."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "hai vali | 2 vali | hai va li · Tôi có hai cái vali và một cái ba lô."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": false,
+          "details": "một ba lô | 1 ba lô · Tôi có hai cái vali và một cái ba lô."
+        }
+      ]
     },
     {
       "id": "T044",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "这辆公交车去机场吗？",
       "reference": "Xe buýt này có đến sân bay không?",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "这辆公交车去机场吗?",
+        "translatedText": "Chiếc xe buýt này đi sân bay phải không?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 11265,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 这辆公交车去机场吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "71% · Chiếc xe buýt này đi sân bay phải không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "xe buýt | xe bus · Chiếc xe buýt này đi sân bay phải không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "sân bay · Chiếc xe buýt này đi sân bay phải không?"
+        }
+      ]
     },
     {
       "id": "T045",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "FAIL",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "博物馆几点关门？",
       "reference": "Bảo tàng đóng cửa lúc mấy giờ?",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "博古館幾點關門?",
+        "translatedText": "Bảo tàng đóng cửa lúc",
+        "audioBytes": 192000
+      },
+      "latencyMs": 10561,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": false,
+          "details": "14% · 博古館幾點關門?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "83% · Bảo tàng đóng cửa lúc"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "bảo tàng · Bảo tàng đóng cửa lúc"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "đóng cửa · Bảo tàng đóng cửa lúc"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": false,
+          "details": "mấy giờ · Bảo tàng đóng cửa lúc"
+        }
+      ]
     },
     {
       "id": "T046",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "正在下雨，我需要买一把伞。",
       "reference": "Trời đang mưa, tôi cần mua một chiếc ô.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SOCKET_ERROR",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "正在下雨,我需要買一把傘。",
+        "translatedText": "Trời đang mưa, tôi cần mua một cái ô.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10797,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "82% · 正在下雨,我需要買一把傘。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "89% · Trời đang mưa, tôi cần mua một cái ô."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "mưa · Trời đang mưa, tôi cần mua một cái ô."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "mua · Trời đang mưa, tôi cần mua một cái ô."
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "ô | dù · Trời đang mưa, tôi cần mua một cái ô."
+        }
+      ]
     },
     {
       "id": "T047",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "FAIL",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "请在二号门停车。",
       "reference": "Xin dừng ở cổng số 2.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请在2号门停车。",
+        "translatedText": "Vui lòng đỗ xe ở cổng",
+        "audioBytes": 192000
+      },
+      "latencyMs": 10380,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "86% · 请在2号门停车。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "33% · Vui lòng đỗ xe ở cổng"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "cổng số 2 | cổng 2 | cửa số 2 | cửa 2 · Vui lòng đỗ xe ở cổng"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "dừng | đỗ xe · Vui lòng đỗ xe ở cổng"
+        }
+      ]
     },
     {
       "id": "T048",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "FAIL",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "我想在晚上七点前到达解放碑。",
       "reference": "Tôi muốn đến Giải Phóng Bi trước 7 giờ tối.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SOCKET_ERROR",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想在晚上7點前到達解放碑。",
+        "translatedText": "Tôi muốn vào lúc 7 giờ tối đến đài tưởng niệm giải phóng.",
+        "audioBytes": 288000
+      },
+      "latencyMs": 11804,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "288000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "77% · 我想在晚上7點前到達解放碑。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "70% · Tôi muốn vào lúc 7 giờ tối đến đài tưởng niệm giải phóng."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "giải phóng bi | jiefangbei · Tôi muốn vào lúc 7 giờ tối đến đài tưởng niệm giải phóng."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "7 giờ | bảy giờ · Tôi muốn vào lúc 7 giờ tối đến đài tưởng niệm giải phóng."
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "tối · Tôi muốn vào lúc 7 giờ tối đến đài tưởng niệm giải phóng."
+        }
+      ]
     },
     {
       "id": "T049",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "PASS",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "有二十四小时营业的便利店吗？",
       "reference": "Có cửa hàng tiện lợi nào mở 24 giờ không?",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SETUP_TIMEOUT",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "有24小时营业的便利店吗?",
+        "translatedText": "Có cửa hàng tiện lợi 24 giờ không?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10233,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "80% · 有24小时营业的便利店吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "89% · Có cửa hàng tiện lợi 24 giờ không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "cửa hàng tiện lợi · Có cửa hàng tiện lợi 24 giờ không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "24 giờ | hai mươi bốn giờ · Có cửa hàng tiện lợi 24 giờ không?"
+        }
+      ]
     },
     {
       "id": "T050",
       "kind": "translate",
       "category": "translate-zh-vi",
-      "status": "INFRA",
+      "status": "FAIL",
       "sourceLanguage": "zh-Hans",
       "targetLanguage": "vi",
       "sourceText": "酒店地址是临江支路三十号。",
       "reference": "Địa chỉ khách sạn là số 30 đường Lâm Giang Chi.",
-      "actual": null,
-      "latencyMs": 0,
-      "infraError": "LIVE_SOCKET_ERROR",
-      "checks": []
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "酒店地址是林江路30号,",
+        "translatedText": "Địa chỉ khách sạn là số 30 đường Lâm Giang,",
+        "audioBytes": 276000
+      },
+      "latencyMs": 11321,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "276000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "70% · 酒店地址是林江路30号,"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "95% · Địa chỉ khách sạn là số 30 đường Lâm Giang,"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "khách sạn · Địa chỉ khách sạn là số 30 đường Lâm Giang,"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "30 | ba mươi · Địa chỉ khách sạn là số 30 đường Lâm Giang,"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": false,
+          "details": "lâm giang chi | linjiang · Địa chỉ khách sạn là số 30 đường Lâm Giang,"
+        }
+      ]
     }
   ]
 }

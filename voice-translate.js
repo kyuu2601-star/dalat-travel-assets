@@ -4,6 +4,8 @@
   const WS_BASE = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
   const targets = ['vi', 'zh-Hans'];
   const SILENCE_FRAME = new Uint8Array(3200); // 100 ms, mono PCM16 at 16 kHz
+  const TAIL_SILENCE_FRAMES = 15; // Keep 1.5 s after release so the final words reach Live Translate.
+  const SESSION_RECOVERY_DELAY = 250;
   const emptyTurn = () => ({input:'',output:'',audio:[],complete:false});
   const language = value => String(value || '').toLowerCase().startsWith('zh') ? 'zh-Hans'
     : String(value || '').toLowerCase().startsWith('vi') ? 'vi' : '';
@@ -33,6 +35,7 @@
       this.generation=0;
       this.closed=false;
       this.preparing=null;
+      this.recoveryTimer=null;
     }
     async prepare() {
       if (this.ready) return;
@@ -87,14 +90,32 @@
           }
           this.receive(target,message);
         };
-        socket.onerror=()=>fail('LIVE_SOCKET_ERROR');
+        socket.onerror=()=>{
+          const established=this.sessions.get(target)===socket;
+          fail('LIVE_SOCKET_ERROR');
+          if(established){
+            this.sessions.delete(target);this.ready=false;
+            socket.retired=true;try{socket.close();}catch{}
+            this.scheduleSessionRecovery();
+          }else{socket.retired=true;try{socket.close();}catch{}}
+        };
         socket.onclose=event=>{
-          if (this.sessions.get(target)===socket) this.sessions.delete(target);
+          const established=this.sessions.get(target)===socket;
+          if(established)this.sessions.delete(target);
+          this.ready=this.sessions.size===targets.length;
           if(this.closed || socket.retired)return;
-          if(!this.sessions.size)this.ready=false;
           fail(`LIVE_SOCKET_CLOSED_${event.code}`);
+          if(established)this.scheduleSessionRecovery();
         };
       });
+    }
+    scheduleSessionRecovery() {
+      if(this.closed || this.recoveryTimer || this.turn || this.listening || this.stopping)return;
+      this.recoveryTimer=setTimeout(()=>{
+        this.recoveryTimer=null;
+        if(this.closed || this.turn || this.listening || this.stopping)return;
+        this.refreshSessions();
+      },SESSION_RECOVERY_DELAY);
     }
     async start({deviceId = ''} = {}) {
       if (!this.ready || this.turn) throw new Error('LIVE_NOT_READY');
@@ -138,7 +159,7 @@
       const frame=JSON.stringify({realtimeInput:{audio:{data:base64(bytes),mimeType:'audio/pcm;rate=16000'}}});
       for(const socket of this.sessions.values()) if(socket.readyState===WebSocket.OPEN) socket.send(frame);
     }
-    finishStream(turn, remaining=5) {
+    finishStream(turn, remaining=TAIL_SILENCE_FRAMES) {
       if(this.turn!==turn)return;
       if(remaining>0) {
         this.sendAudio(SILENCE_FRAME);
@@ -269,6 +290,7 @@
       }catch(error){if(this.turn===turn && !turn.finalizing)this.failTurn(error);}
     }
     refreshSessions() {
+      clearTimeout(this.recoveryTimer);this.recoveryTimer=null;
       this.ready=false;
       for(const socket of this.sessions.values()){socket.retired=true;socket.close();}
       this.sessions.clear();
@@ -305,6 +327,7 @@
     }
     close() {
       this.closed=true;
+      clearTimeout(this.recoveryTimer);this.recoveryTimer=null;
       this.cancel();
       for(const socket of this.sessions.values())socket.close();
       this.sessions.clear();this.ready=false;
@@ -324,6 +347,7 @@
       this.liveSegments=[];this.sequence=0;this.currentSequence=0;
       this.textTasks=new Set();this.textControllers=new Set();
       this.voiceTurns=new Map();
+      this.turnResponseCount=0;
     }
     async startContinuous({deviceId=''}={}) {
       if(!this.ready || this.sessions.size!==targets.length || this.listening || this.stopping)throw new Error('LIVE_NOT_READY');
@@ -349,6 +373,7 @@
         processor.connect(this.audioContext.destination);
         this.capture={stream,source,processor,filters};
         this.source='';this.listening=true;this.stopping=false;this.lastResponseAt=Date.now();
+        this.turnResponseCount=0;
         this.capturePcm=[];this.captureBytes=0;this.queuedAudio=[];
         this.liveSegments=[];this.currentSequence=++this.sequence;
         this.voiceTurns.set(this.currentSequence,{played:false,finished:false,result:null,fallbackSent:false});
@@ -373,6 +398,7 @@
       if(!this.listening && !this.stopping)return;
       const content=message.serverContent;
       if(!content)return;
+      this.turnResponseCount++;
       this.lastResponseAt=Date.now();
       if(content.generationComplete || content.turnComplete)this.lastCompleteAt.set(target,this.lastResponseAt);
       const segment=this.segments.get(target);
@@ -497,7 +523,7 @@
       const stopAt=Date.now();
       const lastTarget=this.source==='vi'?'zh-Hans':this.source==='zh-Hans'?'vi':'';
       this.callbacks.onState?.('Pipi đang hoàn tất bản dịch cuối…');
-      for(let i=0;i<3 && !this.closed;i++){
+      for(let i=0;i<TAIL_SILENCE_FRAMES && !this.closed;i++){
         this.sendAudio(SILENCE_FRAME);
         await new Promise(resolve=>setTimeout(resolve,100));
       }
@@ -522,6 +548,7 @@
       const turn=this.voiceTurns.get(sequence);if(turn)turn.finished=true;
       this.scheduleVoiceFallback(sequence);
       if(turn?.textDone && (turn.played || turn.fallbackSent))this.voiceTurns.delete(sequence);
+      if(!this.turnResponseCount)this.callbacks.onError?.(new Error('LIVE_NO_RESPONSE'));
       if(!this.closed)this.refreshSessions();
       finishVoice();
     }
