@@ -46,10 +46,24 @@ const chatGroups=[
   ]}
 ];
 
+const additionalChatGroups=[
+  {category:'chat-place-current',expected:expected.placeCurrent,messages:['Tìm quán phở bò gần đây','Có bưu điện nào gần chỗ tôi?','Kiếm trạm xăng quanh đây','Tìm tiệm giặt ủi gần vị trí hiện tại','Gần mình có chỗ đổi tiền không?']},
+  {category:'chat-place-remote',expected:expected.placeRemote,messages:['Tìm quán dimsum ở Quảng Châu','Có cửa hàng bán sim tại Bắc Kinh không?','Tìm điểm ngắm cảnh ở Hàng Châu','Có nhà vệ sinh công cộng gần ga Thượng Hải không?','Kiếm quán ăn chay ở Đà Lạt']},
+  {category:'chat-route-current',expected:expected.routeCurrent,messages:['Chỉ đường tới Bưu điện Trung tâm Sài Gòn','Đưa tôi đến ga Tân Sơn Nhất','Đi tới Hồ Tuyền Lâm thế nào?','Dẫn mình đến Phố đi bộ Nguyễn Huệ','Tìm đường tới sân bay Đào Viên']},
+  {category:'chat-route-two-point',expected:expected.routeTwoPoint,messages:['Từ ga Đà Lạt tới Hồ Xuân Hương','Từ sân bay Đà Nẵng đến Cầu Rồng','Từ ga Hồng Kiều đến Bến Thượng Hải','Đi từ khách sạn đến sân bay Nội Bài','Từ Thiên Môn Sơn tới Phượng Hoàng Cổ Trấn']},
+  {category:'chat-weather-current',expected:expected.weatherCurrent,messages:['Bây giờ quanh tôi trời bao nhiêu độ?','Chỗ mình có đang mưa không?','Thời tiết gần vị trí của tui thế nào?','Hôm nay ở đây có cần mang áo mưa không?','Ngoài trời quanh đây có gió lớn không?']},
+  {category:'chat-weather-remote',expected:expected.weatherRemote,messages:['Ngày mai thời tiết ở Tô Châu thế nào?','Thời tiết hiện tại tại Hạ Môn ra sao?','Ở Côn Minh hôm nay có nắng không?','Cuối tuần này ở Nam Kinh có mưa không?','Nhiệt độ tại Tây An tối nay bao nhiêu?']},
+  {category:'chat-safety',expected:expected.safety,messages:['Tôi bị đau bụng, tìm nơi hỗ trợ gần đây','Tôi bị lạc, cần đồn công an gần nhất','Bạn tìm bệnh viện gần vị trí của tôi','Tôi bị trượt ngã, có cơ sở y tế nào quanh đây?','Tôi đánh rơi ví, giúp tìm công an gần tôi']},
+  {category:'chat-itinerary',expected:expected.itinerary,messages:['Lên lịch tham quan Đà Lạt trong 3 ngày','Sắp xếp chuyến đi Thượng Hải 2 ngày','Tạo lịch ăn uống ở Quận 1 một ngày','Gợi ý lịch khám phá Trùng Khánh 3 ngày','Lên kế hoạch cuối tuần ở Hội An']},
+  {category:'chat-guided',expected:expected.guided,messages:['Pipi ơi, hôm nay bạn khỏe không?','Kể tui nghe một câu đố vui','Người Trung Quốc thường chào nhau thế nào?','Đi tàu điện ở Trung Quốc có cần xếp hàng không?','Cảm ơn nha, bạn dễ thương ghê']},
+  {category:'chat-utility',expected:expected.utility,messages:['Có cần đổi tiền mặt trước khi đi Trung Quốc không?','Cách mua vé tàu cao tốc ở Trung Quốc?','Tôi muốn gửi vali ở nhà ga','Có thể dùng eSIM tại Trung Quốc không?','Mẹo giữ an toàn hộ chiếu khi đi du lịch?']}
+];
+
 let chatSequence=0;
-export const TEXT_CHAT_EVAL_CASES=chatGroups.flatMap(group=>group.messages.map(message=>({
+const buildChatCases=groups=>groups.flatMap(group=>group.messages.map(message=>({
   id:`C${String(++chatSequence).padStart(3,'0')}`,category:group.category,userMessage:message,userLocation:HCMC,expected:group.expected
 })));
+export const TEXT_CHAT_EVAL_CASES=[...buildChatCases(chatGroups),...buildChatCases(additionalChatGroups)];
 
 const viToZh=[
   ['Xin chào, nhà vệ sinh ở đâu?','你好，请问洗手间在哪里？',[['洗手间','厕所'],['哪里','哪儿']]],
@@ -107,12 +121,68 @@ const zhToVi=[
   ['酒店地址是临江支路三十号。','Địa chỉ khách sạn là số 30 đường Lâm Giang Chi.',[['khách sạn'],['30','ba mươi'],['lâm giang chi','linjiang']]]
 ];
 
+const additionalViToZh=[
+  ['Tôi muốn mua vé tàu đi Thành Đô.','我想买一张去成都的火车票。',[['成都'],['火车票','车票'],['买','一张']]],
+  ['Cho tôi xem thực đơn bằng tiếng Việt được không?','可以给我看越南语菜单吗？',[['菜单'],['越南语','越南文']]],
+  ['Tôi muốn trả phòng lúc 11 giờ.','我想在十一点退房。',[['退房'],['十一点','11点']]],
+  ['Vui lòng không cho hành lá vào món ăn.','请不要在菜里放葱。',[['不要'],['葱','小葱']]],
+  ['Ga tàu cao tốc ở hướng nào?','高铁站在哪个方向？',[['高铁站','火车站'],['方向','哪里']]],
+  ['Tôi cần mua thuốc say xe.','我需要买晕车药。',[['晕车药'],['买','需要']]],
+  ['Có thể chụp ảnh giúp chúng tôi không?','可以帮我们拍张照片吗？',[['拍照','照片'],['帮我们','帮我']]],
+  ['Tôi muốn đặt bàn cho ba người.','我想预订三个人的桌位。',[['预订','订'],['三个人','三位']]],
+  ['Hành lý của tôi bị thất lạc.','我的行李丢了。',[['行李'],['丢','遗失']]],
+  ['Xe này có đi đến trung tâm thành phố không?','这辆车去市中心吗？',[['市中心'],['车','去']]],
+  ['Tôi muốn uống nước không đá.','我想喝不加冰的水。',[['水'],['不加冰','不要冰']]],
+  ['Cửa lên máy bay số mấy?','登机口是几号？',[['登机口'],['几号','多少']]],
+  ['Tôi cần đổi phòng vì điều hòa không hoạt động.','空调坏了，我需要换房间。',[['空调'],['坏','不工作'],['换房间','换房']]],
+  ['Hãy viết địa chỉ này ra giấy giúp tôi.','请帮我把这个地址写下来。',[['地址'],['写下来','写']]],
+  ['Tôi muốn đi đến bến xe buýt gần nhất.','我想去最近的公交车站。',[['公交车站','车站'],['最近'],['去']]],
+  ['Thanh toán bằng thẻ tín dụng được không?','可以用信用卡付款吗？',[['信用卡'],['付款','支付']]],
+  ['Tôi bị đau đầu từ sáng nay.','我从今天早上开始头疼。',[['头疼','头痛'],['早上','今天早上']]],
+  ['Vui lòng gọi cho khách sạn giúp tôi.','请帮我给酒店打电话。',[['酒店'],['打电话','电话']]],
+  ['Chúng tôi muốn xuống ở trạm tiếp theo.','我们想在下一站下车。',[['下一站'],['下车']]],
+  ['Cầu này đi bộ qua được không?','这座桥可以步行通过吗？',[['桥'],['步行','走路'],['可以','能']]],
+  ['Tôi muốn mua một chai nước suối.','我想买一瓶矿泉水。',[['矿泉水'],['一瓶','瓶'],['买']]],
+  ['Cho hỏi lối ra ở đâu?','请问出口在哪里？',[['出口'],['哪里','哪儿']]],
+  ['Chuyến bay của tôi bị hoãn hai tiếng.','我的航班延误了两个小时。',[['航班','飞机'],['延误','晚点'],['两个小时','两小时']]],
+  ['Tôi muốn thuê xe đạp trong một ngày.','我想租一天自行车。',[['租'],['自行车'],['一天']]],
+  ['Xin hãy nói chậm hơn một chút.','请说慢一点。',[['说'],['慢一点','慢些']]]
+];
+
+const additionalZhToVi=[
+  ['我想买一张去成都的火车票。','Tôi muốn mua một vé tàu đi Thành Đô.',[['mua'],['vé tàu','vé xe lửa'],['thành đô','chengdu']]],
+  ['可以给我看越南语菜单吗？','Có thể cho tôi xem thực đơn tiếng Việt không?', [['thực đơn','menu'],['tiếng việt']]],
+  ['我想在十一点退房。','Tôi muốn trả phòng lúc 11 giờ.',[['trả phòng'],['11 giờ','mười một giờ']]],
+  ['请不要在菜里放葱。','Vui lòng đừng cho hành lá vào món ăn.',[['đừng','không'],['hành','hành lá']]],
+  ['高铁站在哪个方向？','Ga tàu cao tốc nằm hướng nào?', [['ga tàu cao tốc','ga cao tốc'],['hướng nào','hướng']]],
+  ['我需要买晕车药。','Tôi cần mua thuốc say xe.',[['thuốc say xe'],['mua']]],
+  ['可以帮我们拍张照片吗？','Có thể chụp giúp chúng tôi một tấm ảnh không?', [['chụp'],['chúng tôi'],['ảnh','hình']]],
+  ['我想预订三个人的桌位。','Tôi muốn đặt bàn cho ba người.', [['đặt bàn','đặt chỗ'],['ba người','3 người']]],
+  ['我的行李丢了。','Hành lý của tôi bị thất lạc.', [['hành lý','vali'],['thất lạc','mất']]],
+  ['这辆车去市中心吗？','Xe này có đi đến trung tâm thành phố không?', [['xe'],['đi'],['trung tâm thành phố','trung tâm']]],
+  ['我想喝不加冰的水。','Tôi muốn uống nước không đá.', [['uống'],['nước'],['không đá','không bỏ đá']]],
+  ['登机口是几号？','Cửa lên máy bay là số mấy?', [['cửa lên máy bay','cổng lên máy bay'],['số mấy','mấy']]],
+  ['空调坏了，我需要换房间。','Điều hòa hỏng, tôi cần đổi phòng.', [['điều hòa','máy lạnh'],['hỏng','không hoạt động'],['đổi phòng']]],
+  ['请帮我把这个地址写下来。','Làm ơn viết địa chỉ này ra giúp tôi.', [['địa chỉ'],['viết']]],
+  ['我想去最近的公交车站。','Tôi muốn đến trạm xe buýt gần nhất.', [['trạm xe buýt','bến xe buýt'],['gần nhất']]],
+  ['可以用信用卡付款吗？','Có thể thanh toán bằng thẻ tín dụng không?', [['thanh toán'],['thẻ tín dụng','visa']]],
+  ['我从今天早上开始头疼。','Tôi bị đau đầu từ sáng nay.', [['đau đầu'],['sáng nay']]],
+  ['请帮我给酒店打电话。','Làm ơn gọi điện cho khách sạn giúp tôi.', [['gọi điện','gọi'],['khách sạn']]],
+  ['我们想在下一站下车。','Chúng tôi muốn xuống xe ở trạm tiếp theo.', [['xuống xe','xuống'],['trạm tiếp theo','bến tiếp theo']]],
+  ['这座桥可以步行通过吗？','Có thể đi bộ qua cây cầu này không?', [['cầu'],['đi bộ'],['qua']]],
+  ['我想买一瓶矿泉水。','Tôi muốn mua một chai nước suối.', [['mua'],['chai'],['nước suối','nước khoáng']]],
+  ['请问出口在哪里？','Cho hỏi lối ra ở đâu?', [['lối ra','cửa ra'],['ở đâu']]],
+  ['我的航班延误了两个小时。','Chuyến bay của tôi bị hoãn hai tiếng.', [['chuyến bay'],['hoãn','trễ'],['hai tiếng','2 tiếng']]],
+  ['我想租一天自行车。','Tôi muốn thuê xe đạp một ngày.', [['thuê'],['xe đạp'],['một ngày','1 ngày']]],
+  ['请说慢一点。','Xin hãy nói chậm hơn một chút.', [['nói'],['chậm hơn','chậm'],['một chút']]]
+];
+
 let translateSequence=0;
 const translationCase=(direction,[sourceText,reference,requiredGroups])=>({
   id:`T${String(++translateSequence).padStart(3,'0')}`,category:`translate-${direction}`,direction,
   sourceLanguage:direction==='vi-zh'?'vi':'zh-Hans',targetLanguage:direction==='vi-zh'?'zh-Hans':'vi',sourceText,reference,requiredGroups
 });
-export const TRANSLATE_EVAL_CASES=[...viToZh.map(item=>translationCase('vi-zh',item)),...zhToVi.map(item=>translationCase('zh-vi',item))];
+export const TRANSLATE_EVAL_CASES=[...viToZh.map(item=>translationCase('vi-zh',item)),...zhToVi.map(item=>translationCase('zh-vi',item)),...additionalViToZh.map(item=>translationCase('vi-zh',item)),...additionalZhToVi.map(item=>translationCase('zh-vi',item))];
 
-if(TEXT_CHAT_EVAL_CASES.length!==50)throw new Error(`Expected 50 text chat cases, received ${TEXT_CHAT_EVAL_CASES.length}`);
-if(TRANSLATE_EVAL_CASES.length!==50)throw new Error(`Expected 50 translate cases, received ${TRANSLATE_EVAL_CASES.length}`);
+if(TEXT_CHAT_EVAL_CASES.length!==100)throw new Error(`Expected 100 text chat cases, received ${TEXT_CHAT_EVAL_CASES.length}`);
+if(TRANSLATE_EVAL_CASES.length!==100)throw new Error(`Expected 100 translate cases, received ${TRANSLATE_EVAL_CASES.length}`);

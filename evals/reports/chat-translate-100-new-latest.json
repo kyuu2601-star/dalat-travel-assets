@@ -1,0 +1,6619 @@
+{
+  "generatedAt": "2026-11-10T07:52:29.434Z",
+  "baseUrl": "https://ai-test.kyuu2601.workers.dev",
+  "summary": {
+    "cases": 100,
+    "passed": 68,
+    "failed": 32,
+    "infra": 0,
+    "score": 68,
+    "gate": false
+  },
+  "categories": [
+    {
+      "category": "chat-place-current",
+      "cases": 5,
+      "passed": 3,
+      "failed": 2,
+      "infra": 0,
+      "score": 60
+    },
+    {
+      "category": "chat-place-remote",
+      "cases": 5,
+      "passed": 1,
+      "failed": 4,
+      "infra": 0,
+      "score": 20
+    },
+    {
+      "category": "chat-route-current",
+      "cases": 5,
+      "passed": 4,
+      "failed": 1,
+      "infra": 0,
+      "score": 80
+    },
+    {
+      "category": "chat-route-two-point",
+      "cases": 5,
+      "passed": 5,
+      "failed": 0,
+      "infra": 0,
+      "score": 100
+    },
+    {
+      "category": "chat-weather-current",
+      "cases": 5,
+      "passed": 5,
+      "failed": 0,
+      "infra": 0,
+      "score": 100
+    },
+    {
+      "category": "chat-weather-remote",
+      "cases": 5,
+      "passed": 4,
+      "failed": 1,
+      "infra": 0,
+      "score": 80
+    },
+    {
+      "category": "chat-safety",
+      "cases": 5,
+      "passed": 2,
+      "failed": 3,
+      "infra": 0,
+      "score": 40
+    },
+    {
+      "category": "chat-itinerary",
+      "cases": 5,
+      "passed": 0,
+      "failed": 5,
+      "infra": 0,
+      "score": 0
+    },
+    {
+      "category": "chat-guided",
+      "cases": 5,
+      "passed": 2,
+      "failed": 3,
+      "infra": 0,
+      "score": 40
+    },
+    {
+      "category": "chat-utility",
+      "cases": 5,
+      "passed": 1,
+      "failed": 4,
+      "infra": 0,
+      "score": 20
+    },
+    {
+      "category": "translate-vi-zh",
+      "cases": 25,
+      "passed": 21,
+      "failed": 4,
+      "infra": 0,
+      "score": 84
+    },
+    {
+      "category": "translate-zh-vi",
+      "cases": 25,
+      "passed": 20,
+      "failed": 5,
+      "infra": 0,
+      "score": 80
+    }
+  ],
+  "results": [
+    {
+      "id": "C051",
+      "kind": "text-chat",
+      "category": "chat-place-current",
+      "status": "PASS",
+      "message": "Tìm quán phở bò gần đây",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "place-search",
+          "current-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C052",
+      "kind": "text-chat",
+      "category": "chat-place-current",
+      "status": "FAIL",
+      "message": "Có bưu điện nào gần chỗ tôi?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "GUIDED_CHAT",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "LOCAL_GUIDE",
+        "tools": [],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": false,
+          "details": "false vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "LOCAL_GUIDE vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": false,
+          "details": "none; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual GUIDED_CHAT"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C053",
+      "kind": "text-chat",
+      "category": "chat-place-current",
+      "status": "PASS",
+      "message": "Kiếm trạm xăng quanh đây",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "place-search",
+          "current-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C054",
+      "kind": "text-chat",
+      "category": "chat-place-current",
+      "status": "PASS",
+      "message": "Tìm tiệm giặt ủi gần vị trí hiện tại",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "place-search",
+          "current-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "resolve_place",
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C055",
+      "kind": "text-chat",
+      "category": "chat-place-current",
+      "status": "FAIL",
+      "message": "Gần mình có chỗ đổi tiền không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "place-search",
+          "current-area"
+        ],
+        "actualDecision": "MODEL_ANSWER",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "TRAVEL_UTILITY",
+        "tools": [],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": false,
+          "details": "none; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual MODEL_ANSWER"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C056",
+      "kind": "text-chat",
+      "category": "chat-place-remote",
+      "status": "FAIL",
+      "message": "Tìm quán dimsum ở Quảng Châu",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "place-search",
+          "named-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → search_places → place_details → place_busyness; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C057",
+      "kind": "text-chat",
+      "category": "chat-place-remote",
+      "status": "FAIL",
+      "message": "Có cửa hàng bán sim tại Bắc Kinh không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → search_places → place_details → place_busyness; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C058",
+      "kind": "text-chat",
+      "category": "chat-place-remote",
+      "status": "FAIL",
+      "message": "Tìm điểm ngắm cảnh ở Hàng Châu",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "place-search",
+          "named-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → search_places → place_details → place_busyness; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C059",
+      "kind": "text-chat",
+      "category": "chat-place-remote",
+      "status": "PASS",
+      "message": "Có nhà vệ sinh công cộng gần ga Thượng Hải không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "place-search",
+          "current-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "resolve_place",
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C060",
+      "kind": "text-chat",
+      "category": "chat-place-remote",
+      "status": "FAIL",
+      "message": "Kiếm quán ăn chay ở Đà Lạt",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "place-search",
+          "named-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "PLACE_DISCOVERY vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs PLACE_DISCOVERY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → search_places → place_details → place_busyness; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C061",
+      "kind": "text-chat",
+      "category": "chat-route-current",
+      "status": "PASS",
+      "message": "Chỉ đường tới Bưu điện Trung tâm Sài Gòn",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "route-language",
+          "current-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C062",
+      "kind": "text-chat",
+      "category": "chat-route-current",
+      "status": "PASS",
+      "message": "Đưa tôi đến ga Tân Sơn Nhất",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "route-language",
+          "current-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C063",
+      "kind": "text-chat",
+      "category": "chat-route-current",
+      "status": "FAIL",
+      "message": "Đi tới Hồ Tuyền Lâm thế nào?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "GUIDED_CHAT",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "LOCAL_GUIDE",
+        "tools": [],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": false,
+          "details": "false vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "LOCAL_GUIDE vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": false,
+          "details": "none; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual GUIDED_CHAT"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C064",
+      "kind": "text-chat",
+      "category": "chat-route-current",
+      "status": "PASS",
+      "message": "Dẫn mình đến Phố đi bộ Nguyễn Huệ",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "route-language",
+          "current-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C065",
+      "kind": "text-chat",
+      "category": "chat-route-current",
+      "status": "PASS",
+      "message": "Tìm đường tới sân bay Đào Viên",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "route-language",
+          "current-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C066",
+      "kind": "text-chat",
+      "category": "chat-route-two-point",
+      "status": "PASS",
+      "message": "Từ ga Đà Lạt tới Hồ Xuân Hương",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "route-language",
+          "explicit-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C067",
+      "kind": "text-chat",
+      "category": "chat-route-two-point",
+      "status": "PASS",
+      "message": "Từ sân bay Đà Nẵng đến Cầu Rồng",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "route-language",
+          "explicit-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C068",
+      "kind": "text-chat",
+      "category": "chat-route-two-point",
+      "status": "PASS",
+      "message": "Từ ga Hồng Kiều đến Bến Thượng Hải",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "route-language",
+          "explicit-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C069",
+      "kind": "text-chat",
+      "category": "chat-route-two-point",
+      "status": "PASS",
+      "message": "Đi từ khách sạn đến sân bay Nội Bài",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "route-language",
+          "explicit-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C070",
+      "kind": "text-chat",
+      "category": "chat-route-two-point",
+      "status": "PASS",
+      "message": "Từ Thiên Môn Sơn tới Phượng Hoàng Cổ Trấn",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "route-language",
+          "explicit-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "ROUTE_MOBILITY",
+        "tools": [
+          "resolve_place",
+          "resolve_place",
+          "walking_route"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ROUTE_MOBILITY vs ROUTE_MOBILITY"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → resolve_place → walking_route; need resolve_place"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C071",
+      "kind": "text-chat",
+      "category": "chat-weather-current",
+      "status": "PASS",
+      "message": "Bây giờ quanh tôi trời bao nhiêu độ?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "weather-language",
+          "current-location"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "weather; need weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C072",
+      "kind": "text-chat",
+      "category": "chat-weather-current",
+      "status": "PASS",
+      "message": "Chỗ mình có đang mưa không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "weather-language",
+          "current-location"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "weather; need weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C073",
+      "kind": "text-chat",
+      "category": "chat-weather-current",
+      "status": "PASS",
+      "message": "Thời tiết gần vị trí của tui thế nào?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "weather-language",
+          "current-location"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "resolve_place",
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → weather; need weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C074",
+      "kind": "text-chat",
+      "category": "chat-weather-current",
+      "status": "PASS",
+      "message": "Hôm nay ở đây có cần mang áo mưa không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "weather-language",
+          "current-location"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "weather; need weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C075",
+      "kind": "text-chat",
+      "category": "chat-weather-current",
+      "status": "PASS",
+      "message": "Ngoài trời quanh đây có gió lớn không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "weather-language",
+          "current-location"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "weather; need weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C076",
+      "kind": "text-chat",
+      "category": "chat-weather-remote",
+      "status": "FAIL",
+      "message": "Ngày mai thời tiết ở Tô Châu thế nào?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "ROUTE_MOBILITY",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "route-language",
+          "current-origin"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "resolve_place",
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "ROUTE_MOBILITY vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": false,
+          "details": "true vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → weather; need resolve_place, weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C077",
+      "kind": "text-chat",
+      "category": "chat-weather-remote",
+      "status": "PASS",
+      "message": "Thời tiết hiện tại tại Hạ Môn ra sao?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "weather-language",
+          "named-destination"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "resolve_place",
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → weather; need resolve_place, weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C078",
+      "kind": "text-chat",
+      "category": "chat-weather-remote",
+      "status": "PASS",
+      "message": "Ở Côn Minh hôm nay có nắng không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "weather-language",
+          "named-destination"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "resolve_place",
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → weather; need resolve_place, weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C079",
+      "kind": "text-chat",
+      "category": "chat-weather-remote",
+      "status": "PASS",
+      "message": "Cuối tuần này ở Nam Kinh có mưa không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "weather-language",
+          "named-destination"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "resolve_place",
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → weather; need resolve_place, weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C080",
+      "kind": "text-chat",
+      "category": "chat-weather-remote",
+      "status": "PASS",
+      "message": "Nhiệt độ tại Tây An tối nay bao nhiêu?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "WEATHER_OUTDOOR",
+        "confidence": 0.95,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "weather-language",
+          "named-destination"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "WEATHER_OUTDOOR",
+        "tools": [
+          "resolve_place",
+          "weather"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "WEATHER_OUTDOOR vs WEATHER_OUTDOOR"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → weather; need resolve_place, weather"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C081",
+      "kind": "text-chat",
+      "category": "chat-safety",
+      "status": "PASS",
+      "message": "Tôi bị đau bụng, tìm nơi hỗ trợ gần đây",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "safety-place-search"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "SAFETY_HEALTH",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C082",
+      "kind": "text-chat",
+      "category": "chat-safety",
+      "status": "FAIL",
+      "message": "Tôi bị lạc, cần đồn công an gần nhất",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "safety-place-search"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": false,
+          "details": "false vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C083",
+      "kind": "text-chat",
+      "category": "chat-safety",
+      "status": "FAIL",
+      "message": "Bạn tìm bệnh viện gần vị trí của tôi",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "place-search",
+          "current-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": false,
+          "details": "false vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs SAFETY_HEALTH"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "resolve_place → search_places → place_details → place_busyness; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C084",
+      "kind": "text-chat",
+      "category": "chat-safety",
+      "status": "PASS",
+      "message": "Tôi bị trượt ngã, có cơ sở y tế nào quanh đây?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "safety-place-search"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "SAFETY_HEALTH",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C085",
+      "kind": "text-chat",
+      "category": "chat-safety",
+      "status": "FAIL",
+      "message": "Tôi đánh rơi ví, giúp tìm công an gần tôi",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
+        "requiresFreshGps": true,
+        "reasonCodes": [
+          "safety-place-search"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "PLACE_DISCOVERY",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "API_TOOLS vs API_TOOLS"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "SAFETY_HEALTH vs SAFETY_HEALTH"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "true vs true"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "PLACE_DISCOVERY vs SAFETY_HEALTH"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "search_places; need search_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C086",
+      "kind": "text-chat",
+      "category": "chat-itinerary",
+      "status": "FAIL",
+      "message": "Lên lịch tham quan Đà Lạt trong 3 ngày",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "place-search",
+          "named-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "API_TOOLS vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "PLACE_DISCOVERY vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "planner tools",
+          "pass": false,
+          "details": "search_places → place_details → place_busyness; need curated_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C087",
+      "kind": "text-chat",
+      "category": "chat-itinerary",
+      "status": "FAIL",
+      "message": "Sắp xếp chuyến đi Thượng Hải 2 ngày",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "planner tools",
+          "pass": false,
+          "details": "search_places → place_details → place_busyness; need curated_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C088",
+      "kind": "text-chat",
+      "category": "chat-itinerary",
+      "status": "FAIL",
+      "message": "Tạo lịch ăn uống ở Quận 1 một ngày",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "PLACE_DISCOVERY",
+        "confidence": 0.92,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "place-search",
+          "named-area"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "API_TOOLS vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "PLACE_DISCOVERY vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "planner tools",
+          "pass": false,
+          "details": "resolve_place → search_places → place_details → place_busyness; need curated_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C089",
+      "kind": "text-chat",
+      "category": "chat-itinerary",
+      "status": "FAIL",
+      "message": "Gợi ý lịch khám phá Trùng Khánh 3 ngày",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "planner tools",
+          "pass": false,
+          "details": "search_places → place_details → place_busyness; need curated_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C090",
+      "kind": "text-chat",
+      "category": "chat-itinerary",
+      "status": "FAIL",
+      "message": "Lên kế hoạch cuối tuần ở Hội An",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "PLANNER_MODEL",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "ITINERARY_PLANNING",
+        "tools": [
+          "curated_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs PLANNER_MODEL"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "ITINERARY_PLANNING vs ITINERARY_PLANNING"
+        },
+        {
+          "name": "planner tools",
+          "pass": true,
+          "details": "curated_places; need curated_places"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual PLANNER_MODEL"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C091",
+      "kind": "text-chat",
+      "category": "chat-guided",
+      "status": "PASS",
+      "message": "Pipi ơi, hôm nay bạn khỏe không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "guided-travel-chat"
+        ],
+        "actualDecision": "GUIDED_CHAT",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "LOCAL_GUIDE",
+        "tools": [],
+        "planner": "scope-redirect"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": true,
+          "details": "none vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C092",
+      "kind": "text-chat",
+      "category": "chat-guided",
+      "status": "FAIL",
+      "message": "Kể tui nghe một câu đố vui",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "GUIDED_CHAT",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "LOCAL_GUIDE",
+        "tools": [],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": true,
+          "details": "none vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual GUIDED_CHAT"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C093",
+      "kind": "text-chat",
+      "category": "chat-guided",
+      "status": "FAIL",
+      "message": "Người Trung Quốc thường chào nhau thế nào?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "GUIDED_CHAT",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "LOCAL_GUIDE",
+        "tools": [],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": true,
+          "details": "none vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual GUIDED_CHAT"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C094",
+      "kind": "text-chat",
+      "category": "chat-guided",
+      "status": "FAIL",
+      "message": "Đi tàu điện ở Trung Quốc có cần xếp hàng không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "MODEL_ANSWER vs GUIDED_CHAT"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "TRAVEL_UTILITY vs LOCAL_GUIDE"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": false,
+          "details": "resolve_place → search_places → place_details → place_busyness vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C095",
+      "kind": "text-chat",
+      "category": "chat-guided",
+      "status": "PASS",
+      "message": "Cảm ơn nha, bạn dễ thương ghê",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "GUIDED_CHAT",
+        "intentHint": "LOCAL_GUIDE",
+        "confidence": 0.94,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "guided-travel-chat"
+        ],
+        "actualDecision": "GUIDED_CHAT",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "LOCAL_GUIDE",
+        "tools": [],
+        "planner": "scope-redirect"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "GUIDED_CHAT vs GUIDED_CHAT"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "LOCAL_GUIDE vs LOCAL_GUIDE"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": true,
+          "details": "none vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual GUIDED_CHAT"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C096",
+      "kind": "text-chat",
+      "category": "chat-utility",
+      "status": "PASS",
+      "message": "Có cần đổi tiền mặt trước khi đi Trung Quốc không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "MODEL_ANSWER",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "TRAVEL_UTILITY",
+        "tools": [],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "MODEL_ANSWER vs MODEL_ANSWER"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "TRAVEL_UTILITY vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": true,
+          "details": "TRAVEL_UTILITY vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": true,
+          "details": "none vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual MODEL_ANSWER"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C097",
+      "kind": "text-chat",
+      "category": "chat-utility",
+      "status": "FAIL",
+      "message": "Cách mua vé tàu cao tốc ở Trung Quốc?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "MODEL_ANSWER vs MODEL_ANSWER"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "TRAVEL_UTILITY vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": false,
+          "details": "resolve_place → search_places → place_details → place_busyness vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C098",
+      "kind": "text-chat",
+      "category": "chat-utility",
+      "status": "FAIL",
+      "message": "Tôi muốn gửi vali ở nhà ga",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "MODEL_ANSWER vs MODEL_ANSWER"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "TRAVEL_UTILITY vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": false,
+          "details": "resolve_place → search_places → place_details → place_busyness vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C099",
+      "kind": "text-chat",
+      "category": "chat-utility",
+      "status": "FAIL",
+      "message": "Có thể dùng eSIM tại Trung Quốc không?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "MODEL_ANSWER",
+        "intentHint": "TRAVEL_UTILITY",
+        "confidence": 0.55,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "ambiguous-existing-flow"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": false
+      },
+      "plan": {
+        "travelIntent": "VENUE_INTELLIGENCE",
+        "tools": [
+          "resolve_place",
+          "search_places",
+          "place_details",
+          "place_busyness"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": true,
+          "details": "MODEL_ANSWER vs MODEL_ANSWER"
+        },
+        {
+          "name": "router intent",
+          "pass": true,
+          "details": "TRAVEL_UTILITY vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "VENUE_INTELLIGENCE vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": false,
+          "details": "resolve_place → search_places → place_details → place_busyness vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": false,
+          "details": "false vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "C100",
+      "kind": "text-chat",
+      "category": "chat-utility",
+      "status": "FAIL",
+      "message": "Mẹo giữ an toàn hộ chiếu khi đi du lịch?",
+      "router": {
+        "version": 1,
+        "mode": "shadow",
+        "applied": false,
+        "decision": "API_TOOLS",
+        "intentHint": "SAFETY_HEALTH",
+        "confidence": 0.98,
+        "requiresFreshGps": false,
+        "reasonCodes": [
+          "safety-place-search"
+        ],
+        "actualDecision": "API_TOOLS",
+        "matched": true
+      },
+      "plan": {
+        "travelIntent": "SAFETY_HEALTH",
+        "tools": [
+          "search_places"
+        ],
+        "planner": "deterministic"
+      },
+      "checks": [
+        {
+          "name": "router decision",
+          "pass": false,
+          "details": "API_TOOLS vs MODEL_ANSWER"
+        },
+        {
+          "name": "router intent",
+          "pass": false,
+          "details": "SAFETY_HEALTH vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "fresh GPS policy",
+          "pass": true,
+          "details": "false vs false"
+        },
+        {
+          "name": "planner intent",
+          "pass": false,
+          "details": "SAFETY_HEALTH vs TRAVEL_UTILITY"
+        },
+        {
+          "name": "planner tools exact",
+          "pass": false,
+          "details": "search_places vs none"
+        },
+        {
+          "name": "shadow agreement",
+          "pass": true,
+          "details": "true vs true; actual API_TOOLS"
+        },
+        {
+          "name": "shadow remains disabled",
+          "pass": true,
+          "details": "applied=false"
+        }
+      ]
+    },
+    {
+      "id": "T051",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi muốn mua vé tàu đi Thành Đô.",
+      "reference": "我想买一张去成都的火车票。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi muốn mua vé tàu đi thành đô.",
+        "translatedText": "我想买一张去成都的火车票。",
+        "audioBytes": 240000
+      },
+      "latencyMs": 11079,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "240000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi muốn mua vé tàu đi thành đô."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 我想买一张去成都的火车票。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "成都 · 我想买一张去成都的火车票。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "火车票 | 车票 · 我想买一张去成都的火车票。"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "买 | 一张 · 我想买一张去成都的火车票。"
+        }
+      ]
+    },
+    {
+      "id": "T052",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Cho tôi xem thực đơn bằng tiếng Việt được không?",
+      "reference": "可以给我看越南语菜单吗？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "cho tôi xem thực đơn bằng tiếng Việt được không?",
+        "translatedText": "给我看看越南语菜单好吗？",
+        "audioBytes": 240000
+      },
+      "latencyMs": 10405,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "240000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · cho tôi xem thực đơn bằng tiếng Việt được không?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "82% · 给我看看越南语菜单好吗？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "菜单 · 给我看看越南语菜单好吗？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "越南语 | 越南文 · 给我看看越南语菜单好吗？"
+        }
+      ]
+    },
+    {
+      "id": "T053",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi muốn trả phòng lúc 11 giờ.",
+      "reference": "我想在十一点退房。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi muốn trả phòng lúc 11 giờ.",
+        "translatedText": "我想在11点退房。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10172,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi muốn trả phòng lúc 11 giờ."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "75% · 我想在11点退房。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "退房 · 我想在11点退房。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "十一点 | 11点 · 我想在11点退房。"
+        }
+      ]
+    },
+    {
+      "id": "T054",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Vui lòng không cho hành lá vào món ăn.",
+      "reference": "请不要在菜里放葱。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Vui lòng không cho hành lá vào món ăn.",
+        "translatedText": "请不要在菜里放葱。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10861,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Vui lòng không cho hành lá vào món ăn."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 请不要在菜里放葱。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "不要 · 请不要在菜里放葱。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "葱 | 小葱 · 请不要在菜里放葱。"
+        }
+      ]
+    },
+    {
+      "id": "T055",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "FAIL",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Ga tàu cao tốc ở hướng nào?",
+      "reference": "高铁站在哪个方向？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Và tàu cao tốc ở hướng nào?",
+        "translatedText": "那高铁是往哪个方向？",
+        "audioBytes": 228000
+      },
+      "latencyMs": 11047,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "86% · Và tàu cao tốc ở hướng nào?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "71% · 那高铁是往哪个方向？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "高铁站 | 火车站 · 那高铁是往哪个方向？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "方向 | 哪里 · 那高铁是往哪个方向？"
+        }
+      ]
+    },
+    {
+      "id": "T056",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi cần mua thuốc say xe.",
+      "reference": "我需要买晕车药。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi cần mua thuốc say xe.",
+        "translatedText": "我需要买晕车药。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10417,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi cần mua thuốc say xe."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 我需要买晕车药。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "晕车药 · 我需要买晕车药。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "买 | 需要 · 我需要买晕车药。"
+        }
+      ]
+    },
+    {
+      "id": "T057",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Có thể chụp ảnh giúp chúng tôi không?",
+      "reference": "可以帮我们拍张照片吗？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "có thể chụp ảnh giúp chúng tôi không?",
+        "translatedText": "可以帮我们拍张照片吗？",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10485,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · có thể chụp ảnh giúp chúng tôi không?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 可以帮我们拍张照片吗？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "拍照 | 照片 · 可以帮我们拍张照片吗？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "帮我们 | 帮我 · 可以帮我们拍张照片吗？"
+        }
+      ]
+    },
+    {
+      "id": "T058",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi muốn đặt bàn cho ba người.",
+      "reference": "我想预订三个人的桌位。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi muốn đặt bàn cho ba người.",
+        "translatedText": "我想预订三个人的桌子。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10330,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi muốn đặt bàn cho ba người."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "90% · 我想预订三个人的桌子。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "预订 | 订 · 我想预订三个人的桌子。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "三个人 | 三位 · 我想预订三个人的桌子。"
+        }
+      ]
+    },
+    {
+      "id": "T059",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Hành lý của tôi bị thất lạc.",
+      "reference": "我的行李丢了。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Hành lý của tôi bị thất lạc.",
+        "translatedText": "我的行李丢了。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10550,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Hành lý của tôi bị thất lạc."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 我的行李丢了。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "行李 · 我的行李丢了。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "丢 | 遗失 · 我的行李丢了。"
+        }
+      ]
+    },
+    {
+      "id": "T060",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Xe này có đi đến trung tâm thành phố không?",
+      "reference": "这辆车去市中心吗？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Xe này có đi đến trung tâm thành phố không?",
+        "translatedText": "这辆车去市中心吗？",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10444,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Xe này có đi đến trung tâm thành phố không?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 这辆车去市中心吗？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "市中心 · 这辆车去市中心吗？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "车 | 去 · 这辆车去市中心吗？"
+        }
+      ]
+    },
+    {
+      "id": "T061",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi muốn uống nước không đá.",
+      "reference": "我想喝不加冰的水。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi muốn uống nước không đá.",
+        "translatedText": "我想要不加冰的水。",
+        "audioBytes": 216000
+      },
+      "latencyMs": 9615,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "216000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi muốn uống nước không đá."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "88% · 我想要不加冰的水。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "水 · 我想要不加冰的水。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "不加冰 | 不要冰 · 我想要不加冰的水。"
+        }
+      ]
+    },
+    {
+      "id": "T062",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Cửa lên máy bay số mấy?",
+      "reference": "登机口是几号？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "cửa lên máy bay số mấy?",
+        "translatedText": "登机口是几号？",
+        "audioBytes": 192000
+      },
+      "latencyMs": 9497,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · cửa lên máy bay số mấy?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 登机口是几号？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "登机口 · 登机口是几号？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "几号 | 多少 · 登机口是几号？"
+        }
+      ]
+    },
+    {
+      "id": "T063",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi cần đổi phòng vì điều hòa không hoạt động.",
+      "reference": "空调坏了，我需要换房间。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi cần đổi phòng vì điều hòa không hoạt động.",
+        "translatedText": "我需要换房间，因为空调不工作。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10203,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi cần đổi phòng vì điều hòa không hoạt động."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "70% · 我需要换房间，因为空调不工作。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "空调 · 我需要换房间，因为空调不工作。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "坏 | 不工作 · 我需要换房间，因为空调不工作。"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "换房间 | 换房 · 我需要换房间，因为空调不工作。"
+        }
+      ]
+    },
+    {
+      "id": "T064",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Hãy viết địa chỉ này ra giấy giúp tôi.",
+      "reference": "请帮我把这个地址写下来。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Hãy viết địa chỉ này ra giấy giúp tôi.",
+        "translatedText": "请把这个地址写在纸上给我。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 9931,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Hãy viết địa chỉ này ra giấy giúp tôi."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "70% · 请把这个地址写在纸上给我。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "地址 · 请把这个地址写在纸上给我。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "写下来 | 写 · 请把这个地址写在纸上给我。"
+        }
+      ]
+    },
+    {
+      "id": "T065",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "FAIL",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi muốn đi đến bến xe buýt gần nhất.",
+      "reference": "我想去最近的公交车站。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi muốn đi đến bến xe buýt gần nhất.",
+        "translatedText": "我想去附近的公交车站。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 11106,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi muốn đi đến bến xe buýt gần nhất."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "90% · 我想去附近的公交车站。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "公交车站 | 车站 · 我想去附近的公交车站。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": false,
+          "details": "最近 · 我想去附近的公交车站。"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "去 · 我想去附近的公交车站。"
+        }
+      ]
+    },
+    {
+      "id": "T066",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Thanh toán bằng thẻ tín dụng được không?",
+      "reference": "可以用信用卡付款吗？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Thanh toán bằng thẻ tín dụng được không?",
+        "translatedText": "可以用信用卡支付吗？",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10560,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Thanh toán bằng thẻ tín dụng được không?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "89% · 可以用信用卡支付吗？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "信用卡 · 可以用信用卡支付吗？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "付款 | 支付 · 可以用信用卡支付吗？"
+        }
+      ]
+    },
+    {
+      "id": "T067",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi bị đau đầu từ sáng nay.",
+      "reference": "我从今天早上开始头疼。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi bị đau đầu từ sáng nay.",
+        "translatedText": "我从早上开始就头疼。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10843,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi bị đau đầu từ sáng nay."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "84% · 我从早上开始就头疼。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "头疼 | 头痛 · 我从早上开始就头疼。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "早上 | 今天早上 · 我从早上开始就头疼。"
+        }
+      ]
+    },
+    {
+      "id": "T068",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Vui lòng gọi cho khách sạn giúp tôi.",
+      "reference": "请帮我给酒店打电话。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Vui lòng gọi cho khách sạn giúp tôi.",
+        "translatedText": "请帮我打电话给酒店。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10082,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Vui lòng gọi cho khách sạn giúp tôi."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 请帮我打电话给酒店。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "酒店 · 请帮我打电话给酒店。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "打电话 | 电话 · 请帮我打电话给酒店。"
+        }
+      ]
+    },
+    {
+      "id": "T069",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Chúng tôi muốn xuống ở trạm tiếp theo.",
+      "reference": "我们想在下一站下车。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Chúng tôi muốn xuống ở trạm tiếp theo.",
+        "translatedText": "我们想在下一站下车。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 9868,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Chúng tôi muốn xuống ở trạm tiếp theo."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 我们想在下一站下车。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "下一站 · 我们想在下一站下车。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "下车 · 我们想在下一站下车。"
+        }
+      ]
+    },
+    {
+      "id": "T070",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "FAIL",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Cầu này đi bộ qua được không?",
+      "reference": "这座桥可以步行通过吗？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Câu này đi bộ qua được không?",
+        "translatedText": "这句能走过去吗？",
+        "audioBytes": 228000
+      },
+      "latencyMs": 9955,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Câu này đi bộ qua được không?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "35% · 这句能走过去吗？"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "桥 · 这句能走过去吗？"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": false,
+          "details": "步行 | 走路 · 这句能走过去吗？"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "可以 | 能 · 这句能走过去吗？"
+        }
+      ]
+    },
+    {
+      "id": "T071",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi muốn mua một chai nước suối.",
+      "reference": "我想买一瓶矿泉水。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi muốn mua một chai nước suối.",
+        "translatedText": "我想买一瓶矿泉水。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10504,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi muốn mua một chai nước suối."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 我想买一瓶矿泉水。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "矿泉水 · 我想买一瓶矿泉水。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "一瓶 | 瓶 · 我想买一瓶矿泉水。"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "买 · 我想买一瓶矿泉水。"
+        }
+      ]
+    },
+    {
+      "id": "T072",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "FAIL",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Cho hỏi lối ra ở đâu?",
+      "reference": "请问出口在哪里？",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Cho hỏi lối ra ở",
+        "translatedText": "请问出口",
+        "audioBytes": 204000
+      },
+      "latencyMs": 10826,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "204000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "91% · Cho hỏi lối ra ở"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "73% · 请问出口"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "出口 · 请问出口"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": false,
+          "details": "哪里 | 哪儿 · 请问出口"
+        }
+      ]
+    },
+    {
+      "id": "T073",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Chuyến bay của tôi bị hoãn hai tiếng.",
+      "reference": "我的航班延误了两个小时。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Chuyến bay của tôi bị hoãn hai tiếng.",
+        "translatedText": "我的航班延误了两个小时。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10638,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Chuyến bay của tôi bị hoãn hai tiếng."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 我的航班延误了两个小时。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "航班 | 飞机 · 我的航班延误了两个小时。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "延误 | 晚点 · 我的航班延误了两个小时。"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "两个小时 | 两小时 · 我的航班延误了两个小时。"
+        }
+      ]
+    },
+    {
+      "id": "T074",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Tôi muốn thuê xe đạp trong một ngày.",
+      "reference": "我想租一天自行车。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Tôi muốn thuê xe đạp trong một ngày.",
+        "translatedText": "我想租一辆自行车一天。",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10144,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · Tôi muốn thuê xe đạp trong một ngày."
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "89% · 我想租一辆自行车一天。"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "租 · 我想租一辆自行车一天。"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "自行车 · 我想租一辆自行车一天。"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "一天 · 我想租一辆自行车一天。"
+        }
+      ]
+    },
+    {
+      "id": "T075",
+      "kind": "translate",
+      "category": "translate-vi-zh",
+      "status": "PASS",
+      "sourceLanguage": "vi",
+      "targetLanguage": "zh-Hans",
+      "sourceText": "Xin hãy nói chậm hơn một chút.",
+      "reference": "请说慢一点。",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "vi",
+        "targetLanguage": "zh-Hans",
+        "sourceText": "Xin hãy nói chậm hơn một",
+        "translatedText": "请说慢一点",
+        "audioBytes": 192000
+      },
+      "latencyMs": 10721,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "92% · Xin hãy nói chậm hơn một"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · 请说慢一点"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "说 · 请说慢一点"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "慢一点 | 慢些 · 请说慢一点"
+        }
+      ]
+    },
+    {
+      "id": "T076",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想买一张去成都的火车票。",
+      "reference": "Tôi muốn mua một vé tàu đi Thành Đô.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想买一张去成都的火车票。",
+        "translatedText": "Tôi muốn mua một vé đi Thành Đô.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10098,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我想买一张去成都的火车票。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "94% · Tôi muốn mua một vé đi Thành Đô."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "mua · Tôi muốn mua một vé đi Thành Đô."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": false,
+          "details": "vé tàu | vé xe lửa · Tôi muốn mua một vé đi Thành Đô."
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "thành đô | chengdu · Tôi muốn mua một vé đi Thành Đô."
+        }
+      ]
+    },
+    {
+      "id": "T077",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "可以给我看越南语菜单吗？",
+      "reference": "Có thể cho tôi xem thực đơn tiếng Việt không?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "可以给我看越南语菜单吗?",
+        "translatedText": "Có thể cho tôi xem thực đơn tiếng Việt không?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10185,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 可以给我看越南语菜单吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Có thể cho tôi xem thực đơn tiếng Việt không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "thực đơn | menu · Có thể cho tôi xem thực đơn tiếng Việt không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "tiếng việt · Có thể cho tôi xem thực đơn tiếng Việt không?"
+        }
+      ]
+    },
+    {
+      "id": "T078",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想在十一点退房。",
+      "reference": "Tôi muốn trả phòng lúc 11 giờ.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想在10點退房。",
+        "translatedText": "Tôi muốn trả phòng lúc 10 giờ.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10870,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "63% · 我想在10點退房。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "86% · Tôi muốn trả phòng lúc 10 giờ."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "trả phòng · Tôi muốn trả phòng lúc 10 giờ."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": false,
+          "details": "11 giờ | mười một giờ · Tôi muốn trả phòng lúc 10 giờ."
+        }
+      ]
+    },
+    {
+      "id": "T079",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "请不要在菜里放葱。",
+      "reference": "Vui lòng đừng cho hành lá vào món ăn.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请不要在菜里放葱。",
+        "translatedText": "Xin đừng cho hành vào món ăn.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10994,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请不要在菜里放葱。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "75% · Xin đừng cho hành vào món ăn."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "đừng | không · Xin đừng cho hành vào món ăn."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "hành | hành lá · Xin đừng cho hành vào món ăn."
+        }
+      ]
+    },
+    {
+      "id": "T080",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "高铁站在哪个方向？",
+      "reference": "Ga tàu cao tốc nằm hướng nào?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "高铁站在哪个方向?",
+        "translatedText": "Ga tàu cao tốc ở hướng nào?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10038,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 高铁站在哪个方向?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "86% · Ga tàu cao tốc ở hướng nào?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "ga tàu cao tốc | ga cao tốc · Ga tàu cao tốc ở hướng nào?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "hướng nào | hướng · Ga tàu cao tốc ở hướng nào?"
+        }
+      ]
+    },
+    {
+      "id": "T081",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我需要买晕车药。",
+      "reference": "Tôi cần mua thuốc say xe.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我需要买孕车药。",
+        "translatedText": "Tôi cần mua thuốc cho bà bầu.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 9779,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "86% · 我需要买孕车药。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "62% · Tôi cần mua thuốc cho bà bầu."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": false,
+          "details": "thuốc say xe · Tôi cần mua thuốc cho bà bầu."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "mua · Tôi cần mua thuốc cho bà bầu."
+        }
+      ]
+    },
+    {
+      "id": "T082",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "可以帮我们拍张照片吗？",
+      "reference": "Có thể chụp giúp chúng tôi một tấm ảnh không?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "可以幫我們拍張照片嗎?",
+        "translatedText": "Bạn có thể chụp giúp chúng tôi một tấm ảnh không?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10526,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "60% · 可以幫我們拍張照片嗎?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "95% · Bạn có thể chụp giúp chúng tôi một tấm ảnh không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "chụp · Bạn có thể chụp giúp chúng tôi một tấm ảnh không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "chúng tôi · Bạn có thể chụp giúp chúng tôi một tấm ảnh không?"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "ảnh | hình · Bạn có thể chụp giúp chúng tôi một tấm ảnh không?"
+        }
+      ]
+    },
+    {
+      "id": "T083",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想预订三个人的桌位。",
+      "reference": "Tôi muốn đặt bàn cho ba người.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想預定三個人的桌位。",
+        "translatedText": "Tôi muốn đặt bàn cho ba người.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10701,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "70% · 我想預定三個人的桌位。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Tôi muốn đặt bàn cho ba người."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "đặt bàn | đặt chỗ · Tôi muốn đặt bàn cho ba người."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "ba người | 3 người · Tôi muốn đặt bàn cho ba người."
+        }
+      ]
+    },
+    {
+      "id": "T084",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我的行李丢了。",
+      "reference": "Hành lý của tôi bị thất lạc.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我的行李丢了。",
+        "translatedText": "Hành lý của tôi bị mất.",
+        "audioBytes": 192000
+      },
+      "latencyMs": 9414,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我的行李丢了。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "77% · Hành lý của tôi bị mất."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "hành lý | vali · Hành lý của tôi bị mất."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "thất lạc | mất · Hành lý của tôi bị mất."
+        }
+      ]
+    },
+    {
+      "id": "T085",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "这辆车去市中心吗？",
+      "reference": "Xe này có đi đến trung tâm thành phố không?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "这辆车去市中心吗?",
+        "translatedText": "Xe này có đi vào trung tâm",
+        "audioBytes": 192000
+      },
+      "latencyMs": 10189,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 这辆车去市中心吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "71% · Xe này có đi vào trung tâm"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "xe · Xe này có đi vào trung tâm"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "đi · Xe này có đi vào trung tâm"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "trung tâm thành phố | trung tâm · Xe này có đi vào trung tâm"
+        }
+      ]
+    },
+    {
+      "id": "T086",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想喝不加冰的水。",
+      "reference": "Tôi muốn uống nước không đá.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想喝不加冰的水。",
+        "translatedText": "Tôi muốn uống nước không đá.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10417,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我想喝不加冰的水。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Tôi muốn uống nước không đá."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "uống · Tôi muốn uống nước không đá."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "nước · Tôi muốn uống nước không đá."
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "không đá | không bỏ đá · Tôi muốn uống nước không đá."
+        }
+      ]
+    },
+    {
+      "id": "T087",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "登机口是几号？",
+      "reference": "Cửa lên máy bay là số mấy?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "登記口是幾號?",
+        "translatedText": "Cửa lên máy bay là",
+        "audioBytes": 192000
+      },
+      "latencyMs": 9168,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "192000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": false,
+          "details": "50% · 登記口是幾號?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "83% · Cửa lên máy bay là"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "cửa lên máy bay | cổng lên máy bay · Cửa lên máy bay là"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "số mấy | mấy · Cửa lên máy bay là"
+        }
+      ]
+    },
+    {
+      "id": "T088",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "空调坏了，我需要换房间。",
+      "reference": "Điều hòa hỏng, tôi cần đổi phòng.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "空调坏了,我需要换房间。",
+        "translatedText": "Máy lạnh bị hỏng rồi, tôi cần đổi phòng.",
+        "audioBytes": 240000
+      },
+      "latencyMs": 9445,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "240000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 空调坏了,我需要换房间。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "63% · Máy lạnh bị hỏng rồi, tôi cần đổi phòng."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "điều hòa | máy lạnh · Máy lạnh bị hỏng rồi, tôi cần đổi phòng."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "hỏng | không hoạt động · Máy lạnh bị hỏng rồi, tôi cần đổi phòng."
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "đổi phòng · Máy lạnh bị hỏng rồi, tôi cần đổi phòng."
+        }
+      ]
+    },
+    {
+      "id": "T089",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "请帮我把这个地址写下来。",
+      "reference": "Làm ơn viết địa chỉ này ra giúp tôi.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请帮我把这个地址写下来。",
+        "translatedText": "Làm ơn giúp tôi viết địa chỉ này xuống.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 11110,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请帮我把这个地址写下来。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "89% · Làm ơn giúp tôi viết địa chỉ này xuống."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "địa chỉ · Làm ơn giúp tôi viết địa chỉ này xuống."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "viết · Làm ơn giúp tôi viết địa chỉ này xuống."
+        }
+      ]
+    },
+    {
+      "id": "T090",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想去最近的公交车站。",
+      "reference": "Tôi muốn đến trạm xe buýt gần nhất.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想去最近的公交車站。",
+        "translatedText": "Tôi muốn đến trạm xe buýt gần nhất.",
+        "audioBytes": 240000
+      },
+      "latencyMs": 11017,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "240000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "90% · 我想去最近的公交車站。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Tôi muốn đến trạm xe buýt gần nhất."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "trạm xe buýt | bến xe buýt · Tôi muốn đến trạm xe buýt gần nhất."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "gần nhất · Tôi muốn đến trạm xe buýt gần nhất."
+        }
+      ]
+    },
+    {
+      "id": "T091",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "可以用信用卡付款吗？",
+      "reference": "Có thể thanh toán bằng thẻ tín dụng không?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "可以用信用卡付款吗?",
+        "translatedText": "Có thể thanh toán bằng thẻ tín dụng không?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10276,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 可以用信用卡付款吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Có thể thanh toán bằng thẻ tín dụng không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "thanh toán · Có thể thanh toán bằng thẻ tín dụng không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "thẻ tín dụng | visa · Có thể thanh toán bằng thẻ tín dụng không?"
+        }
+      ]
+    },
+    {
+      "id": "T092",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我从今天早上开始头疼。",
+      "reference": "Tôi bị đau đầu từ sáng nay.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我从今天早上开始头疼。",
+        "translatedText": "Tôi bắt đầu từ sáng nay bị đau đầu.",
+        "audioBytes": 240000
+      },
+      "latencyMs": 11147,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "240000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我从今天早上开始头疼。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "88% · Tôi bắt đầu từ sáng nay bị đau đầu."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "đau đầu · Tôi bắt đầu từ sáng nay bị đau đầu."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "sáng nay · Tôi bắt đầu từ sáng nay bị đau đầu."
+        }
+      ]
+    },
+    {
+      "id": "T093",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "请帮我给酒店打电话。",
+      "reference": "Làm ơn gọi điện cho khách sạn giúp tôi.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请帮我给酒店打电话。",
+        "translatedText": "Làm ơn gọi điện cho khách sạn giúp tôi.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10522,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请帮我给酒店打电话。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Làm ơn gọi điện cho khách sạn giúp tôi."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "gọi điện | gọi · Làm ơn gọi điện cho khách sạn giúp tôi."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "khách sạn · Làm ơn gọi điện cho khách sạn giúp tôi."
+        }
+      ]
+    },
+    {
+      "id": "T094",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我们想在下一站下车。",
+      "reference": "Chúng tôi muốn xuống xe ở trạm tiếp theo.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我们想在下一站下车。",
+        "translatedText": "Chúng tôi muốn xuống ở trạm tiếp theo.",
+        "audioBytes": 240000
+      },
+      "latencyMs": 10209,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "240000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我们想在下一站下车。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "94% · Chúng tôi muốn xuống ở trạm tiếp theo."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "xuống xe | xuống · Chúng tôi muốn xuống ở trạm tiếp theo."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "trạm tiếp theo | bến tiếp theo · Chúng tôi muốn xuống ở trạm tiếp theo."
+        }
+      ]
+    },
+    {
+      "id": "T095",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "这座桥可以步行通过吗？",
+      "reference": "Có thể đi bộ qua cây cầu này không?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "这座桥可以步行通过吗?",
+        "translatedText": "Cây cầu này có thể đi bộ qua không?",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10722,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 这座桥可以步行通过吗?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Cây cầu này có thể đi bộ qua không?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "cầu · Cây cầu này có thể đi bộ qua không?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "đi bộ · Cây cầu này có thể đi bộ qua không?"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "qua · Cây cầu này có thể đi bộ qua không?"
+        }
+      ]
+    },
+    {
+      "id": "T096",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想买一瓶矿泉水。",
+      "reference": "Tôi muốn mua một chai nước suối.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想买一瓶矿泉水。",
+        "translatedText": "Tôi muốn mua một chai nước khoáng.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10673,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我想买一瓶矿泉水。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "86% · Tôi muốn mua một chai nước khoáng."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "mua · Tôi muốn mua một chai nước khoáng."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "chai · Tôi muốn mua một chai nước khoáng."
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "nước suối | nước khoáng · Tôi muốn mua một chai nước khoáng."
+        }
+      ]
+    },
+    {
+      "id": "T097",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "请问出口在哪里？",
+      "reference": "Cho hỏi lối ra ở đâu?",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请问出口在哪里?",
+        "translatedText": "Xin hỏi lối ra ở đâu?",
+        "audioBytes": 204000
+      },
+      "latencyMs": 9439,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "204000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请问出口在哪里?"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "83% · Xin hỏi lối ra ở đâu?"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "lối ra | cửa ra · Xin hỏi lối ra ở đâu?"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "ở đâu · Xin hỏi lối ra ở đâu?"
+        }
+      ]
+    },
+    {
+      "id": "T098",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我的航班延误了两个小时。",
+      "reference": "Chuyến bay của tôi bị hoãn hai tiếng.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我的航班延误了两个小时。",
+        "translatedText": "Chuyến bay của tôi bị hoãn hai tiếng.",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10454,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我的航班延误了两个小时。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Chuyến bay của tôi bị hoãn hai tiếng."
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "chuyến bay · Chuyến bay của tôi bị hoãn hai tiếng."
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "hoãn | trễ · Chuyến bay của tôi bị hoãn hai tiếng."
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "hai tiếng | 2 tiếng · Chuyến bay của tôi bị hoãn hai tiếng."
+        }
+      ]
+    },
+    {
+      "id": "T099",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "PASS",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "我想租一天自行车。",
+      "reference": "Tôi muốn thuê xe đạp một ngày.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "我想租一天自行车,",
+        "translatedText": "Tôi muốn thuê xe đạp một ngày,",
+        "audioBytes": 228000
+      },
+      "latencyMs": 10005,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "228000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 我想租一天自行车,"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "100% · Tôi muốn thuê xe đạp một ngày,"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "thuê · Tôi muốn thuê xe đạp một ngày,"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "xe đạp · Tôi muốn thuê xe đạp một ngày,"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": true,
+          "details": "một ngày | 1 ngày · Tôi muốn thuê xe đạp một ngày,"
+        }
+      ]
+    },
+    {
+      "id": "T100",
+      "kind": "translate",
+      "category": "translate-zh-vi",
+      "status": "FAIL",
+      "sourceLanguage": "zh-Hans",
+      "targetLanguage": "vi",
+      "sourceText": "请说慢一点。",
+      "reference": "Xin hãy nói chậm hơn một chút.",
+      "actual": {
+        "live": true,
+        "sourceLanguage": "zh-Hans",
+        "targetLanguage": "vi",
+        "sourceText": "请说慢一点。",
+        "translatedText": "Xin hãy nói chậm",
+        "audioBytes": 204000
+      },
+      "latencyMs": 9168,
+      "infraError": "",
+      "checks": [
+        {
+          "name": "source language",
+          "pass": true,
+          "details": "zh-Hans vs zh-Hans"
+        },
+        {
+          "name": "target language",
+          "pass": true,
+          "details": "vi vs vi"
+        },
+        {
+          "name": "live streaming path",
+          "pass": true,
+          "details": "live=true"
+        },
+        {
+          "name": "translated audio returned",
+          "pass": true,
+          "details": "204000 bytes"
+        },
+        {
+          "name": "transcript fidelity",
+          "pass": true,
+          "details": "100% · 请说慢一点。"
+        },
+        {
+          "name": "translation similarity",
+          "pass": true,
+          "details": "73% · Xin hãy nói chậm"
+        },
+        {
+          "name": "required meaning 1",
+          "pass": true,
+          "details": "nói · Xin hãy nói chậm"
+        },
+        {
+          "name": "required meaning 2",
+          "pass": true,
+          "details": "chậm hơn | chậm · Xin hãy nói chậm"
+        },
+        {
+          "name": "required meaning 3",
+          "pass": false,
+          "details": "một chút · Xin hãy nói chậm"
+        }
+      ]
+    }
+  ]
+}

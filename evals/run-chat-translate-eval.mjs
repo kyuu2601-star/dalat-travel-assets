@@ -13,14 +13,17 @@ const args=process.argv.slice(2),has=value=>args.includes(value),arg=value=>{con
 const baseUrl=String(arg('--base-url')||process.env.TRAVELOS_EVAL_BASE_URL||'https://ai-test.kyuu2601.workers.dev').replace(/\/+$/,'');
 const origin=String(arg('--origin')||process.env.TRAVELOS_EVAL_ORIGIN||'https://kyuu2601-star.github.io');
 const timeoutMs=Math.max(5000,Number(arg('--timeout-ms'))||30000),skipTranslate=has('--skip-translate'),translateOnly=has('--translate-only'),regrade=has('--regrade');
-const retryInfra=has('--retry-infra'),useExistingTranslate=has('--use-existing-translate');
+const retryInfra=has('--retry-infra'),useExistingTranslate=has('--use-existing-translate'),newOnly=has('--new-only');
 const selectedIds=new Set(String(arg('--cases')||'').split(',').map(value=>value.trim()).filter(Boolean));
-const chatCases=selectedIds.size?TEXT_CHAT_EVAL_CASES.filter(item=>selectedIds.has(item.id)):TEXT_CHAT_EVAL_CASES;
+const isNewCase=item=>Number(item.id.slice(1))>50;
+const chatCases=selectedIds.size?TEXT_CHAT_EVAL_CASES.filter(item=>selectedIds.has(item.id)):
+  newOnly?TEXT_CHAT_EVAL_CASES.filter(isNewCase):TEXT_CHAT_EVAL_CASES;
 const reportName=String(arg('--report-name')||'chat-translate-100-latest').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,80);
 const reportPath=path.join(here,'reports',`${reportName}.json`);
 const previousReport=(retryInfra||useExistingTranslate)?JSON.parse(await readFile(reportPath,'utf8')):null;
 const retryIds=new Set(retryInfra?(previousReport?.results||[]).filter(item=>item.kind==='translate'&&item.status==='INFRA').map(item=>item.id):[]);
-const translateCases=(selectedIds.size?TRANSLATE_EVAL_CASES.filter(item=>selectedIds.has(item.id)):TRANSLATE_EVAL_CASES)
+const translateCases=(selectedIds.size?TRANSLATE_EVAL_CASES.filter(item=>selectedIds.has(item.id)):
+  newOnly?TRANSLATE_EVAL_CASES.filter(isNewCase):TRANSLATE_EVAL_CASES)
   .filter(item=>!retryInfra||retryIds.has(item.id));
 const LIVE_MODEL='gemini-3.5-live-translate-preview';
 const LIVE_WS='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';

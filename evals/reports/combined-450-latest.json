@@ -1,0 +1,83 @@
+{
+  "generatedAt": "2026-11-10T07:53:16.749Z",
+  "summary": {
+    "cases": 450,
+    "passed": 374,
+    "failed": 76,
+    "infra": 0,
+    "score": 83.1,
+    "gate": false
+  },
+  "suites": [
+    {
+      "name": "120 router",
+      "summary": {
+        "cases": 120,
+        "passed": 102,
+        "failed": 18,
+        "score": 85,
+        "gate": false
+      }
+    },
+    {
+      "name": "30 live",
+      "summary": {
+        "cases": 30,
+        "passed": 26,
+        "failed": 4,
+        "infraErrors": 0,
+        "structuralScore": 97.5,
+        "criticalFailures": [
+          "L08",
+          "L24",
+          "L25",
+          "L26"
+        ],
+        "p95LatencyMs": 32456,
+        "manualReviewCases": [
+          "L01",
+          "L02",
+          "L03",
+          "L07",
+          "L08",
+          "L10",
+          "L11",
+          "L12"
+        ],
+        "gate": false
+      }
+    },
+    {
+      "name": "100 knowledge",
+      "summary": {
+        "cases": 100,
+        "passed": 98,
+        "failed": 2,
+        "score": 98,
+        "gate": false
+      }
+    },
+    {
+      "name": "100 chat + translate",
+      "summary": {
+        "cases": 100,
+        "passed": 80,
+        "failed": 20,
+        "infra": 0,
+        "score": 80,
+        "gate": false
+      }
+    },
+    {
+      "name": "100 chat + translate mới",
+      "summary": {
+        "cases": 100,
+        "passed": 68,
+        "failed": 32,
+        "infra": 0,
+        "score": 68,
+        "gate": false
+      }
+    }
+  ]
+}
